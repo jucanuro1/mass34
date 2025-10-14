@@ -3,10 +3,11 @@ from django.views.generic import View
 from django.db import IntegrityError
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
+from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse
 from django.db.models import Q, Count, Prefetch
-from .models import Candidato, Proceso, Empresa, Sede, Supervisor
+from .models import Candidato, Proceso, Empresa, Sede, Supervisor, RegistroAsistencia 
 from datetime import date, datetime
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -212,7 +213,7 @@ class KanbanDashboardView(LoginRequiredMixin, View):
             except ValueError:
                 messages.error(request, "Formato de fecha de filtro inválido.")
                 fecha_inicio_filter = None
- 
+    
         convocatoria_dates = Proceso.objects.values('fecha_inicio') \
             .annotate(count=Count('candidato', distinct=True)) \
             .order_by('-fecha_inicio') \
@@ -292,6 +293,43 @@ class CandidatoSearchView(View):
                 })
 
         return JsonResponse(results, safe=False)
+
+class AsistenciaDiariaCheckView(View):
+    """
+    Verifica si un candidato específico tiene un registro de asistencia para el día de hoy.
+    """
+    def get(self, request, *args, **kwargs):
+        dni = request.GET.get('dni')
+        hoy = date.today()
+        
+        if not dni:
+            return JsonResponse({'asistencia_registrada': False, 'candidato_encontrado': False}, status=400)
+
+        try:
+            candidato = Candidato.objects.get(DNI=dni)
+            
+            # Buscamos el proceso activo (el último)
+            proceso_activo = Proceso.objects.filter(candidato=candidato).order_by('-pk').first()
+
+            if proceso_activo:
+                asistencia_existe = RegistroAsistencia.objects.filter(
+                    proceso=proceso_activo,
+                    fecha=hoy
+                ).exists()
+
+                return JsonResponse({
+                    'asistencia_registrada': asistencia_existe,
+                    'candidato_encontrado': True,
+                    'dni': dni,
+                    'proceso_id': proceso_activo.pk  
+                })
+            else:
+                # Si el candidato existe pero no tiene proceso (ej: estado REGISTRADO)
+                return JsonResponse({'asistencia_registrada': False, 'candidato_encontrado': True, 'dni': dni, 'proceso_id': None})
+
+        except Candidato.DoesNotExist:
+            return JsonResponse({'asistencia_registrada': False, 'candidato_encontrado': False}, status=200)
+        
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -422,3 +460,47 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
         )
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
+
+
+# ==============================================================================
+#                 ⭐ NUEVA VISTA PARA REGISTRAR ASISTENCIA RÁPIDA ⭐
+# ==============================================================================
+
+@require_POST
+def registrar_asistencia_rapida(request):
+    """
+    Registra la asistencia diaria para un proceso activo basado en el ID enviado desde el modal.
+    """
+    # El ID del proceso se obtiene del campo oculto 'proceso_id' del formulario POST.
+    proceso_id = request.POST.get('proceso_id')
+
+    # Usamos 'kanban_dashboard' como nombre de redirección por defecto, ajústalo si es otro.
+    REDIRECT_URL = 'kanban_dashboard' 
+
+    if not proceso_id:
+        messages.error(request, "Error: No se proporcionó el ID del Proceso para registrar la asistencia.")
+        return redirect(REDIRECT_URL)
+
+    try:
+        proceso = Proceso.objects.select_related('candidato').get(pk=proceso_id)
+        candidato = proceso.candidato
+        hoy = date.today()
+
+        if RegistroAsistencia.objects.filter(proceso=proceso, fecha=hoy).exists():
+            messages.warning(request, f"Advertencia: La asistencia para {candidato.nombres_completos} (DNI: {candidato.DNI}) ya estaba registrada hoy.")
+            return redirect(REDIRECT_URL)
+
+        RegistroAsistencia.objects.create(
+            proceso=proceso,
+            fecha=hoy,
+        )
+        
+        messages.success(request, f"✅ Asistencia registrada con éxito para DNI: {candidato.DNI} - {candidato.nombres_completos}.")
+        
+    except Proceso.DoesNotExist:
+        messages.error(request, f"Error: No se encontró un proceso activo con ID {proceso_id}.")
+        
+    except Exception as e:
+        messages.error(request, f"Ocurrió un error al registrar la asistencia: {e}")
+
+    return redirect(REDIRECT_URL)
