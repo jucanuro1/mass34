@@ -1,0 +1,493 @@
+{% extends "base.html" %}
+
+{% block title %}+ 34{% endblock %}
+
+{% block content %}
+<div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    
+    <header class="mb-6 flex justify-between items-center">
+        <h1 class="text-2xl font-extrabold text-gray-900 tracking-tight">Panel <span class="text-red-600">Administración</span></h1>
+
+        <div class="flex items-center space-x-4">
+            <div class="relative w-80">
+                <input type="text" id="dni-search" placeholder="Buscar por DNI o Nombre..." class="w-full text-xs pl-10 pr-4 py-2 border border-gray-300 rounded-full focus:ring-red-500 focus:border-red-500">
+                <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </div>
+            
+            <a href="{% url 'registro_candidato' %}" class="flex text-xs items-center bg-red-600 text-white px-5 py-2.5 rounded-full shadow-lg font-semibold hover:bg-red-700 transition duration-150 transform hover:scale-105">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                Nuevo Candidato
+            </a>
+        </div>
+    </header>
+
+    {% if messages %}
+        <div class="mt-4" id="message-container">
+            {% for message in messages %}
+                <div class="p-3 mb-2 rounded-lg text-sm flex justify-between items-center transition-opacity duration-500 message-alert {% if message.tags == 'success' %}bg-green-100 text-green-800{% elif message.tags == 'error' %}bg-red-100 text-red-800{% else %}bg-yellow-100 text-yellow-800{% endif %}" role="alert">
+                    {{ message }}
+                    
+                    <button type="button" class="ml-4 -mr-1 p-1 rounded-full hover:opacity-75 close-button" 
+                        aria-label="Close" 
+                        onclick="this.closest('.message-alert').style.display='none';"
+                        {% if message.tags == 'success' %}
+                            style="color: #065f46;"
+                        {% elif message.tags == 'error' %}
+                            style="color: #991b1b;"
+                        {% else %}
+                            style="color: #a16207;"
+                        {% endif %}
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <div class="mb-8 p-6 bg-white rounded-2xl shadow-xl transition-all duration-300 border-t-4 border-cyan-950/70">
+        <h2 class="text-lg font-extrabold text-cyan-900 mb-4 flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-2 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+            Filtro de Convocatoria
+        </h2>
+        
+        <div class="flex flex-wrap gap-x-2 gap-y-3 pt-2" id="convocatoria-filters">
+            
+            {# Botón de TODAS las Fechas #}
+            {% url 'kanban_dashboard' as all_url %}
+            <a href="{{ all_url }}"
+                class="flex items-center px-4 py-2 text-sm font-bold rounded-full transition duration-200 shadow-md transform hover:scale-[1.03]
+                {% if not active_date %} bg-red-600 text-white shadow-red-300/60 {% else %} bg-gray-100 text-gray-700 hover:bg-gray-200 {% endif %}">
+                
+                Todas las Fechas 
+                <span class="ml-2 px-2 py-0.5 text-xs font-extrabold rounded-full 
+                    {% if not active_date %} bg-white/20 text-white {% else %} bg-gray-200 text-red-600 {% endif %}">
+                    {{ total_candidatos }}
+                </span>
+            </a>
+
+            {# Loops de Fechas (Convertido a <a> para navegación directa) #}
+            {% for date_obj in convocatoria_dates %}
+                {% with date_str=date_obj.fecha_inicio|date:"Y-m-d" %}
+                    {# Construcción dinámica de la URL: /kanban/?fecha_inicio=YYYY-MM-DD #}
+                    {% url 'kanban_dashboard' as base_url %}
+                    {% with filter_url=base_url|add:"?fecha_inicio="|add:date_str %}
+                        
+                        <a href="{{ filter_url }}" 
+                            class="px-4 py-2 text-xs font-medium rounded-full transition duration-150 hover:bg-red-50 hover:text-red-700
+                            {% if active_date|date:"Y-m-d" == date_str %} bg-red-500 text-white shadow-md transform hover:scale-[1.03] {% else %} bg-gray-100 text-gray-700 {% endif %}">
+                            
+                            {{ date_obj.fecha_inicio|date:"d/M/y" }} 
+                            <span class="ml-1 px-1.5 py-0.5 text-xs font-bold rounded-full 
+                                {% if active_date|date:"Y-m-d" == date_str %} bg-white/20 text-white {% else %} bg-gray-300 text-gray-800 {% endif %}">
+                                {{ date_obj.count }}
+                            </span>
+                        </a>
+                    {% endwith %}
+                {% endwith %}
+            {% endfor %}          
+        </div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+        {% include "kanban_column.html" with status_key='REGISTRADO' title='1. Registrado' color='border-red-500' data=kanban_data.REGISTRADO %}
+        {% include "kanban_column.html" with status_key='CONVOCADO' title='2. Convocado' color='border-indigo-500' data=kanban_data.CONVOCADO %}
+        {% include "kanban_column.html" with status_key='CAPACITACION_TEORICA' title='3. Teoría' color='border-yellow-500' data=kanban_data.CAPACITACION_TEORICA %}
+        {% include "kanban_column.html" with status_key='CAPACITACION_PRACTICA' title='4. Práctica' color='border-orange-500' data=kanban_data.CAPACITACION_PRACTICA %}
+        {% include "kanban_column.html" with status_key='CONTRATADO' title='5. Contratado' color='border-green-500' data=kanban_data.CONTRATADO %}
+    </div>
+</div>
+
+<div id="initProcessModal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+        <h3 class="text-xl font-bold text-red-600 mb-4">Iniciar Nuevo Proceso / Convocatoria</h3>
+        <p class="text-gray-700 mb-4">Moviendo a: <span id="init-candidato-nombre" class="font-semibold"></span> (<span id="init-candidato-dni"></span>)</p>
+
+        <form method="post" action="{% url 'iniciar_proceso' dni='DNI_PLACEHOLDER' %}" id="initProcessForm">
+            {% csrf_token %}
+            
+            <div class="mb-4">
+                <label for="id_fecha_inicio" class="block text-sm font-medium text-gray-700">Fecha de Inicio (Convocatoria):</label>
+                <input type="date" name="fecha_inicio" id="id_fecha_inicio" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-red-500 focus:border-red-500" required>
+            </div>
+            
+            {# Campos eliminados de Sede, Empresa y Supervisor #}
+            
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeInitProcessModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition duration-150">Cancelar</button>
+                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition duration-150">Guardar y Convocado</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="updateProcessModal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+        <h3 class="text-xl font-bold text-yellow-600 mb-4">Actualizar Proceso y Resultado Final</h3>
+        <p class="text-gray-700 mb-4">Candidato: <span id="update-candidato-nombre" class="font-semibold"></span></p>
+        <p class="text-gray-700 mb-4">Proceso Activo: <span id="update-empresa-nombre" class="font-semibold"></span> | Supervisor: <span id="update-supervisor-nombre" class="font-semibold"></span></p>
+
+        <form method="post" action="{% url 'actualizar_proceso' proceso_id=0 %}" id="updateProcessForm">
+            {% csrf_token %}
+            <input type="hidden" name="proceso_id" id="update-proceso-id">
+
+            <div class="mb-4">
+                <label for="id_estado_proceso_update" class="block text-sm font-medium text-gray-700">Nuevo Estado del Proceso:</label>
+                <select name="estado_proceso" id="id_estado_proceso_update" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required>
+                    <option value="">Seleccione Estado</option>
+                    {% for key, value in Proceso.ESTADOS_PROCESO %}
+                        <option value="{{ key }}">{{ value }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="border p-4 rounded-md space-y-3" id="performance-fields" style="display:none;">
+                <p class="font-semibold text-sm">Campos de Resultado (Solo para Contratado/No Apto):</p>
+                <div>
+                    <input type="checkbox" name="objetivo_ventas_alcanzado" id="id_objetivo_ventas_alcanzado">
+                    <label for="id_objetivo_ventas_alcanzado" class="text-sm font-medium text-gray-700 ml-2">¿Alcanzó Objetivo/KPIs de ventas?</label>
+                </div>
+                <div>
+                    <input type="checkbox" name="factor_actitud_aplica" id="id_factor_actitud_aplica">
+                    <label for="id_factor_actitud_aplica" class="text-sm font-medium text-gray-700 ml-2">¿Aplica Contratación por Factor Actitud?</label>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-3 mt-6">
+                <button type="button" onclick="closeUpdateProcessModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition duration-150">Cancelar</button>
+                <button type="submit" class="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition duration-150">Finalizar/Actualizar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="historyModal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Historial de Convocatorias y Procesos</h3>
+        <p class="text-gray-700 mb-4">Candidato: <span id="history-candidato-nombre" class="font-semibold"></span> (<span id="history-candidato-dni" class="font-semibold"></span>)</p>
+
+        <div id="history-content" class="max-h-96 overflow-y-auto space-y-4">
+            <p class="text-center text-gray-500">Cargando historial...</p>
+        </div>
+
+        <div class="flex justify-end mt-6">
+            <button type="button" onclick="closeHistoryModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition duration-150">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<div id="assignSupervisorIndividualModal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+        <h3 class="text-xl font-bold text-orange-600 mb-4">Asignar Supervisor para Práctica</h3>
+        <p class="text-gray-700 mb-4">Moviendo a: <span id="assign-candidato-nombre" class="font-semibold"></span></p>
+
+        <form method="post" action="{% url 'asignar_supervisor_individual' proceso_id=0 %}" id="assignSupervisorIndividualForm">
+            {% csrf_token %}
+            <input type="hidden" name="proceso_id" id="assign-proceso-id">
+            
+            <div class="mb-4">
+                <label for="id_supervisor_id_individual" class="block text-sm font-medium text-gray-700">Supervisor/Formador para Práctica:</label>
+                <select name="supervisor_id" id="id_supervisor_id_individual" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required>
+                    <option value="">Seleccione Supervisor</option>
+                    {% for supervisor in supervisores %}
+                        <option value="{{ supervisor.pk }}">{{ supervisor.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeAssignSupervisorIndividualModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition duration-150">Cancelar</button>
+                <button type="submit" class="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition duration-150">Asignar y Mover a Práctica</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+    // URL DE CONFIGURACIÓN DEL BACKEND
+    const updateUrl = "{% url 'update_candidato_status' %}"; 
+    // Usamos el nombre de URL de tu vista de historial si la tienes
+    const historyApiUrl = ""; 
+    const csrfToken = "{{ csrf_token }}";
+
+    const STATUS_MAP = {
+        'column-REGISTRADO': 'REGISTRADO',
+        'column-CONVOCADO': 'CONVOCADO',
+        'column-CAPACITACION_TEORICA': 'CAPACITACION_TEORICA',
+        'column-CAPACITACION_PRACTICA': 'CAPACITACION_PRACTICA',
+        'column-CONTRATADO': 'CONTRATADO'
+    };
+    
+    function drag(event) {
+        event.dataTransfer.setData("dni", event.target.dataset.dni);
+        event.dataTransfer.setData("current_status", event.target.closest('.kanban-column-body').dataset.status);
+    }
+
+    function allowDrop(event) {
+        event.preventDefault();
+    }
+
+    function drop(event) {
+        event.preventDefault();
+        const dni = event.dataTransfer.getData("dni");
+        const currentStatus = event.dataTransfer.getData("current_status");
+        
+        let dropTarget = event.target.closest('.kanban-column-body');
+        if (!dropTarget) return;
+
+        const targetColumnId = dropTarget.id;
+        const newStatus = STATUS_MAP[targetColumnId];
+
+        const card = document.querySelector(`[data-dni="${dni}"]`);
+        if (!card) return;
+
+        if (currentStatus === newStatus) {
+            return;
+        }
+        
+        // REGLA 1: REGISTRADO -> CONVOCADO (Iniciar Proceso)
+        if (currentStatus === 'REGISTRADO' && newStatus === 'CONVOCADO') {
+            const nombreCompleto = card.querySelector('h4').textContent.trim();
+            const nombre = nombreCompleto.includes('(') ? nombreCompleto.split('(')[0].trim() : nombreCompleto;
+            openInitProcessModal(dni, nombre); 
+            return;
+        }
+
+        // REGLA 2: TEORÍA -> PRÁCTICA (Asignación INDIVIDUAL de Supervisor)
+        if (currentStatus === 'CAPACITACION_TEORICA' && newStatus === 'CAPACITACION_PRACTICA') {
+            const nombreCompleto = card.querySelector('h4').textContent.trim();
+            const nombre = nombreCompleto.includes('(') ? nombreCompleto.split('(')[0].trim() : nombreCompleto;
+            const procesoId = card.dataset.procesoId;
+            if (!procesoId || procesoId === 'None' || isNaN(parseInt(procesoId))) {
+                alert('Error: El candidato no tiene un proceso activo válido. Revise la columna de CONVOCADO.');
+                return;
+            }
+            openAssignSupervisorIndividualModal(procesoId, nombre);
+            return;
+        }
+    
+        // REGLA 3: TRANSICIONES SIMPLES
+        let confirmMessage = `¿Mover a ${card.querySelector('h4').textContent.trim()} a ${newStatus}?`;
+        
+        if (confirm(confirmMessage)) {
+            
+            fetch(updateUrl, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `dni=${dni}&new_status=${newStatus}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Mover la tarjeta visualmente y recargar
+                    const targetContainer = dropTarget.querySelector('.p-3.space-y-4');
+                    if(targetContainer) {
+                        targetContainer.appendChild(card);
+                    }
+                    window.location.reload(); 
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error de red:', error);
+                alert('Error de red al actualizar el estado.');
+            });
+        }
+    }
+
+    document.querySelectorAll('.kanban-column-body').forEach(column => {
+        column.addEventListener('dragover', allowDrop);
+        column.addEventListener('drop', drop);
+        column.id = `column-${column.dataset.status}`;
+    });
+
+    
+    /* --- FUNCIONES DE MODALES (Ajustadas para usar data-base-action) --- */
+    
+    function openInitProcessModal(dni, nombre) {
+        document.getElementById('init-candidato-dni').textContent = dni;
+        document.getElementById('init-candidato-nombre').textContent = nombre;
+        
+        const form = document.getElementById('initProcessForm');
+        // Usar data-base-action si está disponible, sino usar la lógica de reemplazo
+        const baseAction = form.dataset.baseAction || form.action.replace(dni, 'DNI_PLACEHOLDER');
+        form.action = baseAction.replace('DNI_PLACEHOLDER', dni);
+        
+        document.getElementById('initProcessModal').style.display = 'flex';
+    }
+
+    function closeInitProcessModal() {
+        document.getElementById('initProcessModal').style.display = 'none';
+    }
+
+    function openUpdateProcessModal(procesoId, nombre, estado, empresa, supervisor, objetivo, actitud) {
+        document.getElementById('update-proceso-id').value = procesoId;
+        document.getElementById('update-candidato-nombre').textContent = nombre;
+        document.getElementById('update-empresa-nombre').textContent = empresa;
+        document.getElementById('update-supervisor-nombre').textContent = supervisor;
+        
+        document.getElementById('id_estado_proceso_update').value = estado;
+        
+        const form = document.getElementById('updateProcessForm');
+        const baseAction = form.dataset.baseAction || form.action.replace(new RegExp(`/${procesoId}/$`), '/0/');
+        form.action = baseAction.replace('/0/', `/${procesoId}/`); 
+        
+        const performanceFields = document.getElementById('performance-fields');
+        const updateSelect = document.getElementById('id_estado_proceso_update');
+
+        function togglePerformanceFields() {
+             const selectedState = updateSelect.value;
+             if (selectedState === 'CONTRATADO' || selectedState === 'NO_APTO') {
+                 performanceFields.style.display = 'block';
+                 document.getElementById('id_objetivo_ventas_alcanzado').checked = objetivo === 'true';
+                 document.getElementById('id_factor_actitud_aplica').checked = actitud === 'true';
+             } else {
+                 performanceFields.style.display = 'none';
+             }
+        }
+        
+        updateSelect.onchange = togglePerformanceFields;
+        togglePerformanceFields();
+        
+        document.getElementById('updateProcessModal').style.display = 'flex';
+    }
+
+    function closeUpdateProcessModal() {
+        document.getElementById('updateProcessModal').style.display = 'none';
+    }
+
+    function openHistoryModal(dni, nombre) {
+        document.getElementById('history-candidato-dni').textContent = dni;
+        document.getElementById('history-candidato-nombre').textContent = nombre;
+        const historyContent = document.getElementById('history-content');
+        historyContent.innerHTML = '<p class="text-center text-gray-500">Cargando historial...</p>';
+
+        const url = historyApiUrl.replace('DNI_PLACEHOLDER', dni);
+
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                let html = '';
+                if (data.procesos && data.procesos.length > 0) {
+                    data.procesos.forEach((p, index) => {
+                        html += `
+                            <div class="border p-3 rounded-lg shadow-sm ${index === 0 ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-gray-50'}">
+                                <p class="text-sm font-bold text-gray-800">${index === 0 ? 'ACTIVO (ÚLTIMO)' : 'Proceso Anterior'}</p>
+                                <p class="text-xs text-gray-600 mt-1">
+                                    <span class="font-semibold">Convocatoria:</span> ${p.fecha_inicio} (${p.empresa_proceso.nombre} - ${p.sede_proceso.nombre})
+                                </p>
+                                <p class="text-xs text-gray-600">
+                                    <span class="font-semibold">Supervisor:</span> ${p.supervisor_nombre || 'Pendiente de Asignar'}
+                                </p>
+                                <p class="text-xs text-gray-600">
+                                    <span class="font-semibold">Resultado Final:</span> <span class="font-bold text-red-600">${p.estado}</span>
+                                </p>
+                            </div>
+                        `;
+                    });
+                } else {
+                    html = '<p class="text-center text-gray-500">No se encontró historial de procesos para este candidato.</p>';
+                }
+                historyContent.innerHTML = html;
+            })
+            .catch(error => {
+                historyContent.innerHTML = `<p class="text-center text-red-500">Error al cargar el historial: ${error.message}</p>`;
+                console.error('Error al cargar historial:', error);
+            });
+
+        document.getElementById('historyModal').style.display = 'flex';
+    }
+
+    function closeHistoryModal() {
+        document.getElementById('historyModal').style.display = 'none';
+    }
+
+    function openAssignSupervisorIndividualModal(procesoId, nombre) {
+        document.getElementById('assign-proceso-id').value = procesoId;
+        document.getElementById('assign-candidato-nombre').textContent = nombre;
+        
+        const form = document.getElementById('assignSupervisorIndividualForm');
+        const baseAction = form.dataset.baseAction || form.action.replace(new RegExp(`/${procesoId}/$`), '/0/');
+        form.action = baseAction.replace('/0/', `/${procesoId}/`); 
+        
+        document.getElementById('assignSupervisorIndividualModal').style.display = 'flex';
+    }
+
+    function closeAssignSupervisorIndividualModal() {
+        document.getElementById('assignSupervisorIndividualModal').style.display = 'none';
+    }
+    
+    /* --- LÓGICA DE FILTROS DE FECHA (SOLUCIÓN) --- */
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Lógica de auto-ocultar mensajes
+        const messageAlerts = document.querySelectorAll('.message-alert');
+        messageAlerts.forEach(alert => {
+            setTimeout(() => {
+                alert.style.opacity = '0'; 
+                setTimeout(() => {
+                    alert.style.display = 'none';
+                }, 500); 
+            }, 2000); 
+        });
+
+        // 1. FILTRO DE FECHAS
+        const dateButtons = document.querySelectorAll('.filter-date-btn');
+
+        dateButtons.forEach(button => {
+            button.addEventListener('click', (event) => {
+                const selectedDate = event.currentTarget.dataset.date;
+                const currentUrl = new URL(window.location.href);
+                
+                // Mantiene todos los parámetros GET existentes (como DNI)
+                // y establece o sobrescribe 'fecha_inicio'
+                currentUrl.searchParams.set('fecha_inicio', selectedDate);
+                
+                // Redirigir a la nueva URL
+                window.location.href = currentUrl.toString();
+            });
+        });
+
+        // 2. BOTÓN "TODAS LAS FECHAS" (Mantiene otros filtros)
+        const allDatesButton = document.getElementById('all-dates-filter-btn');
+        if (allDatesButton) {
+             allDatesButton.addEventListener('click', (event) => {
+                event.preventDefault(); // Detener el enlace normal
+                const currentUrl = new URL(window.location.href);
+                currentUrl.searchParams.delete('fecha_inicio'); // Eliminar solo el filtro de fecha
+                window.location.href = currentUrl.toString();
+            });
+        }
+        
+        // 3. LÓGICA DE FILTRO POR DNI/Nombre
+        const dniSearchInput = document.getElementById('dni-search');
+        dniSearchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const searchValue = dniSearchInput.value.trim();
+                const currentUrl = new URL(window.location.href);
+                
+                if (searchValue) {
+                    currentUrl.searchParams.set('search', searchValue);
+                } else {
+                    currentUrl.searchParams.delete('search');
+                }
+                
+                // Navegar a la nueva URL (manteniendo la fecha si existe)
+                window.location.href = currentUrl.toString();
+            }
+        });
+    });
+</script>
+
+{% endblock extra_js %}

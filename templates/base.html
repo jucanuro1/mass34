@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Mass34 | Gestión Kanban{% endblock %}</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Fondo ligeramente gris para contrastar con las tarjetas blancas */
+            background-color: #e2e8f0; 
+        }
+        /* Definimos el color corporativo Rojo */
+        .bg-corporate-red { background-color: #D9252B; }
+        .hover\:bg-corporate-red-dark:hover { background-color: #A91E23; }
+        .text-corporate-red { color: #D9252B; }
+
+        .navbar-kanban {
+            height: 56px;
+        }
+
+        .main-content-kanban {
+            min-height: calc(100vh - 56px); 
+            padding-top: 56px; 
+            padding-bottom: 2rem; 
+            max-width: none; 
+        }
+    </style>
+</head>
+<body class="bg-gray-200">
+
+    <nav class="fixed top-0 left-0 right-0 navbar-kanban bg-corporate-red shadow-lg z-30 flex items-center justify-between px-4 sm:px-6">
+        
+        <div class="flex items-center space-x-4">
+            
+            <a href="{% url 'kanban_dashboard' %}" class="flex items-center text-white text-xl font-extrabold tracking-tight hover:opacity-90 transition duration-150">
+                <span class="mr-2">T</span>alent+
+            </a>
+
+            <a href="{% url 'kanban_dashboard' %}" class="flex items-center text-white bg-black bg-opacity-10 hover:bg-opacity-20 rounded-lg px-3 py-1 text-sm font-medium transition duration-150">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                </svg>
+                Tableros
+            </a>
+            
+            {% if user.is_authenticated %}
+            <a href="{% url 'registro_candidato' %}" class="hidden sm:flex items-center text-white bg-black bg-opacity-10 hover:bg-opacity-20 rounded-lg px-3 py-1 text-sm font-medium transition duration-150">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+            </a>
+            {% endif %}
+        </div>
+        
+        <div class="flex items-center space-x-3">
+            {% if user.is_authenticated %}
+
+                <button class="p-2 text-white hover:bg-black hover:bg-opacity-20 rounded-full transition duration-150">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.888-7.989 3 3 0 015.655-2.023A5 5 0 0116 16v1a2 2 0 01-2 2H7a2 2 0 01-2-2v-1z" />
+                    </svg>
+                </button>
+
+                <a href="{% url 'logout' %}" title="Cerrar Sesión ({{ user.username }})" class="flex items-center justify-center h-8 w-8 rounded-full bg-white text-corporate-red text-sm font-bold shadow-md hover:ring-2 ring-white ring-offset-2 ring-offset-corporate-red transition duration-150">
+                    {{ user.username.0|upper }}
+                </a>
+            
+            {% else %}
+                <a href="{% url 'login' %}" class="text-corporate-red bg-white hover:bg-gray-100 px-3 py-1 rounded-md text-sm font-semibold shadow-md transition duration-150">
+                    Iniciar Sesión
+                </a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <div class="min-h-screen">
+        
+        <main class="main-content-kanban">
+            
+            {# ESTA ES LA ÚNICA OCURRENCIA DE {% block content %} #}
+            {% block content %}
+            {# El contenido de tus tableros Kanban irá aquí, sin bordes laterales #}
+            {% endblock %}
+            
+        </main>
+
+        <footer class="text-center text-xs text-gray-500 py-3 mt-auto">
+            &copy; 2025 Talent+. Gestión de candidatos.
+        </footer>
+    </div>
+    
+    {# Bloque para scripts específicos de la página hija #}
+    {% block extra_js %}
+    {% endblock extra_js %}
+
+</body>
+</html>

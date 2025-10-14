@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}Registrar Candidato{% endblock %}
+
+{% block content %}
+<div class="flex justify-center py-6 px-4 sm:px-6 lg:px-8 bg-gray-50 min-h-screen">
+    <div class="w-full max-w-2xl">
+        
+        <div class="bg-white rounded-xl shadow-2xl overflow-hidden mb-8">
+            
+            <div class="p-2 sm:p-4 bg-red-600/95 text-white">
+                <h1 class="text-2xl font-extrabold mb-1">
+                    Registro Rápido de Candidato
+                </h1>
+                <p class="text-red-200">
+                    Proceso ágil. El estado inicial del candidato será **Registrado**.
+                </p>
+            </div>
+            
+            <div class="p-2 sm:p-4 space-y-8">
+
+                {% if messages %}
+                    <div class="space-y-3">
+                    {% for message in messages %}
+                        <div class="p-4 rounded-lg shadow-md font-medium text-sm border-l-4 
+                             {% if message.tags == 'error' %}bg-red-50 text-red-700 border-red-600{% elif message.tags == 'success' %}bg-green-50 text-green-700 border-green-600{% elif message.tags == 'warning' %}bg-yellow-50 text-yellow-700 border-yellow-600{% endif %}" 
+                             role="alert">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                    </div>
+                {% endif %}
+
+                <form method="post" class="space-y-4">
+                    {% csrf_token %}
+                    
+                    <div class="space-y-2">
+                        <h2 class="text-xl font-semibold text-gray-800 border-b pb-2 border-gray-100">Información Personal</h2>
+                        
+                        {# INICIO DE CAMPO DINÁMICO (DNI) #}
+                        <div>
+                            <label for="id_DNI" class="block text-sm font-medium text-gray-700 mb-2">
+                                DNI del Candidato <span class="text-red-600">*</span>
+                            </label>
+                            <input type="text" name="DNI" id="id_DNI" value="{{ DNI|default_if_none:'' }}" 
+                                   required maxlength="15" 
+                                   placeholder="Ej. 70001112"
+                                   class="block w-full bg-transparent border-b-2 border-gray-300 text-gray-800 py-2 focus:outline-none focus:border-red-600 
+                                          transition duration-200 placeholder-gray-400">
+                        </div>
+                        {# FIN DE CAMPO DINÁMICO #}
+
+                        {# INICIO DE CAMPO DINÁMICO (Nombres) #}
+                        <div>
+                            <label for="id_nombres_completos" class="block text-sm font-medium text-gray-700 mb-2">
+                                Nombres y Apellidos Completos <span class="text-red-600">*</span>
+                            </label>
+                            <input type="text" name="nombres_completos" id="id_nombres_completos" value="{{ nombres_completos|default_if_none:'' }}" 
+                                   required maxlength="255" 
+                                   placeholder="Ej. Ana Lucía Pérez Ramos"
+                                   class="block w-full bg-transparent border-b-2 border-gray-300 text-gray-800 py-2 focus:outline-none focus:border-red-600 
+                                          transition duration-200 placeholder-gray-400">
+                        </div>
+                        {# FIN DE CAMPO DINÁMICO #}
+
+                    </div>
+                    
+                    <div class="space-y-6 pt-4">
+                        <h2 class="text-xl font-semibold text-gray-800 border-b pb-2 border-gray-100">Contacto y Sede</h2>
+
+                        {# INICIO DE CAMPO DINÁMICO (Teléfono/Whatsapp) #}
+                        <div>
+                            <label for="id_telefono_whatsapp" class="block text-sm font-medium text-gray-700 mb-2">
+                                Número de Teléfono (WhatsApp) <span class="text-red-600">*</span>
+                            </label>
+                            <input type="tel" name="telefono_whatsapp" id="id_telefono_whatsapp" value="{{ telefono_whatsapp|default_if_none:'' }}" 
+                                   required maxlength="20" 
+                                   placeholder="Ej. 998765432"
+                                   class="block w-full bg-transparent border-b-2 border-gray-300 text-gray-800 py-2 focus:outline-none focus:border-red-600 
+                                          transition duration-200 placeholder-gray-400">
+                        </div>
+                        {# FIN DE CAMPO DINÁMICO #}
+                        
+                        {# INICIO DE CAMPO DINÁMICO (Correo Opcional) #}
+                        <div>
+                            <label for="id_correo_electronico" class="block text-sm font-medium text-gray-700 mb-2">
+                                Correo Electrónico <span class="text-gray-500 text-xs font-normal">(Opcional)</span>
+                            </label>
+                            <input type="email" name="correo_electronico" id="id_correo_electronico" value="{{ correo_electronico|default_if_none:'' }}" 
+                                   maxlength="255" 
+                                   placeholder="Ej. email@ejemplo.com"
+                                   class="block w-full bg-transparent border-b-2 border-gray-300 text-gray-800 py-2 focus:outline-none focus:border-red-600 
+                                          transition duration-200 placeholder-gray-400">
+                        </div>
+                        {# FIN DE CAMPO DINÁMICO #}
+
+                        <div>
+                            <label for="id_sede" class="block text-sm font-medium text-gray-700 mb-2">
+                                Sede de Registro <span class="text-red-600">*</span>
+                            </label>
+                            <div class="relative">
+                                <select name="sede_id" id="id_sede" required
+                                        class="block appearance-none w-full bg-gray-50 border-b-2 border-gray-300 text-gray-800 
+                                               py-3 px-4 pr-8 rounded-t-md shadow-sm focus:outline-none focus:border-red-600 transition duration-200">
+                                    <option value="" {% if not sede_id %}selected{% endif %} disabled>Seleccione la sede de origen</option>
+                                    {% for sede in sedes %}
+                                        <option value="{{ sede.pk }}" {% if sede.pk|stringformat:"s" == sede_id %}selected{% endif %}>
+                                            {{ sede.nombre }} ({{ sede.empresa.nombre }})
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                                    <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                    
+                    <div class="pt-6 border-t border-gray-100 flex justify-end">
+                        <button type="submit" 
+                                class="inline-flex items-center py-3 px-6 border border-transparent rounded-lg shadow-lg 
+                                       text-base font-semibold text-white bg-red-600 hover:bg-red-700 
+                                       focus:outline-none focus:ring-4 focus:ring-red-400/50 transition duration-150 transform hover:scale-[1.02] active:scale-[0.98]">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            Registrar Candidato
+                        </button>
+                    </div>
+
+                </form>
+            </div>
+            
+            <div class="p-4 border-t border-gray-100 text-right text-xs text-gray-500">
+                Sistema de Gestión +34.
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}

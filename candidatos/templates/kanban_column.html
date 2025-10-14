@@ -1,0 +1,99 @@
+{% load static %}
+<div class="kanban-col bg-white rounded-xl shadow-lg border-t-4 {{ color }} overflow-hidden flex flex-col w-80 flex-shrink-0">
+    
+    <h3 class="p-4 text-sm font-bold text-gray-800 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+        <span>
+            {{ title }} (<span id="count-{{ status_key }}">{{ data|length }}</span>)
+        </span>
+        
+        <a href="{% url 'exportar_candidatos_excel' estado=status_key %}" 
+            class="text-blue-600 hover:text-blue-800 ml-2 p-1 rounded-full hover:bg-gray-200 transition duration-150" 
+            title="Exportar '{{ title }}' a Excel">
+            
+            <svg class="inline w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+        </a>
+    </h3>
+    
+    {# CLASE Y DATA-STATUS NECESARIOS PARA EL DRAG AND DROP #}
+    <div id="column-{{ status_key }}" 
+        data-status="{{ status_key }}"
+        class="p-3 space-y-4 min-h-[300px] max-h-[70vh] overflow-y-auto kanban-column-body flex-grow" 
+        ondragover="allowDrop(event)" 
+        ondrop="drop(event)">
+        
+        {% for item in data %}
+        {% with card_color=color|slice:"7:" %}
+        
+        <div class="bg-white p-4 rounded-lg shadow-md border-l-4 border-{{ card_color|default:'red-500' }}/70 hover:shadow-xl transition duration-150 cursor-grab active:cursor-grabbing relative"
+            data-dni="{{ item.candidato.DNI }}" 
+            data-candidato-id="{{ item.candidato.pk }}"
+            data-proceso-id="{{ item.proceso.pk|default:'' }}" 
+            draggable="true" 
+            ondragstart="drag(event)">
+            
+            {# ICONO DE RELOJ en la esquina superior derecha #}
+            <button 
+                onclick="openHistoryModal('{{ item.candidato.DNI }}', '{{ item.candidato.nombres_completos }}')"
+                class="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50 transition duration-150 z-10"
+                title="Ver Historial del Candidato">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </button>
+            
+            <h4 class="text-sm font-semibold text-gray-800 leading-tight truncate pr-8">
+                {{ item.candidato.nombres_completos }}
+                {# ICONO DE FLECHA DE PROGRESO #}
+                {% if status_key != 'CONTRATADO' %}
+                    <span class="inline-block align-middle text-gray-400 ml-1" title="Arrastra para avanzar">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                    </span>
+                {% endif %}
+            </h4>
+            
+            <p class="text-xs text-gray-500 mt-1">DNI: <span class="font-medium">{{ item.candidato.DNI }}</span></p>
+            <p class="text-xs font-bold text-gray-500 mt-1">Celular: {{ item.candidato.telefono_whatsapp }}</p>
+            
+            <div class="mt-2 pt-2 border-t border-dashed border-gray-200 space-y-1">
+                
+                {# 1. Lógica de Alerta para Registrados #}
+                {% if item.candidato.estado_actual == 'REGISTRADO' and not item.proceso %}
+                    <p class="text-xs text-red-500 font-semibold pt-1">
+                        ⚠️ Pendiente de convocar (Primer contacto)
+                    </p>
+                
+                {# 2. Lógica de Proceso Activo #}
+                {% elif item.proceso %}
+                    
+                    {# CAMBIO: Supervisor solo visible en CAPACITACION_PRACTICA #}
+                    {% if item.candidato.estado_actual == 'CAPACITACION_PRACTICA' %}
+                        <p class="text-xs text-gray-700 font-medium">Supervisor: <span class="font-normal">{{ item.proceso.supervisor.nombre|truncatechars:15 }}</span></p>
+                    {% endif %}
+                    
+                    <p class="text-xs text-gray-700 font-medium">
+                        Convocatoria: 
+                        <span class="font-bold text-cyan-800">{{ item.proceso.fecha_inicio|date:"d/m/Y" }}</span>
+                    </p>
+                    <p class="text-xs text-gray-700 font-medium">Estado Proceso: <span class="font-semibold px-2 py-0.5 rounded-full text-xs" 
+                        {% if item.proceso.estado == 'INICIADO' %}
+                            style="background-color: #fcefd4; color: #b47f00;"
+                        {% elif item.proceso.estado == 'TEORIA' %}
+                            style="background-color: #e5f1ff; color: #2563eb;"
+                        {% elif item.proceso.estado == 'PRACTICA' %}
+                            style="background-color: #e5ffe8; color: #059669;"
+                        {% else %}
+                            style="background-color: #f3f4f6; color: #6b7280;"
+                        {% endif %}>
+                        {{ item.proceso_status }}</span>
+                    </p>
+                {% endif %}
+
+            </div>
+
+        </div>
+        {% endwith %}
+        {% empty %}
+        <div class="text-center py-6 text-gray-500 text-sm">
+            No hay candidatos en este estado.
+        </div>
+        {% endfor %}
+    </div>
+</div>

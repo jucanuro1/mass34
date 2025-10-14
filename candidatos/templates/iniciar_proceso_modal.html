@@ -1,0 +1,51 @@
+<div id="updateProcessModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 hidden flex items-center justify-center p-4 transition-opacity duration-300">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg transform transition-all duration-300 scale-100 opacity-100">
+        <div class="p-6">
+            <div class="flex justify-between items-start border-b pb-3 mb-4">
+                <h3 class="text-xl font-bold text-yellow-600">Actualizar Estado de Proceso</h3>
+                <button onclick="closeUpdateProcessModal()" class="text-gray-400 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <p class="mb-4 text-sm text-gray-700">Actualizando proceso de: <span id="update_candidate_name_span" class="font-semibold text-gray-900"></span></p>
+
+            <form method="post" id="update_modal_form_action">
+                {% csrf_token %}
+                
+                <div class="space-y-4">
+                    
+                    <div>
+                        <label for="update_estado_proceso" class="block text-sm font-medium text-gray-700">Nuevo Estado</label>
+                        <select name="estado_proceso" id="update_estado_proceso" required
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500">
+                            <!-- PROCESO_ESTADOS es la lista de tuplas [(valor, display), ...] de Candidato.ESTADOS_PROCESO -->
+                            {% for value, label in PROCESO_ESTADOS %}
+                                <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <p class="mt-1 text-xs text-red-500">Nota: Al seleccionar Contratado/Descartado/Abandono, el candidato se moverá del Kanban.</p>
+                    </div>
+
+                    <div>
+                        <label for="update_comentarios" class="block text-sm font-medium text-gray-700">Comentarios (Opcional)</label>
+                        <textarea name="comentarios" id="update_comentarios" rows="3"
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500" 
+                               placeholder="Detalles sobre el cambio de estado, desempeño, o razón del descarte/contratación."></textarea>
+                    </div>
+
+                </div>
+
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button type="button" onclick="closeUpdateProcessModal()" class="py-2 px-4 rounded-lg text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 transition duration-150">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="py-2 px-4 rounded-lg text-sm font-medium text-white bg-red-600 hover:bg-red-700 shadow-md transition duration-150">
+                        Guardar Actualización
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
