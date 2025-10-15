@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.views.generic import View
+from django.views.generic import View, DetailView 
 from django.db import IntegrityError
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib import messages
@@ -88,6 +88,16 @@ class IniciarProcesoView(LoginRequiredMixin, View):
     def post(self, request, dni):
         candidato = get_object_or_404(Candidato, DNI=dni)
 
+        # Verificamos si ya existe un proceso activo que no esté en estado final
+        proceso_activo_no_finalizado = Proceso.objects.filter(
+            candidato=candidato
+        ).exclude(estado__in=['CONTRATADO', 'NO_APTO']).exists()
+
+        if proceso_activo_no_finalizado:
+            messages.error(request, f"El candidato {candidato.nombres_completos} (DNI: {dni}) ya tiene un proceso activo. Finalícelo primero.")
+            return redirect('kanban_dashboard')
+
+
         fecha_inicio_str = request.POST.get('fecha_inicio')
 
         if not fecha_inicio_str:
@@ -138,9 +148,11 @@ class ActualizarProcesoView(LoginRequiredMixin, View):
         factor_actitud = request.POST.get('factor_actitud_aplica') == 'on'
 
         estado_candidato_map = {
+            'CONVOCADO': 'CONVOCADO', 
             'TEORIA': 'CAPACITACION_TEORICA',
             'PRACTICA': 'CAPACITACION_PRACTICA',
             'CONTRATADO': 'CONTRATADO',
+            'NO_APTO': 'NO_APTO', 
         }
 
         if not nuevo_estado_proceso:
@@ -148,32 +160,39 @@ class ActualizarProcesoView(LoginRequiredMixin, View):
             return redirect('kanban_dashboard')
 
         try:
-            proceso.estado = nuevo_estado_proceso
+            with transaction.atomic():
+                
+                proceso.estado = nuevo_estado_proceso
 
-            if nuevo_estado_proceso in ['CONTRATADO', 'NO_APTO']:
-                proceso.objetivo_ventas_alcanzado = objetivo_ventas
-                proceso.factor_actitud_aplica = factor_actitud
+                if nuevo_estado_proceso in ['CONTRATADO', 'NO_APTO']:
+                    proceso.objetivo_ventas_alcanzado = objetivo_ventas
+                    proceso.factor_actitud_aplica = factor_actitud
 
-            if nuevo_estado_proceso == 'CONTRATADO':
-                proceso.fecha_contratacion = date.today()
+                if nuevo_estado_proceso == 'CONTRATADO':
+                    proceso.fecha_contratacion = date.today()
 
-            proceso.save()
+                proceso.save()
 
-            nuevo_estado_maestro = estado_candidato_map.get(nuevo_estado_proceso)
+                nuevo_estado_maestro = estado_candidato_map.get(nuevo_estado_proceso)
 
-            if nuevo_estado_maestro:
-                estado_orden = {state[0]: i for i, state in enumerate(Candidato.ESTADOS)}
+                if nuevo_estado_maestro:
+                    # Lógica de actualización de estado maestro (solo avanza o establece finales)
+                    estado_orden = {state[0]: i for i, state in enumerate(Candidato.ESTADOS)}
+                    current_order = estado_orden.get(candidato.estado_actual, -1)
+                    new_order = estado_orden.get(nuevo_estado_maestro, -1)
+                    
+                    # Solo actualizamos el estado maestro si el nuevo estado es superior al actual
+                    # O si es un estado final (CONTRATADO o NO_APTO)
+                    if new_order > current_order or nuevo_estado_proceso in ['CONTRATADO', 'NO_APTO']:
+                        candidato.estado_actual = nuevo_estado_maestro
+                        candidato.save()
+                        messages.success(request, f'Candidato {candidato.nombres_completos} actualizado a: **{candidato.get_estado_actual_display()}**.')
+                    else:
+                        messages.success(request, f'Proceso de {candidato.nombres_completos} actualizado a: {proceso.get_estado_display()}.')
+                
+                else:
+                    messages.success(request, f'Proceso de {candidato.nombres_completos} actualizado a: {proceso.get_estado_display()}.')
 
-                current_order = estado_orden.get(candidato.estado_actual, -1)
-                new_order = estado_orden.get(nuevo_estado_maestro, -1)
-
-                if new_order > current_order:
-                    candidato.estado_actual = nuevo_estado_maestro
-                    candidato.save()
-                    messages.success(request, f'Candidato {candidato.nombres_completos} promovido a: {candidato.get_estado_actual_display()}.')
-
-            else:
-                messages.success(request, f'Proceso de {candidato.nombres_completos} actualizado a: {proceso.get_estado_display()}.')
 
         except Exception as e:
             messages.error(request, f'Error al actualizar el Proceso: {e}')
@@ -186,34 +205,39 @@ class KanbanDashboardView(LoginRequiredMixin, View):
         search_query = request.GET.get('search')
         fecha_inicio_filter = request.GET.get('fecha_inicio')
         
+        # 1. Optimización: Pre-obtener los últimos procesos
         latest_proceso_prefetch = Prefetch(
-            'proceso_set',
+            # CORRECCIÓN: Usar el nuevo related_name 'procesos'
+            'procesos', 
             queryset=Proceso.objects.order_by('-pk').select_related('empresa_proceso', 'supervisor'),
             to_attr='latest_proceso'
         )
 
         candidatos = Candidato.objects.prefetch_related(latest_proceso_prefetch).all()
+        
+        # 2. Manejo de Filtro por Fecha de Convocatoria 
+        if fecha_inicio_filter:
+            try:
+                datetime.strptime(fecha_inicio_filter, '%Y-%m-%d').date() 
 
+                # Filtramos los candidatos que tienen un proceso que coincide con la fecha
+                candidatos = candidatos.filter(
+                    # CORRECCIÓN: Usar 'procesos__fecha_inicio'
+                    procesos__fecha_inicio=fecha_inicio_filter
+                ).distinct()
+
+            except ValueError:
+                messages.error(request, "Formato de fecha de filtro inválido. Use AAAA-MM-DD.")
+                fecha_inicio_filter = None
+        
+        # 3. Manejo de Búsqueda
+        # ... (el resto del código se mantiene igual)
         if search_query:
             candidatos = candidatos.filter(
                 Q(DNI__icontains=search_query) | 
                 Q(nombres_completos__icontains=search_query)
             )
-        
-        if fecha_inicio_filter:
-            try:
-                datetime.strptime(fecha_inicio_filter, '%Y-%m-%d').date()
 
-                candidatos_con_proceso_filtrado_ids = Proceso.objects.filter(
-                    fecha_inicio=fecha_inicio_filter
-                ).values_list('candidato_id', flat=True).distinct()
-
-                candidatos = candidatos.filter(DNI__in=candidatos_con_proceso_filtrado_ids)
-
-            except ValueError:
-                messages.error(request, "Formato de fecha de filtro inválido.")
-                fecha_inicio_filter = None
-    
         convocatoria_dates = Proceso.objects.values('fecha_inicio') \
             .annotate(count=Count('candidato', distinct=True)) \
             .order_by('-fecha_inicio') \
@@ -223,7 +247,7 @@ class KanbanDashboardView(LoginRequiredMixin, View):
 
         kanban_data = {
             'REGISTRADO':[], 'CONVOCADO': [], 'CAPACITACION_TEORICA': [],
-            'CAPACITACION_PRACTICA': [], 'CONTRATADO': [],
+            'CAPACITACION_PRACTICA': [], 'CONTRATADO': [], 'NO_APTO': [], 
         }
 
         PROCESO_ESTADOS = getattr(Proceso, 'ESTADOS_PROCESO', None)
@@ -232,14 +256,17 @@ class KanbanDashboardView(LoginRequiredMixin, View):
             estado = candidato.estado_actual
 
             if estado in kanban_data:
+                # La lógica de acceso a latest_proceso (to_attr) se mantiene:
                 proceso_actual = candidato.latest_proceso[0] if candidato.latest_proceso else None
-
+                # ... (el resto de la lógica para construir kanban_data se mantiene igual)
+                
                 proceso_status_display = 'N/A'
                 proceso_id = None
                 empresa_nombre = 'N/A'
                 supervisor_nombre = 'N/A'
                 objetivo_alcanzado = 'false'
                 factor_actitud = 'false'
+                fecha_inicio = None
 
                 if proceso_actual:
                     proceso_status_display = proceso_actual.get_estado_display()
@@ -248,7 +275,9 @@ class KanbanDashboardView(LoginRequiredMixin, View):
                     supervisor_nombre = proceso_actual.supervisor.nombre if proceso_actual.supervisor else 'N/A'
                     objetivo_alcanzado = 'true' if proceso_actual.objetivo_ventas_alcanzado else 'false'
                     factor_actitud = 'true' if proceso_actual.factor_actitud_aplica else 'false'
-
+                    fecha_inicio = proceso_actual.fecha_inicio
+                
+                
 
                 kanban_data[estado].append({
                     'candidato': candidato,
@@ -259,6 +288,7 @@ class KanbanDashboardView(LoginRequiredMixin, View):
                     'supervisor_nombre': supervisor_nombre,
                     'objetivo_alcanzado': objetivo_alcanzado,
                     'factor_actitud': factor_actitud,
+                    'fecha_inicio': fecha_inicio,
                 })
 
         context = {
@@ -275,6 +305,152 @@ class KanbanDashboardView(LoginRequiredMixin, View):
             'total_candidatos': total_candidatos,
         }
         return render(request, 'dashboard.html', context)
+    
+
+@method_decorator(csrf_exempt, name='dispatch')
+class UpdateStatusMultipleView(LoginRequiredMixin, View):
+    """
+    Recibe una lista de DNI's y un nuevo estado para actualizar múltiples candidatos
+    y sus procesos activos en una sola transacción.
+    """
+    def post(self, request):
+        try:
+            # 1. Validación de Request
+            if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                return JsonResponse({'status': 'error', 'message': 'Invalid request: Must be an AJAX POST.'}, status=400)
+            
+            # Obtener datos: la lista de DNI's, el nuevo estado y la fecha de inicio (si aplica)
+            dni_list = request.POST.getlist('dnis[]')
+            new_status_key = request.POST.get('new_status')
+            fecha_inicio_nueva = request.POST.get('fecha_inicio') # Nuevo dato para el flujo REGISTRADO->CONVOCADO
+
+            if not dni_list or not new_status_key:
+                # Este error es el 'DNI list and new status are required.'
+                # Se mantiene, la solución está en el FRONTEND (Función confirmMassUpdate).
+                return JsonResponse({'status': 'error', 'message': 'DNI list and new status are required.'}, status=400)
+
+            # 2. Mapeo de Estados
+            # Usaremos 'INICIADO' para CONVOCADO, que es el estado inicial del Proceso.
+            proceso_estado_map = {
+                'CONVOCADO': 'INICIADO', 
+                'CAPACITACION_TEORICA': 'TEORIA',
+                'CAPACITACION_PRACTICA': 'PRACTICA',
+                'CONTRATADO': 'CONTRATADO',
+                'NO_APTO': 'NO_APTO', 
+                # 'REGISTRADO' no requiere actualización de Proceso
+            }
+
+            proceso_status_to_update = proceso_estado_map.get(new_status_key)
+            estado_orden = {state[0]: i for i, state in enumerate(Candidato.ESTADOS)}
+            
+            candidatos_actualizados = 0
+
+            with transaction.atomic():
+                
+                # 3. Obtener Candidatos con la CORRECCIÓN del related_name
+                candidatos = Candidato.objects.filter(DNI__in=dni_list).prefetch_related(
+                    Prefetch(
+                        'procesos', # <-- CORRECCIÓN CLAVE: Usar 'procesos'
+                        queryset=Proceso.objects.order_by('-fecha_inicio'), 
+                        to_attr='latest_proceso'
+                    )
+                )
+                
+                # Si la transición es a CONVOCADO, necesitamos la fecha
+                is_to_convocado = new_status_key == 'CONVOCADO'
+                if is_to_convocado and not fecha_inicio_nueva:
+                     return JsonResponse({'status': 'error', 'message': 'La fecha de inicio es requerida para iniciar el proceso de convocatoria masiva.'}, status=400)
+
+                # Definir IDs por defecto para la creación de Proceso (AJUSTAR SEGÚN NECESIDAD)
+                # *Necesitas obtener estos valores del frontend o usar valores por defecto/primeros*
+                # Ejemplo de valores por defecto (asegúrate de que existan)
+                default_supervisor_id = 1 
+                default_empresa_id = 1
+                
+                for candidato in candidatos:
+                    
+                    current_order = estado_orden.get(candidato.estado_actual, -1)
+                    new_order = estado_orden.get(new_status_key, -1)
+
+                    # Solo actualizar si es un avance o un estado final
+                    if new_order > current_order or new_status_key in ['CONTRATADO', 'NO_APTO']:
+                        
+                        proceso_activo = candidato.latest_proceso[0] if candidato.latest_proceso else None
+                        
+                        # A. Lógica de REGISTRADO a CONVOCADO (Creación de Proceso)
+                        if candidato.estado_actual == 'REGISTRADO' and is_to_convocado:
+                            
+                            Proceso.objects.create(
+                                candidato=candidato,
+                                fecha_inicio=fecha_inicio_nueva,
+                                # Usamos la sede del candidato, y valores por defecto para los demás
+                                supervisor_id=default_supervisor_id, 
+                                empresa_proceso_id=default_empresa_id, 
+                                sede_proceso_id=candidato.sede_registro_id, 
+                                estado='INICIADO'
+                            )
+                            # El nuevo proceso se crea, no es necesario reasignar proceso_activo aquí
+                            
+                        # B. Actualización de Proceso Existente
+                        elif proceso_status_to_update and proceso_activo:
+                            
+                            if proceso_status_to_update == 'CONTRATADO':
+                                proceso_activo.fecha_contratacion = date.today()
+                            
+                            proceso_activo.estado = proceso_status_to_update
+                            proceso_activo.save()
+                        
+                        # Actualizar estado maestro del Candidato
+                        candidato.estado_actual = new_status_key
+                        candidato.save()
+                        
+                        candidatos_actualizados += 1
+                        
+                # 6. Respuesta JSON
+                # Usamos el método de instancia get_FOO_display() de Django.
+                if candidatos:
+                    # Usamos el display name del nuevo estado (no de un candidato específico)
+                    display_status = dict(Candidato.ESTADOS).get(new_status_key, new_status_key)
+                else:
+                    display_status = new_status_key 
+                
+                return JsonResponse({
+                    'status': 'success', 
+                    'message': f'{candidatos_actualizados} candidatos movidos a **{display_status}** con éxito.',
+                    'count': candidatos_actualizados,
+                    'new_status_key': new_status_key 
+                })
+
+        except Exception as e:
+            print(f"Error en UpdateStatusMultipleView: {e}")
+            return JsonResponse({'status': 'error', 'message': f'Error al actualizar estados masivamente: {str(e)}'}, status=500)
+
+class CandidatoDetailView(LoginRequiredMixin, DetailView):
+    """
+    Muestra la vista de detalle de un candidato. 
+    Usa el DNI como campo para la búsqueda (slug_field).
+    """
+    model = Candidato
+    template_name = 'detalle_candidato.html' 
+    slug_field = 'DNI'
+    slug_url_kwarg = 'dni'
+    context_object_name = 'candidato'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        candidato = self.object
+        
+        # Obtener todos los procesos del candidato ordenados por fecha de inicio descendente
+        context['procesos'] = Proceso.objects.filter(candidato=candidato).order_by('-fecha_inicio').select_related('empresa_proceso', 'supervisor')
+        context['title'] = f'Detalle: {candidato.nombres_completos}'
+        
+        # Opcional: Obtener el último proceso y la asistencia si es necesario
+        context['ultimo_proceso'] = context['procesos'].first()
+        
+        if context['ultimo_proceso']:
+            context['asistencias'] = RegistroAsistencia.objects.filter(proceso=context['ultimo_proceso']).order_by('-fecha')
+
+        return context
 
 class CandidatoSearchView(View):
     def get(self, request, *args, **kwargs):
@@ -321,7 +497,7 @@ class AsistenciaDiariaCheckView(View):
                     'asistencia_registrada': asistencia_existe,
                     'candidato_encontrado': True,
                     'dni': dni,
-                    'proceso_id': proceso_activo.pk  
+                    'proceso_id': proceso_activo.pk 
                 })
             else:
                 # Si el candidato existe pero no tiene proceso (ej: estado REGISTRADO)
@@ -330,7 +506,6 @@ class AsistenciaDiariaCheckView(View):
         except Candidato.DoesNotExist:
             return JsonResponse({'asistencia_registrada': False, 'candidato_encontrado': False}, status=200)
         
-
 
 @method_decorator(csrf_exempt, name='dispatch')
 class UpdateStatusView(LoginRequiredMixin, View):
@@ -347,31 +522,71 @@ class UpdateStatusView(LoginRequiredMixin, View):
 
             candidato = Candidato.objects.get(DNI=dni)
 
-            proceso_activo = candidato.proceso_set.order_by('-fecha_inicio').first()
+            # CORRECCIÓN CLAVE: Usamos 'procesos', el related_name definido en models.py
+            proceso_activo = candidato.procesos.order_by('-fecha_inicio').first() 
 
-            if new_status_key in ['CAPACITACION_TEORICA', 'CAPACITACION_PRACTICA', 'CONTRATADO']:
+            # Mapeamos el estado maestro del Candidato al estado del Proceso
+            proceso_estado_map = {
+                'CONVOCADO': 'INICIADO', # CAMBIO LÓGICO: CONVOCADO debe iniciar el proceso como 'INICIADO'
+                'CAPACITACION_TEORICA': 'TEORIA',
+                'CAPACITACION_PRACTICA': 'PRACTICA',
+                'CONTRATADO': 'CONTRATADO',
+                'NO_APTO': 'NO_APTO', 
+            }
 
-                if not proceso_activo:
-                    return JsonResponse({'status': 'error', 'message': f'No se encontró un proceso activo para el candidato {dni}.'}, status=400)
+            proceso_status_to_update = proceso_estado_map.get(new_status_key)
 
-                proceso_estado_map = {
-                    'CAPACITACION_TEORICA': 'TEORIA',
-                    'CAPACITACION_PRACTICA': 'PRACTICA',
-                    'CONTRATADO': 'CONTRATADO',
-                }
+            with transaction.atomic():
+                
+                # --- MANEJO ESPECIAL PARA REGISTRADO a CONVOCADO (Creación de Proceso) ---
+                if candidato.estado_actual == 'REGISTRADO' and new_status_key == 'CONVOCADO':
+                    fecha_inicio = request.POST.get('fecha_inicio') # Obtenido del modal/AJAX
 
-                proceso_activo.estado = proceso_estado_map.get(new_status_key, proceso_activo.estado)
-                proceso_activo.save()
+                    # Si falta la fecha_inicio, devuelve un error o usa una por defecto si es aceptable
+                    if not fecha_inicio:
+                        return JsonResponse({'status': 'error', 'message': 'La fecha de inicio es requerida para iniciar el proceso.'}, status=400)
 
-            estado_orden = {state[0]: i for i, state in enumerate(Candidato.ESTADOS)}
-            current_order = estado_orden.get(candidato.estado_actual, -1)
-            new_order = estado_orden.get(new_status_key, -1)
+                    # Crear una nueva instancia de Proceso
+                    proceso_nuevo = Proceso.objects.create(
+                        candidato=candidato,
+                        fecha_inicio=fecha_inicio,
+                        # Los demás campos (supervisor, empresa_proceso, sede_proceso)
+                        # DEBEN ser pasados en el AJAX o usar valores predeterminados/dummy.
+                        # Asumiendo valores mínimos por ahora:
+                        supervisor_id=1,  # *Ajustar a ID de Supervisor real o null=True*
+                        empresa_proceso_id=1, # *Ajustar a ID de Empresa real*
+                        sede_proceso_id=candidato.sede_registro_id, # Usar la sede de registro
+                        estado='INICIADO'
+                    )
+                    proceso_activo = proceso_nuevo
+                
+                # --- ACTUALIZACIÓN DE PROCESO EXISTENTE ---
+                elif proceso_status_to_update and proceso_activo:
+                    # Actualizar estado del proceso
+                    proceso_activo.estado = proceso_status_to_update
+                    proceso_activo.save()
 
-            if new_order > current_order:
-                candidato.estado_actual = new_status_key
-                candidato.save()
+                # --- Lógica de Avance de Estado Maestro (se mantiene igual) ---
+                estado_orden = {state[0]: i for i, state in enumerate(Candidato.ESTADOS)}
+                current_order = estado_orden.get(candidato.estado_actual, -1)
+                new_order = estado_orden.get(new_status_key, -1)
+                
+                if new_order > current_order or new_status_key in ['CONTRATADO', 'NO_APTO']:
+                    candidato.estado_actual = new_status_key
+                    candidato.save()
+                    
+                    # Retorna el nuevo ID de proceso si se creó
+                    proceso_id_respuesta = proceso_activo.pk if proceso_activo else None
+                    return JsonResponse({
+                        'status': 'success', 
+                        'message': f'Candidato {dni} movido a {candidato.get_estado_actual_display()} con éxito.',
+                        'proceso_id': proceso_id_respuesta,
+                        'new_status': new_status_key,
+                        'new_proceso_status': proceso_activo.get_estado_display() if proceso_activo else 'N/A'
+                    })
+                
+                return JsonResponse({'status': 'success', 'message': f'Candidato {dni} movido a {candidato.get_estado_actual_display()} (No se avanzó de estado maestro).'})
 
-            return JsonResponse({'status': 'success', 'message': f'Candidato {dni} movido a {new_status_key} con éxito.'})
 
         except Candidato.DoesNotExist:
             return JsonResponse({'status': 'error', 'message': f'Candidato con DNI {dni} no encontrado.'}, status=404)
@@ -391,12 +606,9 @@ class AsignarSupervisorIndividualView(LoginRequiredMixin, View):
             supervisor = Supervisor.objects.get(pk=supervisor_id_str)
             candidato = proceso.candidato
 
-            if proceso.estado != 'CAPACITACION_TEORICA' or candidato.estado_actual != 'CAPACITACION_TEORICA':
-                messages.warning(request, f"Advertencia: El proceso {proceso_id} no está en el estado 'Teoría'. Estado actual: {proceso.estado}.")
-
             with transaction.atomic():
                 proceso.supervisor = supervisor
-                proceso.estado = 'CAPACITACION_PRACTICA'
+                proceso.estado = 'PRACTICA'
                 proceso.save()
 
                 candidato.estado_actual = 'CAPACITACION_PRACTICA'
@@ -415,10 +627,12 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
         candidatos = Candidato.objects.filter(estado_actual=estado).order_by('fecha_registro')
 
         if not candidatos.exists():
-            return HttpResponse(f"No se encontraron candidatos en el estado: {estado}", status=204)
+            messages.info(request, f"No se encontraron candidatos en el estado: {estado}")
+            return redirect('kanban_dashboard')
 
         data = []
         for c in candidatos:
+            # Usamos el prefetch en la vista del dashboard, pero aquí lo hacemos individualmente
             ultimo_proceso = Proceso.objects.filter(candidato=c).order_by('-fecha_inicio').first()
 
             data.append({
@@ -426,26 +640,31 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
                 'Nombres Completos': c.nombres_completos,
                 'Teléfono / WhatsApp': c.telefono_whatsapp,
                 'Email': c.email if c.email else '',
-                'Estado Actual': c.estado_actual,
+                'Estado Actual': c.get_estado_actual_display(), 
                 'Fecha Registro': c.fecha_registro.strftime('%d/%m/%Y') if c.fecha_registro else '',
                 'Sede de Registro': c.sede_registro.nombre if c.sede_registro else 'N/A',
 
                 'Fecha Convocatoria': ultimo_proceso.fecha_inicio.strftime('%d/%m/%Y') if ultimo_proceso and ultimo_proceso.fecha_inicio else '',
                 'Supervisor Asignado': ultimo_proceso.supervisor.nombre if ultimo_proceso and ultimo_proceso.supervisor else '',
-                'Estado Proceso': ultimo_proceso.estado if ultimo_proceso else 'N/A',
+                'Estado Proceso': ultimo_proceso.get_estado_display() if ultimo_proceso else 'N/A', 
+                'Objetivo Ventas': 'Sí' if ultimo_proceso and ultimo_proceso.objetivo_ventas_alcanzado else ('No' if ultimo_proceso and ultimo_proceso.estado in ['CONTRATADO', 'NO_APTO'] else 'N/A'),
+                'Factor Actitud': 'Sí' if ultimo_proceso and ultimo_proceso.factor_actitud_aplica else ('No' if ultimo_proceso and ultimo_proceso.estado in ['CONTRATADO', 'NO_APTO'] else 'N/A'),
+
             })
 
         df = pd.DataFrame(data)
 
         output = io.BytesIO()
-        writer = pd.ExcelWriter(output, engine='openpyxl')
+        # Usamos openpyxl para compatibilidad
+        writer = pd.ExcelWriter(output, engine='openpyxl') 
 
         nombre_hoja = f"Candidatos_{estado}"[:31]
         df.to_excel(writer, sheet_name=nombre_hoja, index=False)
 
         worksheet = writer.sheets[nombre_hoja]
         for col_idx, column in enumerate(df.columns):
-            max_len = max(df[column].astype(str).map(len).max(), len(column)) + 2
+            # Ajuste de ancho de columna
+            max_len = max(df[column].astype(str).map(len).max(), len(column)) + 2 
             worksheet.column_dimensions[chr(65 + col_idx)].width = max_len
 
         writer.close()
@@ -461,10 +680,6 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
 
-
-# ==============================================================================
-#                 ⭐ NUEVA VISTA PARA REGISTRAR ASISTENCIA RÁPIDA ⭐
-# ==============================================================================
 
 @require_POST
 def registrar_asistencia_rapida(request):
@@ -482,6 +697,7 @@ def registrar_asistencia_rapida(request):
         return redirect(REDIRECT_URL)
 
     try:
+        # Usamos select_related para obtener el candidato en la misma consulta
         proceso = Proceso.objects.select_related('candidato').get(pk=proceso_id)
         candidato = proceso.candidato
         hoy = date.today()

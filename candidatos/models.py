@@ -63,7 +63,11 @@ class Candidato(models.Model):
         return f"{self.nombres_completos} ({self.DNI})"
 
 class Proceso(models.Model):
-    candidato = models.ForeignKey(Candidato, on_delete=models.CASCADE)
+    candidato = models.ForeignKey(
+        Candidato, 
+        on_delete=models.CASCADE, 
+        related_name='procesos' 
+    )
     fecha_inicio = models.DateField(help_text="Fecha de inicio de esta convocatoria/proceso.")
 
     supervisor = models.ForeignKey(Supervisor, on_delete=models.SET_NULL, null=True, blank=True)

@@ -85,7 +85,7 @@
                         </a>
                     {% endwith %}
                 {% endwith %}
-            {% endfor %}          
+            {% endfor %} 
         </div>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
@@ -97,9 +97,11 @@
     </div>
 </div>
 
+{# Modals individuales existentes (solo se mantienen, la lógica D&D llama a las funciones) #}
+
 <div id="initProcessModal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden items-center justify-center z-50">
     <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
-        <h3 class="text-xl font-bold text-red-600 mb-4">Iniciar Nuevo Proceso / Convocatoria</h3>
+        <h3 class="text-xl font-bold text-red-600 mb-4">Iniciar Nuevo Proceso / Convocatoria (Individual)</h3>
         <p class="text-gray-700 mb-4">Moviendo a: <span id="init-candidato-nombre" class="font-semibold"></span> (<span id="init-candidato-dni"></span>)</p>
 
         <form method="post" action="{% url 'iniciar_proceso' dni='DNI_PLACEHOLDER' %}" id="initProcessForm">
@@ -110,8 +112,6 @@
                 <input type="date" name="fecha_inicio" id="id_fecha_inicio" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-red-500 focus:border-red-500" required>
             </div>
             
-            {# Campos eliminados de Sede, Empresa y Supervisor #}
-            
             <div class="flex justify-end space-x-3">
                 <button type="button" onclick="closeInitProcessModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition duration-150">Cancelar</button>
                 <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition duration-150">Guardar y Convocado</button>
@@ -120,6 +120,89 @@
     </div>
 </div>
 
+<div id="assignSupervisorIndividualModal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+        <h3 class="text-xl font-bold text-orange-600 mb-4">Asignar Supervisor para Práctica (Individual)</h3>
+        <p class="text-gray-700 mb-4">Moviendo a: <span id="assign-candidato-nombre" class="font-semibold"></span></p>
+
+        <form method="post" action="{% url 'asignar_supervisor_individual' proceso_id=0 %}" id="assignSupervisorIndividualForm">
+            {% csrf_token %}
+            <input type="hidden" name="proceso_id" id="assign-proceso-id">
+            
+            <div class="mb-4">
+                <label for="id_supervisor_id_individual" class="block text-sm font-medium text-gray-700">Supervisor/Formador para Práctica:</label>
+                <select name="supervisor_id" id="id_supervisor_id_individual" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required>
+                    <option value="">Seleccione Supervisor</option>
+                    {% for supervisor in supervisores %}
+                        <option value="{{ supervisor.pk }}">{{ supervisor.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeAssignSupervisorIndividualModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition duration-150">Cancelar</button>
+                <button type="submit" class="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition duration-150">Asignar y Mover a Práctica</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{# ------------------------------------------------------------------------------------------------ #}
+{# NUEVOS MODALES PARA ACCIÓN MASIVA #}
+{# ------------------------------------------------------------------------------------------------ #}
+
+<div id="massConvocatoriaModal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+        <h3 class="text-xl font-bold text-red-600 mb-4">Asignación Masiva: Convocatoria</h3>
+        <p class="text-gray-700 mb-4">Se moverán <span id="mass-convocatoria-count" class="font-semibold text-red-700">0</span> candidatos de **REGISTRADO** a **CONVOCADO**.</p>
+        
+        <form id="massConvocatoriaForm">
+            {% csrf_token %}
+            <input type="hidden" name="new_status" value="CONVOCADO">
+            <input type="hidden" name="dnis" id="mass-convocatoria-dnis">
+            
+            <div class="mb-4">
+                <label for="id_mass_fecha_inicio" class="block text-sm font-medium text-gray-700">Fecha de Inicio (Convocatoria) para el Bloque:</label>
+                <input type="date" name="fecha_inicio" id="id_mass_fecha_inicio" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-red-500 focus:border-red-500" required>
+            </div>
+            
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeMassConvocatoriaModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition duration-150">Cancelar</button>
+                <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition duration-150">Aplicar a Bloque y Mover</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="massAssignSupervisorModal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
+        <h3 class="text-xl font-bold text-orange-600 mb-4">Asignación Masiva: Supervisor para Práctica</h3>
+        <p class="text-gray-700 mb-4">Se moverán <span id="mass-supervisor-count" class="font-semibold text-orange-700">0</span> candidatos de **TEORÍA** a **PRÁCTICA**.</p>
+
+        <form id="massAssignSupervisorForm">
+            {% csrf_token %}
+            <input type="hidden" name="new_status" value="CAPACITACION_PRACTICA">
+            <input type="hidden" name="dnis" id="mass-supervisor-dnis">
+            
+            <div class="mb-4">
+                <label for="id_mass_supervisor_id" class="block text-sm font-medium text-gray-700">Supervisor/Formador para el Bloque de Práctica:</label>
+                <select name="supervisor_id" id="id_mass_supervisor_id" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required>
+                    <option value="">Seleccione Supervisor</option>
+                    {% for supervisor in supervisores %}
+                        <option value="{{ supervisor.pk }}">{{ supervisor.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeMassAssignSupervisorModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition duration-150">Cancelar</button>
+                <button type="submit" class="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition duration-150">Asignar a Bloque y Mover</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{# Modals existentes (se mantienen) #}
 <div id="updateProcessModal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden items-center justify-center z-50">
     <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
         <h3 class="text-xl font-bold text-yellow-600 mb-4">Actualizar Proceso y Resultado Final</h3>
@@ -175,32 +258,6 @@
     </div>
 </div>
 
-<div id="assignSupervisorIndividualModal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden items-center justify-center z-50">
-    <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
-        <h3 class="text-xl font-bold text-orange-600 mb-4">Asignar Supervisor para Práctica</h3>
-        <p class="text-gray-700 mb-4">Moviendo a: <span id="assign-candidato-nombre" class="font-semibold"></span></p>
-
-        <form method="post" action="{% url 'asignar_supervisor_individual' proceso_id=0 %}" id="assignSupervisorIndividualForm">
-            {% csrf_token %}
-            <input type="hidden" name="proceso_id" id="assign-proceso-id">
-            
-            <div class="mb-4">
-                <label for="id_supervisor_id_individual" class="block text-sm font-medium text-gray-700">Supervisor/Formador para Práctica:</label>
-                <select name="supervisor_id" id="id_supervisor_id_individual" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" required>
-                    <option value="">Seleccione Supervisor</option>
-                    {% for supervisor in supervisores %}
-                        <option value="{{ supervisor.pk }}">{{ supervisor.nombre }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="flex justify-end space-x-3">
-                <button type="button" onclick="closeAssignSupervisorIndividualModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition duration-150">Cancelar</button>
-                <button type="submit" class="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition duration-150">Asignar y Mover a Práctica</button>
-            </div>
-        </form>
-    </div>
-</div>
 <div id="asistenciaModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50 justify-center items-center">
     <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm">
         <h3 class="text-xl font-bold text-red-600 mb-4 border-b pb-2">Registro Rápido de Asistencia</h3>
@@ -225,13 +282,28 @@
         </form>
     </div>
 </div>
+<button 
+    id="btn-mass-action" 
+    class="hidden fixed bottom-5 right-5 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-xl transition duration-300"
+    onclick="openMassActionMenu()">
+    Acción Masiva <span id="selected-count" class="ml-1 px-2 py-1 bg-white text-blue-600 rounded-full text-xs font-black">0</span>
+</button>
+
+<div id="massActionMenu" class="hidden fixed bottom-20 right-5 p-4 bg-white border rounded shadow-lg z-50">
+    <p class="font-bold mb-2">Mover Seleccionados a:</p>
+    <button class="w-full text-left py-1 px-2 hover:bg-gray-100" onclick="triggerMassAction('CONVOCADO'); closeMassActionMenu();">CONVOCADO</button>
+    <button class="w-full text-left py-1 px-2 hover:bg-gray-100" onclick="triggerMassAction('CAPACITACION_TEORICA'); closeMassActionMenu();">CAP. TEÓRICA</button>
+    <button class="w-full text-left py-1 px-2 hover:bg-gray-100" onclick="triggerMassAction('CAPACITACION_PRACTICA'); closeMassActionMenu();">CAP. PRÁCTICA</button>
+    <button class="w-full text-left py-1 px-2 hover:bg-gray-100" onclick="triggerMassAction('CONTRATADO'); closeMassActionMenu();">CONTRATADO</button>
+</div>
 {% endblock content %}
 
 {% block extra_js %}
 <script>
-    const updateUrl = "{% url 'update_candidato_status' %}"; 
+    const updateUrl = "{% url 'update_candidato_status' %}";
+    const massiveUpdateUrl = "{% url 'update_candidato_status_multiple' %}";
     const historyApiUrl = "";
-    const API_ASISTENCIA_CHECK_URL = "{% url 'api_asistencia_check' %}"; 
+    const API_ASISTENCIA_CHECK_URL = "{% url 'api_asistencia_check' %}";
     const csrfToken = "{{ csrf_token }}";
 
     const STATUS_MAP = {
@@ -242,100 +314,333 @@
         'column-CONTRATADO': 'CONTRATADO'
     };
     
-    function drag(event) {
-        event.dataTransfer.setData("dni", event.target.dataset.dni);
-        event.dataTransfer.setData("current_status", event.target.closest('.kanban-column-body').dataset.status);
-    }
+    // CAMBIO CLAVE: Cambiamos selectedCards para que sea un array de objetos DNI/Proceso.
+    // Esto ya lo estabas haciendo, pero revisamos su uso.
+    let selectedCards = [];
 
+    function toggleCardSelection(cardElement) {
+        const dni = cardElement.getAttribute('data-dni');
+        const procesoId = cardElement.getAttribute('data-proceso-id');
+
+        if (cardElement.classList.contains('dragging')) return;
+
+        if (cardElement.classList.contains('selected')) {
+            cardElement.classList.remove('selected', 'border-4', 'border-blue-500', 'ring-2', 'ring-blue-500'); 
+            // Filtra por DNI
+            selectedCards = selectedCards.filter(card => card.dni !== dni);
+        } else {
+            cardElement.classList.add('selected', 'border-4', 'border-blue-500', 'ring-2', 'ring-blue-500');
+            // Almacena el objeto { dni, proceso_id }
+            selectedCards.push({ dni: dni, proceso_id: procesoId });
+        }
+        
+        const massBtn = document.getElementById('btn-mass-action');
+        const selectedCountSpan = document.getElementById('selected-count');
+        
+        if (selectedCards.length > 0) {
+            massBtn.classList.remove('hidden');
+            selectedCountSpan.textContent = selectedCards.length;
+        } else {
+            massBtn.classList.add('hidden');
+        }
+        
+        console.log(`Tarjetas seleccionadas: ${selectedCards.length}`, selectedCards);
+    }
+    
     function allowDrop(event) {
         event.preventDefault();
     }
 
+    function drag(event) {
+        const draggedDni = event.target.dataset.dni;
+        
+        if (selectedCards.length === 0) {
+            event.dataTransfer.setData("text/mode", "individual");
+            event.dataTransfer.setData("text/dni", draggedDni);
+            event.dataTransfer.setData("text/current_status", event.target.closest('.kanban-column-body').dataset.status);
+            return;
+        }
+        
+        const isDraggedCardSelected = selectedCards.some(card => card.dni === draggedDni);
+        
+        if (isDraggedCardSelected) {
+            event.dataTransfer.setData("text/mode", "multiple");
+            // AQUI ESTÁ EL PRIMER CAMBIO: Mapear a solo los DNI antes de serializar
+            event.dataTransfer.setData("text/dnis", JSON.stringify(selectedCards.map(c => c.dni)));
+            
+            const dragImage = document.createElement('div');
+            dragImage.className = 'bg-blue-600 text-white p-2 rounded-lg shadow-xl font-bold';
+            dragImage.textContent = `Moviendo ${selectedCards.length} candidatos`;
+            document.body.appendChild(dragImage);
+            event.dataTransfer.setDragImage(dragImage, 10, 10);
+            setTimeout(() => document.body.removeChild(dragImage), 0);
+            
+        } else {
+            clearSelection();
+            event.dataTransfer.setData("text/mode", "individual");
+            event.dataTransfer.setData("text/dni", draggedDni);
+            event.dataTransfer.setData("text/current_status", event.target.closest('.kanban-column-body').dataset.status);
+        }
+    }
+
     function drop(event) {
         event.preventDefault();
-        const dni = event.dataTransfer.getData("dni");
-        const currentStatus = event.dataTransfer.getData("current_status");
         
         let dropTarget = event.target.closest('.kanban-column-body');
         if (!dropTarget) return;
 
         const targetColumnId = dropTarget.id;
         const newStatus = STATUS_MAP[targetColumnId];
-
+        const mode = event.dataTransfer.getData("text/mode");
+        
+        if (mode === "multiple") {
+            const dnisJson = event.dataTransfer.getData("text/dnis");
+            const dnisArray = JSON.parse(dnisJson);
+            
+            if (dnisArray.length > 0) {
+                // Para el modo masivo, tomamos el estado actual de la primera tarjeta seleccionada
+                const currentStatus = document.querySelector(`[data-dni="${dnisArray[0]}"]`).closest('.kanban-column-body').dataset.status;
+                handleMultipleDrop(dnisArray, currentStatus, newStatus);
+            }
+            
+        } else {
+            const dni = event.dataTransfer.getData("text/dni");
+            const currentStatus = event.dataTransfer.getData("text/current_status");
+            
+            if (currentStatus === newStatus) {
+                return;
+            }
+            
+            handleIndividualDrop(dni, currentStatus, newStatus);
+        }
+        
+        clearSelection();
+    }
+    
+    function handleIndividualDrop(dni, currentStatus, newStatus) {
         const card = document.querySelector(`[data-dni="${dni}"]`);
         if (!card) return;
 
-        if (currentStatus === newStatus) {
-            return;
-        }
-        
         if (currentStatus === 'REGISTRADO' && newStatus === 'CONVOCADO') {
             const nombreCompleto = card.querySelector('h4').textContent.trim();
-            const nombre = nombreCompleto.includes('(') ? nombreCompleto.split('(')[0].trim() : nombreCompleto;
+            const nombre = nombreCompleto.split('(')[0].trim();
             openInitProcessModal(dni, nombre); 
             return;
         }
 
         if (currentStatus === 'CAPACITACION_TEORICA' && newStatus === 'CAPACITACION_PRACTICA') {
             const nombreCompleto = card.querySelector('h4').textContent.trim();
-            const nombre = nombreCompleto.includes('(') ? nombreCompleto.split('(')[0].trim() : nombreCompleto;
+            const nombre = nombreCompleto.split('(')[0].trim();
             const procesoId = card.dataset.procesoId;
             if (!procesoId || procesoId === 'None' || isNaN(parseInt(procesoId))) {
-                alert('Error: El candidato no tiene un proceso activo válido. Revise la columna de CONVOCADO.');
-                return;
+                 alert('Error: El candidato no tiene un proceso activo válido. Revise la columna de CONVOCADO.');
+                 return;
             }
             openAssignSupervisorIndividualModal(procesoId, nombre);
             return;
         }
+        
+        confirmIndividualUpdate(dni, newStatus);
+    }
     
-        let confirmMessage = `¿Mover a ${card.querySelector('h4').textContent.trim()} a ${newStatus}?`;
+    function handleMultipleDrop(dnisArray, currentStatus, newStatus) {
+        const count = dnisArray.length;
+        if (count === 0) return;
+        
+        // Bloquear transiciones hacia sí mismo
+        if (currentStatus === newStatus) {
+            alert('Las tarjetas seleccionadas ya se encuentran en ese estado.');
+            return;
+        }
+
+        if (currentStatus === 'REGISTRADO' && newStatus === 'CONVOCADO') {
+            openMassConvocatoriaModal(dnisArray);
+            return;
+        }
+
+        if (currentStatus === 'CAPACITACION_TEORICA' && newStatus === 'CAPACITACION_PRACTICA') {
+            openMassAssignSupervisorModal(dnisArray);
+            return;
+        }
+        
+        let confirmMessage = `¿Mover a **${count}** candidatos de **${currentStatus}** a **${newStatus}**?`;
         
         if (confirm(confirmMessage)) {
-            
-            fetch(updateUrl, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': csrfToken,
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: `dni=${dni}&new_status=${newStatus}`
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    const targetContainer = dropTarget.querySelector('.p-3.space-y-4');
-                    if(targetContainer) {
-                        targetContainer.appendChild(card);
-                    }
-                    window.location.reload(); 
-                } else {
-                    alert('Error: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error de red:', error);
-                alert('Error de red al actualizar el estado.');
-            });
+            confirmMassUpdate(dnisArray, newStatus, {});
         }
     }
-
-    document.querySelectorAll('.kanban-column-body').forEach(column => {
-        column.addEventListener('dragover', allowDrop);
-        column.addEventListener('drop', drop);
-        column.id = `column-${column.dataset.status}`;
-    });
-
     
-    function openAsistenciaModal(dni, procesoId) {
-        console.log(`Abriendo modal de ASISTENCIA RÁPIDA para DNI: ${dni} y Proceso ID: ${procesoId}`);
-        const modalElement = document.getElementById('asistenciaModal');
-        if (modalElement) {
-            modalElement.style.display = 'flex';
-        } else {
-            console.error("Error: El modal con ID 'asistenciaModal' no fue encontrado en el DOM.");
+    // MODIFICACIÓN CRÍTICA: Aseguramos que solo se pasen los DNI
+    function triggerMassAction(targetStatus) {
+        if (selectedCards.length === 0) {
+            alert('Debes seleccionar al menos un candidato para la acción masiva.');
+            return;
+        }
+        
+        // Obtenemos el array de DNI correctamente
+        const dnisArray = selectedCards.map(c => c.dni); 
+        
+        // Obtenemos el estado actual de la primera tarjeta seleccionada (asumimos que todas son iguales)
+        const firstCardDni = dnisArray[0];
+        const firstCardElement = document.querySelector(`[data-dni="${firstCardDni}"]`);
+        
+        if (!firstCardElement) {
+             alert('Error: No se encontró la tarjeta del primer candidato seleccionado.');
+             return;
+        }
+        
+        const currentStatus = firstCardElement.closest('.kanban-column-body').dataset.status;
+        
+        // Verificamos que todas las tarjetas seleccionadas estén en el mismo estado para evitar inconsistencias
+        const allInSameStatus = dnisArray.every(dni => {
+            const cardElement = document.querySelector(`[data-dni="${dni}"]`);
+            return cardElement && cardElement.closest('.kanban-column-body').dataset.status === currentStatus;
+        });
+
+        if (!allInSameStatus) {
+             alert('Para la acción masiva, todos los candidatos deben estar en la misma columna de origen.');
+             return;
+        }
+
+        // Mapeamos el estado de destino
+        const targetColumnId = `column-${targetStatus}`;
+        const newStatus = STATUS_MAP[targetColumnId];
+
+        // Usamos la misma lógica que el Drag & Drop masivo
+        handleMultipleDrop(dnisArray, currentStatus, newStatus);
+        
+        // Limpiamos la selección
+        clearSelection();
+    }
+    
+    function confirmIndividualUpdate(dni, newStatus) {
+        fetch(updateUrl, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `dni=${dni}&new_status=${newStatus}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                window.location.reload(); 
+            } else {
+                alert('Error en D&D individual: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error de red en D&D individual:', error);
+            alert('Error de red al actualizar el estado individual.');
+        });
+    }
+    
+    function confirmMassUpdate(dnisArray, newStatus, extraData) {
+        const formData = new FormData();
+        
+        // VERIFICACIÓN CLAVE: Si dnisArray está vacío, esto lanza la alerta.
+        if (dnisArray.length === 0) {
+            alert("Error en actualización masiva: DNI list is required.");
+            return;
+        }
+        
+        // SOLUCIÓN: Iteramos sobre el array y enviamos cada DNI como 'dnis[]'.
+        // Esto es lo que Django espera cuando usa request.POST.getlist('dnis[]').
+        dnisArray.forEach(dni => {
+            formData.append('dnis[]', dni); 
+        });
+        
+        // El nuevo estado solo se adjunta una vez.
+        formData.append('new_status', newStatus);
+        
+        // Adjuntamos cualquier dato extra (como fecha_inicio o supervisor_id)
+        for (const key in extraData) {
+            formData.append(key, extraData[key]);
+        }
+        
+        // La variable 'massiveUpdateUrl' debe estar definida como:
+        // const massiveUpdateUrl = "{% url 'update_candidato_status_multiple' %}";
+        
+        fetch(massiveUpdateUrl, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest', 
+                // Content-Type se maneja automáticamente por FormData
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                window.location.reload(); 
+            } else {
+                // Muestra el mensaje de error de Django (ej: "DNI list and new status are required.")
+                alert(`Error en actualización masiva: ${data.message}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error en la actualización masiva:', error);
+            alert("Ocurrió un error de conexión al servidor al intentar la acción masiva.");
+        });
+    }
+
+    function clearSelection() {
+        selectedCards = [];
+        document.querySelectorAll('.kanban-card.selected').forEach(card => card.classList.remove('selected', 'border-4', 'border-blue-500', 'ring-2', 'ring-blue-500'));
+        const massBtn = document.getElementById('btn-mass-action');
+        if (massBtn) {
+            massBtn.classList.add('hidden');
         }
     }
+
+    function openMassConvocatoriaModal(dnisArray) {
+        const count = dnisArray.length;
+        document.getElementById('mass-convocatoria-count').textContent = count;
+        // Se asegura que el hidden input contenga el array de DNI
+        document.getElementById('mass-convocatoria-dnis').value = JSON.stringify(dnisArray); 
+        document.getElementById('massConvocatoriaModal').style.display = 'flex';
+    }
+
+    function closeMassConvocatoriaModal() {
+        document.getElementById('massConvocatoriaModal').style.display = 'none';
+        clearSelection();
+    }
+    
+    document.getElementById('massConvocatoriaForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const dnis = JSON.parse(document.getElementById('mass-convocatoria-dnis').value);
+        const newStatus = e.target.elements.new_status.value;
+        const fechaInicio = e.target.elements.fecha_inicio.value;
+        
+        confirmMassUpdate(dnis, newStatus, { fecha_inicio: fechaInicio });
+        closeMassConvocatoriaModal();
+    });
+    
+    function openMassAssignSupervisorModal(dnisArray) {
+        const count = dnisArray.length;
+        document.getElementById('mass-supervisor-count').textContent = count;
+        // Se asegura que el hidden input contenga el array de DNI
+        document.getElementById('mass-supervisor-dnis').value = JSON.stringify(dnisArray); 
+        document.getElementById('massAssignSupervisorModal').style.display = 'flex';
+    }
+
+    function closeMassAssignSupervisorModal() {
+        document.getElementById('massAssignSupervisorModal').style.display = 'none';
+        clearSelection();
+    }
+    
+    document.getElementById('massAssignSupervisorForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const dnis = JSON.parse(document.getElementById('mass-supervisor-dnis').value);
+        const newStatus = e.target.elements.new_status.value;
+        const supervisorId = e.target.elements.supervisor_id.value;
+        
+        confirmMassUpdate(dnis, newStatus, { supervisor_id: supervisorId });
+        closeMassAssignSupervisorModal();
+    });
     
     function openInitProcessModal(dni, nombre) {
         document.getElementById('init-candidato-dni').textContent = dni;
@@ -348,11 +653,25 @@
         document.getElementById('initProcessModal').style.display = 'flex';
     }
 
-
     function closeInitProcessModal() {
         document.getElementById('initProcessModal').style.display = 'none';
     }
 
+    function openAssignSupervisorIndividualModal(procesoId, nombre) {
+        document.getElementById('assign-proceso-id').value = procesoId;
+        document.getElementById('assign-candidato-nombre').textContent = nombre;
+        
+        const form = document.getElementById('assignSupervisorIndividualForm');
+        const baseAction = form.dataset.baseAction || form.action.replace(new RegExp(`/${procesoId}/$`), '/0/');
+        form.action = baseAction.replace('/0/', `/${procesoId}/`); 
+        
+        document.getElementById('assignSupervisorIndividualModal').style.display = 'flex';
+    }
+
+    function closeAssignSupervisorIndividualModal() {
+        document.getElementById('assignSupervisorIndividualModal').style.display = 'none';
+    }
+    
     function openUpdateProcessModal(procesoId, nombre, estado, empresa, supervisor, objetivo, actitud) {
         document.getElementById('update-proceso-id').value = procesoId;
         document.getElementById('update-candidato-nombre').textContent = nombre;
@@ -388,7 +707,7 @@
     function closeUpdateProcessModal() {
         document.getElementById('updateProcessModal').style.display = 'none';
     }
-
+    
     function openHistoryModal(dni, nombre) {
         document.getElementById('history-candidato-dni').textContent = dni;
         document.getElementById('history-candidato-nombre').textContent = nombre;
@@ -440,30 +759,13 @@
         document.getElementById('historyModal').style.display = 'none';
     }
 
-    function openAssignSupervisorIndividualModal(procesoId, nombre) {
-        document.getElementById('assign-proceso-id').value = procesoId;
-        document.getElementById('assign-candidato-nombre').textContent = nombre;
-        
-        const form = document.getElementById('assignSupervisorIndividualForm');
-        const baseAction = form.dataset.baseAction || form.action.replace(new RegExp(`/${procesoId}/$`), '/0/');
-        form.action = baseAction.replace('/0/', `/${procesoId}/`); 
-        
-        document.getElementById('assignSupervisorIndividualModal').style.display = 'flex';
-    }
-
-    function closeAssignSupervisorIndividualModal() {
-        document.getElementById('assignSupervisorIndividualModal').style.display = 'none';
-    }
-       
-
     function openAsistenciaModal(dni, procesoId) {
-    const modalElement = document.getElementById('asistenciaModal');
+        const modalElement = document.getElementById('asistenciaModal');
         if (modalElement) {
-            // Asegura que estos ID existan en tu HTML
             document.getElementById('asistencia-proceso-id-input').value = procesoId;
             document.getElementById('asistencia-candidato-dni-display').textContent = dni;
             
-            modalElement.style.display = 'flex'; // Muestra el modal
+            modalElement.style.display = 'flex'; 
         } else {
             console.error("Error: El modal con ID 'asistenciaModal' no fue encontrado en el DOM.");
         }
@@ -472,8 +774,28 @@
     function closeAsistenciaModal() {
         document.getElementById('asistenciaModal').style.display = 'none';
     }
+
+    // Corregido: Alias para openInitProcessModal
+    function openConvocarModal(dni, nombre) {
+        openInitProcessModal(dni, nombre);
+    }
     
     document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.kanban-column-body').forEach(column => {
+            column.addEventListener('dragover', allowDrop);
+            column.addEventListener('drop', drop);
+            column.id = `column-${column.dataset.status}`;
+        });
+        
+        document.querySelectorAll('.kanban-card').forEach(card => {
+            card.addEventListener('dragstart', drag);
+            /* card.addEventListener('click', function(e) {
+                 if (e.target.tagName !== 'A' && !e.target.closest('a') && e.target.tagName !== 'BUTTON' && !e.target.closest('button')) {
+                     toggleCardSelection(this);
+                 }
+             });*/ // ESTO QUEDA COMENTADO, ¡BIEN HECHO!
+        });
+        
         const messageAlerts = document.querySelectorAll('.message-alert');
         messageAlerts.forEach(alert => {
             setTimeout(() => {
@@ -481,7 +803,7 @@
                 setTimeout(() => {
                     alert.style.display = 'none';
                 }, 500); 
-            }, 2000); 
+            }, 5000); 
         });
 
         const dateButtons = document.querySelectorAll('.filter-date-btn');
@@ -500,11 +822,11 @@
         const allDatesButton = document.getElementById('all-dates-filter-btn');
         if (allDatesButton) {
              allDatesButton.addEventListener('click', (event) => {
-                event.preventDefault(); 
-                const currentUrl = new URL(window.location.href);
-                currentUrl.searchParams.delete('fecha_inicio');
-                window.location.href = currentUrl.toString();
-            });
+                 event.preventDefault(); 
+                 const currentUrl = new URL(window.location.href);
+                 currentUrl.searchParams.delete('fecha_inicio');
+                 window.location.href = currentUrl.toString();
+             });
         }
         
         const dniSearchInput = document.getElementById('dni-search');
@@ -551,7 +873,22 @@
                 }
             }
         });
+         function openMassActionMenu() {
+         document.getElementById('massActionMenu').classList.remove('hidden');
+         }
+        
+         function closeMassActionMenu() {
+             document.getElementById('massActionMenu').classList.add('hidden');
+         }
+        
+         // Y cierra el menú si se hace clic fuera (opcional, pero recomendado)
+         document.addEventListener('click', function(event) {
+             const menu = document.getElementById('massActionMenu');
+             const button = document.getElementById('btn-mass-action');
+             if (menu && button && !menu.contains(event.target) && !button.contains(event.target) && !menu.classList.contains('hidden')) {
+                 closeMassActionMenu();
+             }
+         });
     });
 </script>
-
 {% endblock extra_js %}
