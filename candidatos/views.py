@@ -512,6 +512,7 @@ class UpdateStatusView(LoginRequiredMixin, View):
     def post(self, request):
         try:
             if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+                # Si no es AJAX, podrías devolver un mensaje de error o redirigir
                 return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
 
             dni = request.POST.get('dni')
@@ -522,12 +523,10 @@ class UpdateStatusView(LoginRequiredMixin, View):
 
             candidato = Candidato.objects.get(DNI=dni)
 
-            # CORRECCIÓN CLAVE: Usamos 'procesos', el related_name definido en models.py
             proceso_activo = candidato.procesos.order_by('-fecha_inicio').first() 
 
-            # Mapeamos el estado maestro del Candidato al estado del Proceso
             proceso_estado_map = {
-                'CONVOCADO': 'INICIADO', # CAMBIO LÓGICO: CONVOCADO debe iniciar el proceso como 'INICIADO'
+                'CONVOCADO': 'INICIADO',
                 'CAPACITACION_TEORICA': 'TEORIA',
                 'CAPACITACION_PRACTICA': 'PRACTICA',
                 'CONTRATADO': 'CONTRATADO',
@@ -535,58 +534,73 @@ class UpdateStatusView(LoginRequiredMixin, View):
             }
 
             proceso_status_to_update = proceso_estado_map.get(new_status_key)
+            
+            current_candidato_estado = candidato.estado_actual
 
             with transaction.atomic():
                 
                 # --- MANEJO ESPECIAL PARA REGISTRADO a CONVOCADO (Creación de Proceso) ---
-                if candidato.estado_actual == 'REGISTRADO' and new_status_key == 'CONVOCADO':
-                    fecha_inicio = request.POST.get('fecha_inicio') # Obtenido del modal/AJAX
+                if current_candidato_estado == 'REGISTRADO' and new_status_key == 'CONVOCADO':
+                    fecha_inicio = request.POST.get('fecha_inicio') 
 
-                    # Si falta la fecha_inicio, devuelve un error o usa una por defecto si es aceptable
                     if not fecha_inicio:
                         return JsonResponse({'status': 'error', 'message': 'La fecha de inicio es requerida para iniciar el proceso.'}, status=400)
 
-                    # Crear una nueva instancia de Proceso
                     proceso_nuevo = Proceso.objects.create(
                         candidato=candidato,
                         fecha_inicio=fecha_inicio,
-                        # Los demás campos (supervisor, empresa_proceso, sede_proceso)
-                        # DEBEN ser pasados en el AJAX o usar valores predeterminados/dummy.
-                        # Asumiendo valores mínimos por ahora:
-                        supervisor_id=1,  # *Ajustar a ID de Supervisor real o null=True*
-                        empresa_proceso_id=1, # *Ajustar a ID de Empresa real*
-                        sede_proceso_id=candidato.sede_registro_id, # Usar la sede de registro
+                        supervisor_id=1,
+                        empresa_proceso_id=1,
+                        sede_proceso_id=candidato.sede_registro_id,
                         estado='INICIADO'
                     )
                     proceso_activo = proceso_nuevo
                 
                 # --- ACTUALIZACIÓN DE PROCESO EXISTENTE ---
                 elif proceso_status_to_update and proceso_activo:
-                    # Actualizar estado del proceso
                     proceso_activo.estado = proceso_status_to_update
                     proceso_activo.save()
 
-                # --- Lógica de Avance de Estado Maestro (se mantiene igual) ---
+                # --- Lógica de Avance de Estado Maestro ---
                 estado_orden = {state[0]: i for i, state in enumerate(Candidato.ESTADOS)}
-                current_order = estado_orden.get(candidato.estado_actual, -1)
+                current_order = estado_orden.get(current_candidato_estado, -1)
                 new_order = estado_orden.get(new_status_key, -1)
+                
+                candidato_avanzado = False # Bandera para controlar si hubo avance de estado maestro
                 
                 if new_order > current_order or new_status_key in ['CONTRATADO', 'NO_APTO']:
                     candidato.estado_actual = new_status_key
                     candidato.save()
+                    candidato_avanzado = True
                     
-                    # Retorna el nuevo ID de proceso si se creó
                     proceso_id_respuesta = proceso_activo.pk if proceso_activo else None
+                    
+                    # -----------------------------------------------------
+                    # AJUSTE PARA UNIFORMIZAR EL MENSAJE DE CONVOCADO 🎯
+                    # -----------------------------------------------------
+                    if new_status_key == 'CONVOCADO' and proceso_activo:
+                        # Si es CONVOCADO, usamos el display del Proceso ('INICIADO/CONFIRMADO')
+                        display_status_message = proceso_activo.get_estado_display()
+                    else:
+                        # Para el resto de movimientos, usamos el display del Candidato
+                        display_status_message = candidato.get_estado_actual_display()
+
                     return JsonResponse({
                         'status': 'success', 
-                        'message': f'Candidato {dni} movido a {candidato.get_estado_actual_display()} con éxito.',
+                        'message': f'Candidato {dni} movido a **{display_status_message}** con éxito.', # USA EL TEXTO CORREGIDO
                         'proceso_id': proceso_id_respuesta,
                         'new_status': new_status_key,
                         'new_proceso_status': proceso_activo.get_estado_display() if proceso_activo else 'N/A'
                     })
                 
-                return JsonResponse({'status': 'success', 'message': f'Candidato {dni} movido a {candidato.get_estado_actual_display()} (No se avanzó de estado maestro).'})
-
+                # Mensaje si no hubo avance de estado maestro (ej: mover CONVOCADO a TEORICA sin avanzar)
+                if not candidato_avanzado:
+                    # Usamos el estado actual del candidato después de que el proceso se actualizó (si aplica)
+                    display_status_message = candidato.get_estado_actual_display()
+                    if new_status_key == 'CAPACITACION_TEORICA' and proceso_activo:
+                         display_status_message = proceso_activo.get_estado_display()
+                         
+                    return JsonResponse({'status': 'success', 'message': f'Candidato {dni} movido a {display_status_message} (No se avanzó de estado maestro).'})
 
         except Candidato.DoesNotExist:
             return JsonResponse({'status': 'error', 'message': f'Candidato con DNI {dni} no encontrado.'}, status=404)

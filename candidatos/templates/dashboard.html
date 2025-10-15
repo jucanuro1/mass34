@@ -314,8 +314,6 @@
         'column-CONTRATADO': 'CONTRATADO'
     };
     
-    // CAMBIO CLAVE: Cambiamos selectedCards para que sea un array de objetos DNI/Proceso.
-    // Esto ya lo estabas haciendo, pero revisamos su uso.
     let selectedCards = [];
 
     function toggleCardSelection(cardElement) {
@@ -326,11 +324,9 @@
 
         if (cardElement.classList.contains('selected')) {
             cardElement.classList.remove('selected', 'border-4', 'border-blue-500', 'ring-2', 'ring-blue-500'); 
-            // Filtra por DNI
             selectedCards = selectedCards.filter(card => card.dni !== dni);
         } else {
             cardElement.classList.add('selected', 'border-4', 'border-blue-500', 'ring-2', 'ring-blue-500');
-            // Almacena el objeto { dni, proceso_id }
             selectedCards.push({ dni: dni, proceso_id: procesoId });
         }
         
@@ -470,17 +466,14 @@
         }
     }
     
-    // MODIFICACIÓN CRÍTICA: Aseguramos que solo se pasen los DNI
     function triggerMassAction(targetStatus) {
         if (selectedCards.length === 0) {
             alert('Debes seleccionar al menos un candidato para la acción masiva.');
             return;
         }
         
-        // Obtenemos el array de DNI correctamente
         const dnisArray = selectedCards.map(c => c.dni); 
         
-        // Obtenemos el estado actual de la primera tarjeta seleccionada (asumimos que todas son iguales)
         const firstCardDni = dnisArray[0];
         const firstCardElement = document.querySelector(`[data-dni="${firstCardDni}"]`);
         
@@ -491,7 +484,6 @@
         
         const currentStatus = firstCardElement.closest('.kanban-column-body').dataset.status;
         
-        // Verificamos que todas las tarjetas seleccionadas estén en el mismo estado para evitar inconsistencias
         const allInSameStatus = dnisArray.every(dni => {
             const cardElement = document.querySelector(`[data-dni="${dni}"]`);
             return cardElement && cardElement.closest('.kanban-column-body').dataset.status === currentStatus;
@@ -502,14 +494,11 @@
              return;
         }
 
-        // Mapeamos el estado de destino
         const targetColumnId = `column-${targetStatus}`;
         const newStatus = STATUS_MAP[targetColumnId];
 
-        // Usamos la misma lógica que el Drag & Drop masivo
         handleMultipleDrop(dnisArray, currentStatus, newStatus);
         
-        // Limpiamos la selección
         clearSelection();
     }
     
@@ -526,6 +515,9 @@
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
+                // SOLUCIÓN CLAVE: Mostrar el mensaje de éxito enviado por Django
+                // que ya contiene el estado uniformizado ("Iniciado/Confirmado").
+                alert(data.message); 
                 window.location.reload(); 
             } else {
                 alert('Error en D&D individual: ' + data.message);
@@ -540,44 +532,35 @@
     function confirmMassUpdate(dnisArray, newStatus, extraData) {
         const formData = new FormData();
         
-        // VERIFICACIÓN CLAVE: Si dnisArray está vacío, esto lanza la alerta.
         if (dnisArray.length === 0) {
             alert("Error en actualización masiva: DNI list is required.");
             return;
         }
         
-        // SOLUCIÓN: Iteramos sobre el array y enviamos cada DNI como 'dnis[]'.
-        // Esto es lo que Django espera cuando usa request.POST.getlist('dnis[]').
         dnisArray.forEach(dni => {
             formData.append('dnis[]', dni); 
         });
         
-        // El nuevo estado solo se adjunta una vez.
         formData.append('new_status', newStatus);
         
-        // Adjuntamos cualquier dato extra (como fecha_inicio o supervisor_id)
         for (const key in extraData) {
             formData.append(key, extraData[key]);
         }
-        
-        // La variable 'massiveUpdateUrl' debe estar definida como:
-        // const massiveUpdateUrl = "{% url 'update_candidato_status_multiple' %}";
         
         fetch(massiveUpdateUrl, {
             method: 'POST',
             headers: {
                 'X-CSRFToken': csrfToken,
                 'X-Requested-With': 'XMLHttpRequest', 
-                // Content-Type se maneja automáticamente por FormData
             },
             body: formData
         })
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
+                // NOTA: El flujo masivo recarga, pero si quisieras mostrar su mensaje: alert(data.message);
                 window.location.reload(); 
             } else {
-                // Muestra el mensaje de error de Django (ej: "DNI list and new status are required.")
                 alert(`Error en actualización masiva: ${data.message}`);
             }
         })
@@ -599,7 +582,6 @@
     function openMassConvocatoriaModal(dnisArray) {
         const count = dnisArray.length;
         document.getElementById('mass-convocatoria-count').textContent = count;
-        // Se asegura que el hidden input contenga el array de DNI
         document.getElementById('mass-convocatoria-dnis').value = JSON.stringify(dnisArray); 
         document.getElementById('massConvocatoriaModal').style.display = 'flex';
     }
@@ -622,7 +604,6 @@
     function openMassAssignSupervisorModal(dnisArray) {
         const count = dnisArray.length;
         document.getElementById('mass-supervisor-count').textContent = count;
-        // Se asegura que el hidden input contenga el array de DNI
         document.getElementById('mass-supervisor-dnis').value = JSON.stringify(dnisArray); 
         document.getElementById('massAssignSupervisorModal').style.display = 'flex';
     }
@@ -775,7 +756,6 @@
         document.getElementById('asistenciaModal').style.display = 'none';
     }
 
-    // Corregido: Alias para openInitProcessModal
     function openConvocarModal(dni, nombre) {
         openInitProcessModal(dni, nombre);
     }
@@ -789,11 +769,6 @@
         
         document.querySelectorAll('.kanban-card').forEach(card => {
             card.addEventListener('dragstart', drag);
-            /* card.addEventListener('click', function(e) {
-                 if (e.target.tagName !== 'A' && !e.target.closest('a') && e.target.tagName !== 'BUTTON' && !e.target.closest('button')) {
-                     toggleCardSelection(this);
-                 }
-             });*/ // ESTO QUEDA COMENTADO, ¡BIEN HECHO!
         });
         
         const messageAlerts = document.querySelectorAll('.message-alert');
@@ -874,14 +849,13 @@
             }
         });
          function openMassActionMenu() {
-         document.getElementById('massActionMenu').classList.remove('hidden');
+          document.getElementById('massActionMenu').classList.remove('hidden');
          }
         
          function closeMassActionMenu() {
              document.getElementById('massActionMenu').classList.add('hidden');
          }
         
-         // Y cierra el menú si se hace clic fuera (opcional, pero recomendado)
          document.addEventListener('click', function(event) {
              const menu = document.getElementById('massActionMenu');
              const button = document.getElementById('btn-mass-action');
