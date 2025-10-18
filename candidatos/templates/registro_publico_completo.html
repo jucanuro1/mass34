@@ -1,222 +1,262 @@
-{% extends "base.html" %}
-{% load static %}
-
-{% block title %}Registro y Cualificación de Candidato{% endblock %}
-
-{% block content %}
-<div class="min-h-screen bg-pink-50 flex items-start justify-center p-4 sm:p-8">
+{% load static %} 
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro y Cualificación de Candidato</title>
     
-    <div class="w-full max-w-2xl">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Configuración para definir los colores personalizados que usas (pink-700, pink-50, etc.)
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'pink-700': '#D4008B', 
+                        'pink-800': '#A3006D',
+                        'pink-50': '#FFF0F7',
+                        'blue-600': '#3b82f6',
+                        'pink-300': '#F9B7E3'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        /* * Mantenemos solo el CSS que afecta a los campos de texto/select/textarea para el estilo de Forms.
+        * ELIMINAMOS cualquier estilo CSS para .form-radio para que use el estilo por defecto o el de tu proyecto.
+        */
         
-        <div class="bg-white p-6 sm:p-8 rounded-t-xl shadow-md border-t-8 border-pink-700">
-            <h1 class="text-3xl font-light text-gray-900">Formulario de Postulación de Candidatos</h1>
-            <p class="mt-2 text-sm text-gray-500">
-                Completa todos los campos obligatorios (*) para iniciar tu proceso de selección.
-            </p>
-            <p class="mt-4 text-xs text-red-600">
-                * Indica pregunta obligatoria
-            </p>
-        </div>
-
-        {% if messages %}
-        <div class="mt-4 p-4 rounded-lg bg-white shadow-md border-l-4 border-red-500">
-            <ul class="list-none m-0 p-0 space-y-1">
-                {% for message in messages %}
-                    <li class="text-sm {% if message.tags == 'error' %}text-red-700{% elif message.tags == 'success' %}text-green-700{% endif %}">
-                        {{ message }}
-                    </li>
-                {% endfor %}
-            </ul>
-        </div>
-        {% endif %}
-
-        <form method="POST" action="{% url 'registro_publico_completo' %}" class="mt-4 space-y-4">
-            {% csrf_token %}
-
-            <div class="bg-white p-6 sm:p-8 rounded-xl shadow-md space-y-6">
-                <h2 class="text-xl font-medium text-gray-800 border-b pb-2">1. Información Básica</h2>
-
-                <div class="form-group">
-                    <label for="id_DNI" class="block text-sm font-medium text-gray-700">DNI *</label>
-                    <input type="text" name="DNI" id="id_DNI" required 
-                           class="mt-1 block w-full border-b border-gray-300 focus:border-blue-600 focus:ring-0 p-2 transition duration-150"
-                           placeholder="Tu respuesta">
-                </div>
-
-                <div class="form-group">
-                    <label for="id_nombres" class="block text-sm font-medium text-gray-700">Nombres y apellidos completos *</label>
-                    <input type="text" name="nombres_completos" id="id_nombres" required
-                           class="mt-1 block w-full border-b border-gray-300 focus:border-blue-600 focus:ring-0 p-2 transition duration-150"
-                           placeholder="Tu respuesta">
-                </div>
-
-                <div class="form-group">
-                    <label for="id_telefono" class="block text-sm font-medium text-gray-700">Número de teléfono (WhatsApp) *</label>
-                    <input type="text" name="telefono_whatsapp" id="id_telefono" required
-                           class="mt-1 block w-full border-b border-gray-300 focus:border-blue-600 focus:ring-0 p-2 transition duration-150"
-                           placeholder="Tu respuesta">
-                </div>
-
-                <div class="form-group">
-                    <label for="id_email" class="block text-sm font-medium text-gray-700">Correo electrónico</label>
-                    <input type="email" name="email" id="id_email" 
-                           class="mt-1 block w-full border-b border-gray-300 focus:border-blue-600 focus:ring-0 p-2 transition duration-150"
-                           placeholder="Tu respuesta">
-                </div>
-
-                <div class="form-group">
-                    <label for="id_distrito" class="block text-sm font-medium text-gray-700">¿De qué distrito eres? *</label>
-                    <input type="text" name="distrito" id="id_distrito" required
-                           class="mt-1 block w-full border-b border-gray-300 focus:border-blue-600 focus:ring-0 p-2 transition duration-150"
-                           placeholder="Tu respuesta">
-                </div>
-
-                <div class="form-group">
-                    <label for="id_sede" class="block text-sm font-medium text-gray-700">Selecciona la Sede de Interés *</label>
-                    <select name="sede_registro" id="id_sede" required
-                            class="mt-1 block w-full border-b border-gray-300 focus:border-blue-600 focus:ring-0 p-2 transition duration-150">
-                        <option value="" disabled selected>--- Escoger Sede ---</option>
-                        {% for sede in sedes %}
-                            <option value="{{ sede.pk }}">{{ sede.nombre }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-            </div>
-
-            <div class="bg-white p-6 sm:p-8 rounded-xl shadow-md space-y-6">
-                <h2 class="text-xl font-medium text-gray-800 border-b pb-2">2. Educación y Experiencia</h2>
-                
-                <div class="form-group">
-                    <p class="block text-sm font-medium text-gray-700">¿Tienes secundaria completa? *</p>
-                    <div class="mt-2 space-y-2">
-                        <label class="flex items-center space-x-3">
-                            <input type="radio" name="secundaria_completa" value="Si" required class="form-radio text-blue-600">
-                            <span class="text-gray-900">Sí</span>
-                        </label>
-                        <label class="flex items-center space-x-3">
-                            <input type="radio" name="secundaria_completa" value="No" class="form-radio text-blue-600">
-                            <span class="text-gray-900">No</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <p class="block text-sm font-medium text-gray-700">¿Has tenido experiencia con campañas españolas como vendedor? *</p>
-                    <div class="mt-2 text-xs text-gray-500">No es Obligatorio haber manejado campañas españolas.</div>
-                    <div class="mt-2 space-y-2">
-                        <label class="flex items-center space-x-3">
-                            <input type="radio" name="experiencia_campanas_espanolas" value="Si" required class="form-radio text-blue-600">
-                            <span class="text-gray-900">Sí</span>
-                        </label>
-                        <label class="flex items-center space-x-3">
-                            <input type="radio" name="experiencia_campanas_espanolas" value="No" class="form-radio text-blue-600">
-                            <span class="text-gray-900">No</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <p class="block text-sm font-medium text-gray-700">Tienes experiencia en ventas *</p>
-                    <div class="mt-2 space-y-2">
-                        <div class="text-xs text-gray-500">No es obligatorio tener experiencia en el puesto.</div>
-                        {% for key, value in TIPO_VENTA_CHOICES %}
-                            <label class="flex items-center space-x-3">
-                                <input type="radio" name="experiencia_ventas_tipo" value="{{ key }}" required class="form-radio text-blue-600">
-                                <span class="text-gray-900">{{ value }}</span>
-                            </label>
-                        {% endfor %}
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="id_empresa_vendedor" class="block text-sm font-medium text-gray-700">¿En qué empresa has trabajado como vendedor?</label>
-                    <input type="text" name="empresa_vendedor" id="id_empresa_vendedor" 
-                           class="mt-1 block w-full border-b border-gray-300 focus:border-blue-600 focus:ring-0 p-2 transition duration-150"
-                           placeholder="Tu respuesta">
-                </div>
-
-                <div class="form-group">
-                    <p class="block text-sm font-medium text-gray-700">¿Cuánto tiempo de experiencia has tenido como vendedor *</p>
-                    <div class="mt-2 space-y-2">
-                        {% for key, value in TIEMPO_EXP_CHOICES %}
-                            <label class="flex items-center space-x-3">
-                                <input type="radio" name="tiempo_experiencia_vendedor" value="{{ key }}" required class="form-radio text-blue-600">
-                                <span class="text-gray-900">{{ value }}</span>
-                            </label>
-                        {% endfor %}
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <p class="block text-sm font-medium text-gray-700">¿Estás conforme con los beneficios que te damos? *</p>
-                    <div class="mt-2 space-y-2">
-                        <label class="flex items-center space-x-3">
-                            <input type="radio" name="conforme_beneficios" value="SI" required class="form-radio text-blue-600">
-                            <span class="text-gray-900">Sí</span>
-                        </label>
-                        <label class="flex items-center space-x-3">
-                            <input type="radio" name="conforme_beneficios" value="NO" class="form-radio text-blue-600">
-                            <span class="text-gray-900">No</span>
-                        </label>
-                        <label class="block space-y-1">
-                            <div class="flex items-center space-x-3">
-                                <input type="radio" name="conforme_beneficios" value="OTRO" class="form-radio text-blue-600">
-                                <span class="text-gray-900">Otro:</span>
-                            </div>
-                            <input type="text" name="detalle_beneficios_otro" 
-                                   class="mt-1 block w-full border-b border-gray-300 focus:border-blue-600 focus:ring-0 p-2 text-sm transition duration-150"
-                                   placeholder="Tu respuesta (detalle)">
-                        </label>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <p class="block text-sm font-medium text-gray-700">¿Tienes disponibilidad para trabajar en el horario de Lunes a Sábado de 06:15am a 03:00pm? *</p>
-                    <div class="mt-2 space-y-2">
-                        <label class="flex items-center space-x-3">
-                            <input type="radio" name="disponibilidad_horario" value="Si" required class="form-radio text-blue-600">
-                            <span class="text-gray-900">Sí</span>
-                        </label>
-                        <label class="flex items-center space-x-3">
-                            <input type="radio" name="disponibilidad_horario" value="No" class="form-radio text-blue-600">
-                            <span class="text-gray-900">No</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="id_discapacidad" class="block text-sm font-medium text-gray-700">
-                        ¿Tienes alguna discapacidad o enfermedad crónica o pasas por algún tipo de procedimiento (tratamiento, estado de gestacion, etc) que debamos conocer para ajustar adecuadamente el entorno de trabajo a sus necesidades?
-                    </label>
-                    <textarea name="discapacidad_enfermedad_cronica" id="id_discapacidad" rows="3"
-                           class="mt-1 block w-full border-b border-gray-300 focus:border-blue-600 focus:ring-0 p-2 transition duration-150"
-                           placeholder="Tu respuesta"></textarea>
-                </div>
-                
-                <div class="form-group">
-                    <p class="block text-sm font-medium text-gray-700">¿Tienes alguna dificultad en el habla? (dificultad para hablar en publico, tartamudez, dificultad de pronunciacion en algunas palabras) *</p>
-                    <div class="mt-2 space-y-2">
-                        <label class="flex items-center space-x-3">
-                            <input type="radio" name="dificultad_habla" value="Si" required class="form-radio text-blue-600">
-                            <span class="text-gray-900">Sí</span>
-                        </label>
-                        <label class="flex items-center space-x-3">
-                            <input type="radio" name="dificultad_habla" value="No" class="form-radio text-blue-600">
-                            <span class="text-gray-900">No</span>
-                        </label>
-                    </div>
-                </div>
-
-            </div>
+        /* Estilos de fondo para las opciones de radio/checkbox (mejora de UX) */
+        .option-label:hover {
+            background-color: theme('colors.pink.50');
+        }
+        
+    </style>
+</head>
+<body class="font-sans bg-gray-50">
+    <div class="min-h-screen flex items-start justify-center p-4 sm:p-8">
+        
+        <div class="w-full max-w-3xl">
             
-            <div class="flex justify-start p-4 bg-white rounded-b-xl shadow-md">
-                <button type="submit" 
-                        class="px-8 py-3 bg-pink-700 text-white font-semibold rounded-lg shadow-md hover:bg-pink-800 transition duration-150 focus:outline-none focus:ring-4 focus:ring-pink-300">
-                    Enviar
-                </button>
-            </div>
+            <header class="flex justify-center mb-6">
+                <img src="{% static 'images/+34_SWO.png' %}" alt="Logo de la Empresa" class="h-16 w-auto">
+            </header>
             
-        </form>
+            <div class="bg-white p-6 sm:p-8 rounded-t-xl border-t-8 border-red-700 shadow-lg">
+                <h1 class="text-3xl font-light text-gray-900">Formulario de Postulación de Candidatos</h1>
+                <p class="mt-2 text-base text-gray-500">
+                    Completa todos los campos obligatorios (*) para iniciar tu proceso de selección.
+                </p>
+                <p class="mt-4 text-sm text-red-600">
+                    * Indica pregunta obligatoria
+                </p>
+            </div>
+
+            {% if messages %}
+            <div class="mt-4 p-4 rounded-lg bg-white shadow-md border-l-4 border-red-500">
+                <ul class="list-none m-0 p-0 space-y-1">
+                    {% for message in messages %}
+                        <li class="text-sm {% if message.tags == 'error' %}text-red-700{% elif message.tags == 'success' %}text-green-700{% endif %}">
+                            {{ message }}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <form method="POST" action="{% url 'registro_publico_completo' %}" class="mt-4 space-y-4">
+                {% csrf_token %}
+
+                <div class="bg-white p-6 sm:p-8 rounded-xl shadow-lg space-y-8">
+                    <h2 class="text-xl font-medium text-gray-800 border-b pb-2">1. Información Básica</h2>
+
+                    <div class="form-group">
+                        <label for="id_DNI" class="block text-sm font-medium text-gray-700">DNI *</label>
+                        <input type="text" name="DNI" id="id_DNI" required 
+                                class="mt-1 block w-full border-b border-gray-300 focus:border-pink-700 focus:ring-0 p-1 bg-transparent transition duration-150 text-gray-800 placeholder-gray-400"
+                                placeholder="Tu respuesta">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="id_nombres" class="block text-sm font-medium text-gray-700">Nombres y apellidos completos *</label>
+                        <input type="text" name="nombres_completos" id="id_nombres" required
+                                class="mt-1 block w-full border-b border-gray-300 focus:border-pink-700 focus:ring-0 p-1 bg-transparent transition duration-150 text-gray-800 placeholder-gray-400"
+                                placeholder="Tu respuesta">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="id_telefono" class="block text-sm font-medium text-gray-700">Número de teléfono (WhatsApp) *</label>
+                        <input type="text" name="telefono_whatsapp" id="id_telefono" required
+                                class="mt-1 block w-full border-b border-gray-300 focus:border-pink-700 focus:ring-0 p-1 bg-transparent transition duration-150 text-gray-800 placeholder-gray-400"
+                                placeholder="Tu respuesta">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="id_email" class="block text-sm font-medium text-gray-700">Correo electrónico</label>
+                        <input type="email" name="email" id="id_email" 
+                                class="mt-1 block w-full border-b border-gray-300 focus:border-pink-700 focus:ring-0 p-1 bg-transparent transition duration-150 text-gray-800 placeholder-gray-400"
+                                placeholder="Tu respuesta">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="id_distrito" class="block text-sm font-medium text-gray-700">¿De qué distrito eres? *</label>
+                        <input type="text" name="distrito" id="id_distrito" required
+                                class="mt-1 block w-full border-b border-gray-300 focus:border-pink-700 focus:ring-0 p-1 bg-transparent transition duration-150 text-gray-800 placeholder-gray-400"
+                                placeholder="Tu respuesta">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="id_sede" class="block text-sm font-medium text-gray-700">Selecciona la Sede de Interés *</label>
+                        <select name="sede_registro" id="id_sede" required
+                                class="mt-1 block w-full border-b border-gray-300 focus:border-pink-700 focus:ring-0 p-1 bg-white text-gray-800 transition duration-150">
+                            <option value="" disabled selected>--- Escoger Sede ---</option>
+                            {% for sede in sedes %}
+                                <option value="{{ sede.pk }}">{{ sede.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 sm:p-8 rounded-xl shadow-lg space-y-8">
+                    <h2 class="text-xl font-medium text-gray-800 border-b pb-2">2. Educación y Experiencia</h2>
+                    
+                    <div class="form-group">
+                        <p class="block text-sm font-medium text-gray-700 mb-2">¿Tienes secundaria completa? *</p>
+                        <div class="mt-2 space-y-2">
+                            <label class="flex items-center space-x-3 cursor-pointer p-2 rounded-lg transition-colors option-label">
+                                <input type="radio" name="secundaria_completa" value="Si" required class="form-radio text-blue-600">
+                                <span class="text-gray-900">Sí</span>
+                            </label>
+                            <label class="flex items-center space-x-3 cursor-pointer p-2 rounded-lg transition-colors option-label">
+                                <input type="radio" name="secundaria_completa" value="No" class="form-radio text-blue-600">
+                                <span class="text-gray-900">No</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <p class="block text-sm font-medium text-gray-700">¿Has tenido experiencia con campañas españolas como vendedor? *</p>
+                        <div class="mt-2 text-xs text-gray-500">No es Obligatorio haber manejado campañas españolas.</div>
+                        <div class="mt-2 space-y-2">
+                            <label class="flex items-center space-x-3 cursor-pointer p-2 rounded-lg transition-colors option-label">
+                                <input type="radio" name="experiencia_campanas_espanolas" value="Si" required class="form-radio text-blue-600">
+                                <span class="text-gray-900">Sí</span>
+                            </label>
+                            <label class="flex items-center space-x-3 cursor-pointer p-2 rounded-lg transition-colors option-label">
+                                <input type="radio" name="experiencia_campanas_espanolas" value="No" class="form-radio text-blue-600">
+                                <span class="text-gray-900">No</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <p class="block text-sm font-medium text-gray-700">Tienes experiencia en ventas *</p>
+                        <div class="mt-2 text-xs text-gray-500">No es obligatorio tener experiencia en el puesto.</div>
+                        <div class="mt-2 space-y-2">
+                            {% for key, value in TIPO_VENTA_CHOICES %}
+                                <label class="flex items-center space-x-3 cursor-pointer p-2 rounded-lg transition-colors option-label">
+                                    <input type="radio" name="experiencia_ventas_tipo" value="{{ key }}" required class="form-radio text-blue-600">
+                                    <span class="text-gray-900">{{ value }}</span>
+                                </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="id_empresa_vendedor" class="block text-sm font-medium text-gray-700">¿En qué empresa has trabajado como vendedor?</label>
+                        <input type="text" name="empresa_vendedor" id="id_empresa_vendedor" 
+                                class="mt-1 block w-full border-b border-gray-300 focus:border-pink-700 focus:ring-0 p-1 bg-transparent transition duration-150 text-gray-800 placeholder-gray-400"
+                                placeholder="Tu respuesta">
+                    </div>
+
+                    <div class="form-group">
+                        <p class="block text-sm font-medium text-gray-700">¿Cuánto tiempo de experiencia has tenido como vendedor *</p>
+                        <div class="mt-2 space-y-2">
+                            {% for key, value in TIEMPO_EXP_CHOICES %}
+                                <label class="flex items-center space-x-3 cursor-pointer p-2 rounded-lg transition-colors option-label">
+                                    <input type="radio" name="tiempo_experiencia_vendedor" value="{{ key }}" required class="form-radio text-blue-600">
+                                    <span class="text-gray-900">{{ value }}</span>
+                                </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <p class="block text-sm font-medium text-gray-700">¿Estás conforme con los beneficios que te damos? *</p>
+                        <div class="mt-2 space-y-2">
+                            <label class="flex items-center space-x-3 cursor-pointer p-2 rounded-lg transition-colors option-label">
+                                <input type="radio" name="conforme_beneficios" value="SI" required class="form-radio text-blue-600">
+                                <span class="text-gray-900">Sí</span>
+                            </label>
+                            <label class="flex items-center space-x-3 cursor-pointer p-2 rounded-lg transition-colors option-label">
+                                <input type="radio" name="conforme_beneficios" value="NO" class="form-radio text-blue-600">
+                                <span class="text-gray-900">No</span>
+                            </label>
+                            <label class="block space-y-1 p-2 rounded-lg transition-colors option-label">
+                                <div class="flex items-center space-x-3">
+                                    <input type="radio" name="conforme_beneficios" value="OTRO" class="form-radio text-blue-600">
+                                    <span class="text-gray-900">Otro:</span>
+                                </div>
+                                <input type="text" name="detalle_beneficios_otro" 
+                                        class="mt-1 ml-6 block w-full border-b border-gray-300 focus:border-pink-700 focus:ring-0 p-1 bg-transparent text-sm transition duration-150 text-gray-800 placeholder-gray-400"
+                                        placeholder="Tu respuesta (detalle)">
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <p class="block text-sm font-medium text-gray-700">¿Tienes disponibilidad para trabajar en el horario de Lunes a Sábado de 06:15am a 03:00pm? *</p>
+                        <div class="mt-2 space-y-2">
+                            <label class="flex items-center space-x-3 cursor-pointer p-2 rounded-lg transition-colors option-label">
+                                <input type="radio" name="disponibilidad_horario" value="Si" required class="form-radio text-blue-600">
+                                <span class="text-gray-900">Sí</span>
+                            </label>
+                            <label class="flex items-center space-x-3 cursor-pointer p-2 rounded-lg transition-colors option-label">
+                                <input type="radio" name="disponibilidad_horario" value="No" class="form-radio text-blue-600">
+                                <span class="text-gray-900">No</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="id_discapacidad" class="block text-sm font-medium text-gray-700">
+                            ¿Tienes alguna discapacidad o enfermedad crónica o pasas por algún tipo de procedimiento (...) que debamos conocer para ajustar adecuadamente el entorno de trabajo a sus necesidades?
+                        </label>
+                        <textarea name="discapacidad_enfermedad_cronica" id="id_discapacidad" rows="3"
+                                class="mt-1 block w-full border-b border-gray-300 focus:border-pink-700 focus:ring-0 p-1 bg-transparent transition duration-150 text-gray-800 placeholder-gray-400"
+                                placeholder="Tu respuesta"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <p class="block text-sm font-medium text-gray-700">¿Tienes alguna dificultad en el habla? (...) *</p>
+                        <div class="mt-2 space-y-2">
+                            <label class="flex items-center space-x-3 cursor-pointer p-2 rounded-lg transition-colors option-label">
+                                <input type="radio" name="dificultad_habla" value="Si" required class="form-radio text-blue-600">
+                                <span class="text-gray-900">Sí</span>
+                            </label>
+                            <label class="flex items-center space-x-3 cursor-pointer p-2 rounded-lg transition-colors option-label">
+                                <input type="radio" name="dificultad_habla" value="No" class="form-radio text-blue-600">
+                                <span class="text-gray-900">No</span>
+                            </label>
+                        </div>
+                    </div>
+
+                </div>
+                
+                <div class="flex justify-start p-6 bg-white rounded-b-xl shadow-lg">
+                    <button type="submit" 
+                            class="px-8 py-3 bg-red-700 text-white font-semibold rounded-lg shadow-lg hover:bg-pink-800 transition duration-150 focus:outline-none focus:ring-4 focus:ring-pink-300">
+                        Enviar
+                    </button>
+                </div>
+                
+            </form>
+        </div>
     </div>
-</div>
-{% endblock %}
+</body>
+</html>
