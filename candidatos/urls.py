@@ -1,11 +1,11 @@
 from django.urls import path
 from django.contrib.auth import views as auth_views
 from . import views
+from django.urls import reverse_lazy
 
 urlpatterns = [
     path('', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
-    path('logout/', auth_views.LogoutView.as_view(next_page='/candidatos/login/'), name='logout'),
-    
+    path('logout/', auth_views.LogoutView.as_view(next_page=reverse_lazy('login')), name='logout'),    
     # Dashboard Principal
     path('kanban/', views.KanbanDashboardView.as_view(), name='kanban_dashboard'),
     
@@ -14,7 +14,7 @@ urlpatterns = [
     path('detalle/<str:dni>/', views.CandidatoDetailView.as_view(), name='detalle_candidato'),
     path('registro/candidato-completo/', views.RegistroPublicoCompletoView.as_view(), name='registro_publico_completo'),
     
-    # Vistas de Proceso
+    # Vistas de Proceso 
     path('iniciar-proceso/<str:dni>/', views.IniciarProcesoView.as_view(), name='iniciar_proceso'),
     path('proceso/actualizar/<int:proceso_id>/', views.ActualizarProcesoView.as_view(), name='actualizar_proceso'),
     path('proceso/asignar_supervisor/<int:proceso_id>/', views.AsignarSupervisorIndividualView.as_view(), name='asignar_supervisor_individual'), 
