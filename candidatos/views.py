@@ -7,10 +7,12 @@ from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse
 from django.db.models import Q, Count, Prefetch
-from .models import Candidato, Proceso, Empresa, Sede, Supervisor, RegistroAsistencia 
+from .models import Candidato, Proceso, Empresa, Sede, Supervisor, RegistroAsistencia,DatosCualificacion
 from datetime import date, datetime
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
+from django.urls import reverse
+from django.core.exceptions import ValidationError
 import pandas as pd
 import io
 
@@ -734,3 +736,138 @@ def registrar_asistencia_rapida(request):
         messages.error(request, f"Ocurrió un error al registrar la asistencia: {e}")
 
     return redirect(REDIRECT_URL)
+
+
+class RegistroPublicoCompletoView(View):
+    """
+    Vista pública para registrar la información básica (Candidato) y la cualificación 
+    (DatosCualificacion) en un solo envío de formulario.
+    """
+    
+    # MÉTODO GET: Correcto, usa 'nombre' para las sedes.
+    def get(self, request):
+        sedes_disponibles = Sede.objects.all().order_by('nombre') 
+
+        context = {
+            'title': 'Registro y Cualificación de Candidato',
+            'is_public': True,
+            'sedes': sedes_disponibles,
+            'TIPO_VENTA_CHOICES': DatosCualificacion.TIPO_VENTA_CHOICES,
+            'TIEMPO_EXP_CHOICES': DatosCualificacion.TIEMPO_EXP_CHOICES,
+        }
+        return render(request, 'registro_publico_completo.html', context)
+
+    @transaction.atomic
+    def post(self, request):
+        # 1. Captura de Datos
+        # Datos del modelo Candidato
+        dni = request.POST.get('DNI', '').strip()
+        nombres_completos = request.POST.get('nombres_completos', '').strip()
+        telefono_whatsapp = request.POST.get('telefono_whatsapp', '').strip()
+        email = request.POST.get('email', '').strip()
+        distrito = request.POST.get('distrito', '').strip() 
+        sede_id_seleccionada = request.POST.get('sede_registro')
+        
+        # Datos del modelo DatosCualificacion
+        # CAPTURA SEGURA (No la convertimos a bool todavía)
+        secundaria_completa_post = request.POST.get('secundaria_completa') 
+        
+        experiencia_campanas_espanolas = request.POST.get('experiencia_campanas_espanolas') == 'Si'
+        experiencia_ventas_tipo = request.POST.get('experiencia_ventas_tipo')
+        empresa_vendedor = request.POST.get('empresa_vendedor', '').strip()
+        tiempo_experiencia_vendedor = request.POST.get('tiempo_experiencia_vendedor')
+        conforme_beneficios = request.POST.get('conforme_beneficios')
+        detalle_beneficios_otro = request.POST.get('detalle_beneficios_otro', '').strip()
+        disponibilidad_horario = request.POST.get('disponibilidad_horario') == 'Si'
+        discapacidad_enfermedad_cronica = request.POST.get('discapacidad_enfermedad_cronica', '').strip()
+        dificultad_habla = request.POST.get('dificultad_habla') == 'Si'
+        
+        # 2. Validación de campos obligatorios/formato
+        errors = {}
+        
+        # Validación de campos generales
+        campos_obligatorios = [dni, nombres_completos, telefono_whatsapp, distrito, experiencia_ventas_tipo, tiempo_experiencia_vendedor, conforme_beneficios, sede_id_seleccionada]
+        if not all(campos_obligatorios):
+             messages.error(request, 'Por favor, complete todos los campos obligatorios (*).')
+             return redirect('registro_publico_completo')
+             
+        # VALIDACIÓN CLAVE: RESUELVE EL "NOT NULL constraint failed"
+        if secundaria_completa_post is None:
+             messages.error(request, 'El campo "¿Tienes secundaria completa?" es obligatorio. Por favor, selecciona Sí o No.')
+             return redirect('registro_publico_completo')
+             
+        # Ahora que sabemos que el valor existe, lo convertimos a booleano
+        secundaria_completa = secundaria_completa_post == 'Si'
+
+        if dni and not dni.isdigit():
+            errors['DNI'] = 'El DNI debe contener solo números.'
+        
+        if errors:
+             messages.error(request, 'Corrija los errores de formato: DNI debe ser numérico.')
+             return redirect('registro_publico_completo')
+            
+        # 3. Obtener el objeto Sede usando el ID capturado
+        try:
+             sede_seleccionada = Sede.objects.get(pk=sede_id_seleccionada)
+        except Sede.DoesNotExist:
+             messages.error(request, 'Error: La sede seleccionada no es válida o no existe.')
+             return redirect('registro_publico_completo')
+        except Exception as e:
+             messages.error(request, f'Error al obtener la sede: {e}')
+             return redirect('registro_publico_completo')
+            
+        # 4. Guardado en Transacción
+        try:
+            # 4.1 Crear Candidato
+            candidato = Candidato.objects.create(
+                DNI=dni,
+                nombres_completos=nombres_completos,
+                telefono_whatsapp=telefono_whatsapp,
+                email=email if email else None,
+                distrito=distrito,
+                sede_registro=sede_seleccionada, 
+                estado_actual='REGISTRADO' 
+            )
+            
+            # 4.2 Crear DatosCualificacion
+            DatosCualificacion.objects.create(
+                candidato=candidato,
+                distrito=distrito, # Asegúrate de que 'distrito' se guarde aquí también si el modelo lo pide
+                secundaria_completa=secundaria_completa, # AHORA ES UN VALOR SEGURO (True/False)
+                experiencia_campanas_espanolas=experiencia_campanas_espanolas,
+                experiencia_ventas_tipo=experiencia_ventas_tipo,
+                empresa_vendedor=empresa_vendedor if empresa_vendedor else None,
+                tiempo_experiencia_vendedor=tiempo_experiencia_vendedor,
+                conforme_beneficios=conforme_beneficios,
+                detalle_beneficios_otro=detalle_beneficios_otro if conforme_beneficios == 'OTRO' else None,
+                disponibilidad_horario=disponibilidad_horario,
+                discapacidad_enfermedad_cronica=discapacidad_enfermedad_cronica if discapacidad_enfermedad_cronica else None,
+                dificultad_habla=dificultad_habla,
+            )
+            
+        except IntegrityError as e:
+            # MANEJO MEJORADO DE INTEGRITY ERROR (DNI/Teléfono/Email)
+            error_message = str(e)
+            
+            if 'DNI' in error_message or 'PRIMARY KEY' in error_message:
+                msg = f'El DNI {dni} ya está registrado.'
+            elif 'telefono_whatsapp' in error_message:
+                msg = 'El número de teléfono ya está registrado con otro candidato.'
+            elif 'email' in error_message:
+                msg = 'El correo electrónico ya está registrado con otro candidato.'
+            else:
+                msg = f'Error de duplicidad no especificado. Contacte a soporte. Detalle: {error_message}'
+                
+            messages.error(request, msg)
+            return redirect('registro_publico_completo')
+        except ValidationError as e:
+            messages.error(request, f'Error de validación: {e.message_dict}')
+            return redirect('registro_publico_completo')
+        except Exception as e:
+            messages.error(request, f'Error inesperado al guardar datos: {e}')
+            return redirect('registro_publico_completo')
+            
+        # 5. Respuesta de Éxito
+        messages.success(request, '✅ ¡Tu registro y cualificación se completaron con éxito! Pronto te contactaremos.')
+        messages.success(request, '✅ ¡Tu registro y cualificación se completaron con éxito! Pronto te contactaremos.')
+        return redirect('registro_publico_completo')

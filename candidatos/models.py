@@ -33,7 +33,7 @@ class Candidato(models.Model):
     nombres_completos = models.CharField(max_length=255)
     telefono_whatsapp = models.CharField(max_length=9)
     email = models.EmailField(max_length=255,blank=True,null=True)
-
+    distrito = models.CharField(max_length=200)
     sede_registro = models.ForeignKey(
         Sede,
         on_delete=models.PROTECT,
@@ -61,6 +61,94 @@ class Candidato(models.Model):
 
     def __str__(self):
         return f"{self.nombres_completos} ({self.DNI})"
+
+class DatosCualificacion(models.Model):
+    # Relación 1:1 con Candidato. Esto asegura que cada candidato solo tenga un set de respuestas.
+    # Usamos on_delete=models.CASCADE: si el candidato es eliminado, también se eliminan sus respuestas.
+    candidato = models.OneToOneField(
+        Candidato, 
+        on_delete=models.CASCADE, 
+        primary_key=True
+    )
+    
+    # --- CAMPOS DEL FORMULARIO REAL (Basado en las imágenes) ---
+    
+    # (image_dfc7de.png)
+    distrito = models.CharField(max_length=100, help_text="Distrito de residencia.")
+    secundaria_completa = models.BooleanField(
+        help_text="¿Tienes secundaria completa?"
+    )
+    
+    # (image_dfc79a.png)
+    experiencia_campanas_espanolas = models.BooleanField(
+        help_text="¿Has tenido experiencia con campañas españolas como vendedor?"
+    )
+    
+    TIPO_VENTA_CHOICES = [
+        ('CALLCENTER', 'Sí, ventas por teléfono (CALLCENTER)'),
+        ('ESCRITOS', 'Sí, ventas por medios escritos'),
+        ('PRESENCIALES', 'Sí, ventas presenciales'),
+        ('NO', 'No'),
+    ]
+    experiencia_ventas_tipo = models.CharField(
+        max_length=20,
+        choices=TIPO_VENTA_CHOICES,
+        default='NO',
+        help_text="Tipo de experiencia en ventas."
+    )
+    
+    empresa_vendedor = models.CharField(
+        max_length=150, 
+        blank=True, 
+        null=True, 
+        help_text="¿En qué empresa has trabajado como vendedor?"
+    )
+    
+    TIEMPO_EXP_CHOICES = [
+        ('MENOS_3', 'Menos de 3 meses'),
+        ('MENOS_6', 'Menos de 6 meses'),
+        ('MENOS_1_ANIO', 'Menos de 1 año'),
+        ('MAS_1_ANIO', 'De 1 año a más'),
+    ]
+    tiempo_experiencia_vendedor = models.CharField(
+        max_length=20,
+        choices=TIEMPO_EXP_CHOICES,
+        blank=True, 
+        null=True,
+        help_text="¿Cuánto tiempo de experiencia has tenido como vendedor?"
+    )
+    
+    # (image_dfc727.png)
+    conforme_beneficios = models.CharField(
+        max_length=10, 
+        choices=[('SI', 'Sí'), ('NO', 'No'), ('OTRO', 'Otro')],
+        help_text="¿Estás conforme con los beneficios que te damos?"
+    )
+    detalle_beneficios_otro = models.TextField(
+        blank=True, 
+        null=True, 
+        help_text="Detalle si la respuesta a beneficios fue 'Otro'."
+    )
+    
+    disponibilidad_horario = models.BooleanField(
+        help_text="¿Tienes disponibilidad para trabajar en el horario de 06:15am a 03:00pm?"
+    )
+
+    discapacidad_enfermedad_cronica = models.TextField(
+        blank=True, 
+        null=True,
+        help_text="¿Tienes alguna discapacidad o enfermedad crónica?"
+    )
+    
+    dificultad_habla = models.BooleanField(
+        help_text="¿Tienes alguna dificultad en el habla?"
+    )
+
+    # El campo del teléfono está en Candidato, no lo repetimos.
+
+    def __str__(self):
+        return f"Cualificación de {self.candidato.nombres_completos}"
+    
 
 class Proceso(models.Model):
     candidato = models.ForeignKey(

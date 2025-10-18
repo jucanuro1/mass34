@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Empresa, Sede, Supervisor, Candidato, Proceso, RegistroAsistencia
+from .models import Empresa, Sede, Supervisor, Candidato, Proceso, RegistroAsistencia,DatosCualificacion
 
 # 1. Registro de Entidades Estáticas
 admin.site.register(Empresa)
@@ -80,3 +80,51 @@ class RegistroAsistenciaAdmin(admin.ModelAdmin):
     def proceso_fecha_inicio(self, obj):
         return obj.proceso.fecha_inicio
     proceso_fecha_inicio.short_description = 'Inicio Proceso'
+
+
+@admin.register(DatosCualificacion)
+class DatosCualificacionAdmin(admin.ModelAdmin):
+    # Campos a mostrar en la lista del admin
+    list_display = (
+        'candidato_nombre', 
+        'secundaria_completa', 
+        'experiencia_campanas_espanolas', 
+        'experiencia_ventas_tipo', 
+        'disponibilidad_horario'
+    )
+    
+    # Filtros laterales
+    list_filter = (
+        'secundaria_completa', 
+        'experiencia_campanas_espanolas', 
+        'experiencia_ventas_tipo', 
+        'disponibilidad_horario'
+    )
+    
+    # Campos de búsqueda
+    search_fields = (
+        'candidato__nombres_completos', 
+        'candidato__DNI', 
+        'empresa_vendedor'
+    )
+    
+    # Campo para ordenar por defecto
+    ordering = ('candidato__nombres_completos',)
+    
+    # Campo calculado para mostrar el nombre del candidato en la lista
+    def candidato_nombre(self, obj):
+        return obj.candidato.nombres_completos
+    candidato_nombre.short_description = 'Candidato'
+    
+    # Campos que se muestran en el detalle del registro (agrupados por Fieldsets)
+    fieldsets = (
+        ('Información del Candidato', {
+            'fields': ('candidato',),
+        }),
+        ('Educación y Experiencia de Venta', {
+            'fields': ('secundaria_completa', 'experiencia_campanas_espanolas', 'experiencia_ventas_tipo', 'empresa_vendedor', 'tiempo_experiencia_vendedor'),
+        }),
+        ('Condiciones y Disponibilidad', {
+            'fields': ('conforme_beneficios', 'detalle_beneficios_otro', 'disponibilidad_horario', 'discapacidad_enfermedad_cronica', 'dificultad_habla'),
+        }),
+    )

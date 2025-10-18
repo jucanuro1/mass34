@@ -5,21 +5,44 @@
 {% block content %}
 <div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
     
-    <header class="mb-6 flex justify-between items-center">
-        <h1 class="text-2xl font-extrabold text-gray-900 tracking-tight">Panel <span class="text-red-600">Administración</span></h1>
+   <header class="mb-6 flex justify-between items-center">
+    <h1 class="text-2xl font-extrabold text-gray-900 tracking-tight">Panel <span class="text-red-600">Administración</span></h1>
 
-        <div class="flex items-center space-x-4">
-            <div class="relative w-80">
-                <input type="text" id="dni-search" placeholder="Buscar por DNI o Nombre..." class="w-full text-xs pl-10 pr-4 py-2 border border-gray-300 rounded-full focus:ring-red-500 focus:border-red-500">
-                <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-            </div>
-            
-            <a href="{% url 'registro_candidato' %}" class="flex text-xs items-center bg-red-600 text-white px-5 py-2.5 rounded-full shadow-lg font-semibold hover:bg-red-700 transition duration-150 transform hover:scale-105">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                Nuevo Candidato
-            </a>
+    <div class="flex items-center space-x-4">
+        
+        <div class="relative flex items-center bg-gray-50 border border-gray-200 rounded-full p-1 shadow-inner">
+            {% url 'registro_publico_completo' as public_registration_url %}
+            {% with request.build_absolute_uri|cut:request.path as base_uri %}
+            {% with absolute_url=base_uri|add:public_registration_url %}
+                
+                <input type="text" 
+                       id="link-registro-publico" 
+                       value="{{ absolute_url }}" 
+                       readonly 
+                       class="w-64 text-xs bg-gray-50 pl-4 py-1 border-none focus:ring-0 text-red-600 truncate">
+                
+                <button type="button" onclick="copyLink()" 
+                        class="text-xs bg-red-600 text-white px-3 py-1.5 rounded-full font-semibold hover:bg-red-700 transition duration-150">
+                    Copiar Link
+                </button>
+                
+            {% endwith %}
+            {% endwith %}
         </div>
-    </header>
+         <a href="{% url 'registro_publico_completo' %}" target="_blank" class="flex text-xs items-center bg-red-600 text-white px-5 py-2.5 rounded-full shadow-lg font-semibold hover:bg-red-700 transition duration-150 transform hover:scale-105">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+            Formulario Público
+        </a>
+        <div class="relative w-80">
+            <input type="text" id="dni-search" placeholder="Buscar por DNI o Nombre..." class="w-full text-xs pl-10 pr-4 py-2 border border-gray-300 rounded-full focus:ring-red-500 focus:border-red-500">
+            <svg class="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+        </div>
+        <a href="{% url 'registro_candidato' %}" class="flex text-xs items-center bg-red-600 text-white px-5 py-2.5 rounded-full shadow-lg font-semibold hover:bg-red-700 transition duration-150 transform hover:scale-105">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+            Nuevo Candidato
+        </a>
+    </div>
+</header>
 
     {% if messages %}
         <div class="mt-4" id="message-container">
@@ -760,6 +783,34 @@
         openInitProcessModal(dni, nombre);
     }
     
+    function copyLink() {
+        const linkInput = document.getElementById('link-registro-publico');
+        
+        // Seleccionar el texto del campo de entrada
+        linkInput.select();
+        linkInput.setSelectionRange(0, 99999); // Para móviles
+        
+        try {
+            // Intentar copiar el texto
+            const successful = document.execCommand('copy');
+            if (successful) {
+                // Notificación simple
+                alert('✅ Enlace copiado.');
+            } else {
+                alert('❌ Error al intentar copiar el enlace. Por favor, cópialo manualmente.');
+            }
+        } catch (err) {
+            alert('❌ Error al intentar copiar el enlace: ' + err);
+        }
+    }
+    const messageContainer = document.getElementById('message-container');
+        if (messageContainer) {
+            // Oculta después de 2 segundos (2000ms)
+            setTimeout(() => {
+                messageContainer.style.display = 'none';
+            }, 2000); 
+        }
+
     document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.kanban-column-body').forEach(column => {
             column.addEventListener('dragover', allowDrop);
