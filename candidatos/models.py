@@ -1,4 +1,5 @@
 from django.db import models
+from datetime import date
 from django.core.exceptions import ValidationError
 
 class Empresa(models.Model):
@@ -152,16 +153,16 @@ class DatosCualificacion(models.Model):
 
 class Proceso(models.Model):
     candidato = models.ForeignKey(
-        Candidato, 
+        'Candidato', 
         on_delete=models.CASCADE, 
         related_name='procesos' 
     )
     fecha_inicio = models.DateField(help_text="Fecha de inicio de esta convocatoria/proceso.")
 
-    supervisor = models.ForeignKey(Supervisor, on_delete=models.SET_NULL, null=True, blank=True)
+    supervisor = models.ForeignKey('Supervisor', on_delete=models.SET_NULL, null=True, blank=True)
 
-    empresa_proceso = models.ForeignKey(Empresa, on_delete=models.CASCADE, help_text="Cliente para este ciclo de prueba.")
-    sede_proceso = models.ForeignKey(Sede, on_delete=models.CASCADE, help_text="Sede donde tomó la prueba.")
+    empresa_proceso = models.ForeignKey('Empresa', on_delete=models.CASCADE, help_text="Cliente para este ciclo de prueba.")
+    sede_proceso = models.ForeignKey('Sede', on_delete=models.CASCADE, help_text="Sede donde tomó la prueba.")
 
     ESTADOS_PROCESO = [
         ('INICIADO', 'Iniciado/Confirmado'),
@@ -173,6 +174,20 @@ class Proceso(models.Model):
     ]
     estado = models.CharField(max_length=15, choices=ESTADOS_PROCESO, default='INICIADO')
 
+    # Campos para guardar la fecha de llegada a cada etapa (Mantener null=True, blank=True)
+    fecha_teorico = models.DateField(
+        null=True, blank=True,
+        help_text="Fecha en que el candidato ingresó a Capacitación Teórica."
+    )
+    fecha_practico = models.DateField(
+        null=True, blank=True,
+        help_text="Fecha en que el candidato ingresó a Capacitación Práctica (OJT)."
+    )
+    fecha_contratacion = models.DateField(
+        null=True, blank=True, 
+        help_text="Fecha de firma del contrato (si aplica)."
+    )
+    
     objetivo_ventas_alcanzado = models.BooleanField(
         default=False,
         help_text="Resultado de la prueba de objetivo de ventas/KPI en práctica."
@@ -182,7 +197,34 @@ class Proceso(models.Model):
         help_text="Indica si se queda por 'Actitud' a pesar de fallar otras pruebas (Opción escasa)."
     )
 
-    fecha_contratacion = models.DateField(null=True, blank=True, help_text="Fecha de firma del contrato (si aplica).")
+    # Lógica de guardado automático de fechas (Sobrescribe el método save)
+    def save(self, *args, **kwargs):
+        
+        old_estado = None
+        if self.pk:
+            try:
+                # Recuperar el estado actual del objeto ANTES de que se apliquen los cambios
+                old_proceso = Proceso.objects.get(pk=self.pk)
+                old_estado = old_proceso.estado
+            except Proceso.DoesNotExist:
+                pass # Nuevo objeto
+
+        current_date = date.today() 
+        
+        # Transición a TEORIA: solo si el estado cambia A 'TEORIA' y el campo está vacío
+        if self.estado == 'TEORIA' and old_estado != 'TEORIA' and not self.fecha_teorico:
+            self.fecha_teorico = current_date
+            
+        # Transición a PRACTICA: solo si el estado cambia A 'PRACTICA' y el campo está vacío
+        elif self.estado == 'PRACTICA' and old_estado != 'PRACTICA' and not self.fecha_practico:
+            self.fecha_practico = current_date
+            
+        # Transición a CONTRATADO: solo si el estado cambia A 'CONTRATADO' y el campo está vacío
+        elif self.estado == 'CONTRATADO' and old_estado != 'CONTRATADO' and not self.fecha_contratacion:
+            self.fecha_contratacion = current_date
+        
+        # Llama al método save original para guardar el objeto y las fechas
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Proceso {self.pk}: {self.candidato.DNI} - {self.fecha_inicio.strftime('%Y-%m-%d')} ({self.get_estado_display()})"

@@ -3,7 +3,7 @@
     
     <h3 class="p-4 text-base font-extrabold bg-white border-b-4 {{ color }} flex justify-between items-center transition-colors">
         <span>
-            <span class="{% if color %}text-{{ color|slice:"7:"|default:'gray-800'}}{% else %}text-gray-800{% endif %}">
+            <span>
                 {% if status_key == 'CAPACITACION_PRACTICA' %}
                     OJT 
                 {% else %}
@@ -95,18 +95,40 @@
                     
                     {% elif proceso %}
                         
-                        <p class="text-xs text-gray-700 font-medium flex items-center">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                            Convocatoria: 
-                            <span class="ml-1 px-1 py-0.5 rounded-md font-bold text-[10px] bg-{{ color|slice:"7:"|default:'red-100' }}/50 text-{{ color|slice:"7:"|default:'red-700' }}">
-                                {{ proceso.fecha_inicio|date:"d/m/Y" }}
-                            </span>
-                        </p>
+                        <div class="text-[10px] text-gray-500 space-y-0.5">
+                            
+                            <p class="flex items-center">
+                                <span class="font-bold text-gray-700 mr-1">Inicio:</span>
+                                <span class="px-1 py-0.5 rounded-sm bg-gray-100 text-gray-700 font-medium">{{ proceso.fecha_inicio|date:"d/m/Y" }}</span>
+                            </p>
 
-                        {% if status_key == 'CAPACITACION_PRACTICA' %}
-                            <p class="text-xs text-gray-700 font-medium flex items-center">
+                            {% if proceso.fecha_teorico %}
+                                <p class="flex items-center">
+                                    <span class="font-bold text-gray-700 mr-1">Teórico:</span>
+                                    <span class="px-1 py-0.5 rounded-sm bg-blue-100 text-blue-700 font-medium">{{ proceso.fecha_teorico|date:"d/m/Y" }}</span>
+                                </p>
+                            {% endif %}
+
+                            {% if proceso.fecha_practico %}
+                                <p class="flex items-center">
+                                    <span class="font-bold text-gray-700 mr-1">Práctico:</span>
+                                    <span class="px-1 py-0.5 rounded-sm bg-green-100 text-green-700 font-medium">{{ proceso.fecha_practico|date:"d/m/Y" }}</span>
+                                </p>
+                            {% endif %}
+                            
+                            {% if proceso.fecha_contratacion %}
+                                <p class="flex items-center">
+                                    <span class="font-bold text-gray-700 mr-1">Contrato:</span>
+                                    <span class="px-1 py-0.5 rounded-sm bg-red-100 text-red-700 font-bold">{{ proceso.fecha_contratacion|date:"d/m/Y" }}</span>
+                                </p>
+                            {% endif %}
+                            
+                        </div>
+
+                        {% if proceso.supervisor and status_key == 'CAPACITACION_PRACTICA' or proceso.supervisor and status_key == 'CONTRATADO' %}
+                            <p class="text-xs text-gray-700 font-medium flex items-center pt-1 border-t border-dashed border-gray-100 mt-1">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                                Sup.: <span class="font-semibold ml-1">{{ proceso.supervisor.nombre|truncatechars:15 }}</span>
+                                Sup.: <span class="font-semibold ml-1 text-gray-900">{{ proceso.supervisor.nombre|truncatechars:18 }}</span>
                             </p>
                         {% endif %}
                         

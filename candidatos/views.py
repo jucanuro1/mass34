@@ -15,6 +15,7 @@ from django.urls import reverse
 from django.core.exceptions import ValidationError
 import pandas as pd
 import io
+from django.db import models
 
 class RegistroCandidatoView(LoginRequiredMixin, View):
     def get(self, request):
@@ -144,17 +145,21 @@ class ActualizarProcesoView(LoginRequiredMixin, View):
         proceso = get_object_or_404(Proceso, pk=proceso_id)
         candidato = proceso.candidato
 
+        estado_anterior = proceso.estado # Capturar el estado antes de la actualización
+
         nuevo_estado_proceso = request.POST.get('estado_proceso')
 
         objetivo_ventas = request.POST.get('objetivo_ventas_alcanzado') == 'on'
         factor_actitud = request.POST.get('factor_actitud_aplica') == 'on'
 
+        # Mapeo de estados de Proceso (Proceso.estado) a estados de Candidato (Candidato.estado_actual)
         estado_candidato_map = {
-            'CONVOCADO': 'CONVOCADO', 
+            'INICIADO': 'CONVOCADO', 
             'TEORIA': 'CAPACITACION_TEORICA',
             'PRACTICA': 'CAPACITACION_PRACTICA',
             'CONTRATADO': 'CONTRATADO',
             'NO_APTO': 'NO_APTO', 
+            'ABANDONO': 'ABANDONO'
         }
 
         if not nuevo_estado_proceso:
@@ -170,27 +175,28 @@ class ActualizarProcesoView(LoginRequiredMixin, View):
                     proceso.objetivo_ventas_alcanzado = objetivo_ventas
                     proceso.factor_actitud_aplica = factor_actitud
 
-                if nuevo_estado_proceso == 'CONTRATADO':
-                    proceso.fecha_contratacion = date.today()
+                # ❌ ELIMINADA: La asignación de fecha manual (proceso.fecha_contratacion = date.today())
+                # La lógica se encuentra ahora en el método Proceso.save()
 
+                # 1. GUARDAR PROCESO: Esto activa la lógica de auto-fechado en el modelo.
                 proceso.save()
 
+                # 2. ACTUALIZAR ESTADO MAESTRO DEL CANDIDATO
                 nuevo_estado_maestro = estado_candidato_map.get(nuevo_estado_proceso)
 
                 if nuevo_estado_maestro:
-                    # Lógica de actualización de estado maestro (solo avanza o establece finales)
+                    # *Asume que Candidato.ESTADOS está definido y ordenado*
                     estado_orden = {state[0]: i for i, state in enumerate(Candidato.ESTADOS)}
                     current_order = estado_orden.get(candidato.estado_actual, -1)
                     new_order = estado_orden.get(nuevo_estado_maestro, -1)
                     
-                    # Solo actualizamos el estado maestro si el nuevo estado es superior al actual
-                    # O si es un estado final (CONTRATADO o NO_APTO)
-                    if new_order > current_order or nuevo_estado_proceso in ['CONTRATADO', 'NO_APTO']:
+                    # Criterio de avance: solo actualizar si el nuevo estado es superior al actual o si es un estado final.
+                    if new_order > current_order or nuevo_estado_proceso in ['CONTRATADO', 'NO_APTO', 'ABANDONO']:
                         candidato.estado_actual = nuevo_estado_maestro
                         candidato.save()
                         messages.success(request, f'Candidato {candidato.nombres_completos} actualizado a: **{candidato.get_estado_actual_display()}**.')
                     else:
-                        messages.success(request, f'Proceso de {candidato.nombres_completos} actualizado a: {proceso.get_estado_display()}.')
+                        messages.success(request, f'Proceso de {candidato.nombres_completos} actualizado de {estado_anterior} a: {proceso.get_estado_display()}.')
                 
                 else:
                     messages.success(request, f'Proceso de {candidato.nombres_completos} actualizado a: {proceso.get_estado_display()}.')
@@ -200,6 +206,7 @@ class ActualizarProcesoView(LoginRequiredMixin, View):
             messages.error(request, f'Error al actualizar el Proceso: {e}')
 
         return redirect('kanban_dashboard')
+    
 
 class KanbanDashboardView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
@@ -640,7 +647,10 @@ class AsignarSupervisorIndividualView(LoginRequiredMixin, View):
 
 class ExportarCandidatosExcelView(LoginRequiredMixin, View):
     def get(self, request, estado, *args, **kwargs):
-        candidatos = Candidato.objects.filter(estado_actual=estado).order_by('fecha_registro')
+        # Es altamente recomendable usar select_related y prefetch_related para evitar consultas N+1
+        candidatos = Candidato.objects.filter(estado_actual=estado).order_by('fecha_registro').prefetch_related(
+            models.Prefetch('procesos', queryset=Proceso.objects.order_by('-fecha_inicio').select_related('supervisor', 'empresa_proceso'))
+        )
 
         if not candidatos.exists():
             messages.info(request, f"No se encontraron candidatos en el estado: {estado}")
@@ -648,8 +658,13 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
 
         data = []
         for c in candidatos:
-            # Usamos el prefetch en la vista del dashboard, pero aquí lo hacemos individualmente
-            ultimo_proceso = Proceso.objects.filter(candidato=c).order_by('-fecha_inicio').first()
+            # Obtenemos el proceso más reciente del prefetch
+            # Se asume que 'c.procesos.all()' devuelve el queryset prefetch (ordenado por fecha_inicio descendente)
+            ultimo_proceso = next(iter(c.procesos.all()), None) # Obtiene el primer elemento si existe, sino None
+
+            # Funcionalidad de ayuda para formatear fechas
+            def format_date(date_field):
+                return date_field.strftime('%d/%m/%Y') if date_field else ''
 
             data.append({
                 'DNI': c.DNI,
@@ -657,10 +672,19 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
                 'Teléfono / WhatsApp': c.telefono_whatsapp,
                 'Email': c.email if c.email else '',
                 'Estado Actual': c.get_estado_actual_display(), 
-                'Fecha Registro': c.fecha_registro.strftime('%d/%m/%Y') if c.fecha_registro else '',
+                'Fecha Registro': format_date(c.fecha_registro),
                 'Sede de Registro': c.sede_registro.nombre if c.sede_registro else 'N/A',
 
-                'Fecha Convocatoria': ultimo_proceso.fecha_inicio.strftime('%d/%m/%Y') if ultimo_proceso and ultimo_proceso.fecha_inicio else '',
+                # DATOS DEL ÚLTIMO PROCESO
+                'Empresa Cliente': ultimo_proceso.empresa_proceso.nombre if ultimo_proceso and ultimo_proceso.empresa_proceso else '',
+                'Fecha Convocatoria': format_date(ultimo_proceso.fecha_inicio) if ultimo_proceso else '',
+                
+                # 🆕 NUEVAS FECHAS AGREGADAS
+                'Fecha Teórico': format_date(ultimo_proceso.fecha_teorico) if ultimo_proceso else '',
+                'Fecha Práctico': format_date(ultimo_proceso.fecha_practico) if ultimo_proceso else '',
+                'Fecha Contratación': format_date(ultimo_proceso.fecha_contratacion) if ultimo_proceso else '',
+                # -------------------------
+                
                 'Supervisor Asignado': ultimo_proceso.supervisor.nombre if ultimo_proceso and ultimo_proceso.supervisor else '',
                 'Estado Proceso': ultimo_proceso.get_estado_display() if ultimo_proceso else 'N/A', 
                 'Objetivo Ventas': 'Sí' if ultimo_proceso and ultimo_proceso.objetivo_ventas_alcanzado else ('No' if ultimo_proceso and ultimo_proceso.estado in ['CONTRATADO', 'NO_APTO'] else 'N/A'),
@@ -671,7 +695,6 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
         df = pd.DataFrame(data)
 
         output = io.BytesIO()
-        # Usamos openpyxl para compatibilidad
         writer = pd.ExcelWriter(output, engine='openpyxl') 
 
         nombre_hoja = f"Candidatos_{estado}"[:31]
@@ -683,7 +706,9 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
             max_len = max(df[column].astype(str).map(len).max(), len(column)) + 2 
             worksheet.column_dimensions[chr(65 + col_idx)].width = max_len
 
-        writer.close()
+        # Importante: El método writer.close() debe ser usado si se usa openpyxl
+        # En versiones más recientes de pandas, writer.close() reemplaza a writer.save()
+        writer.close() 
 
         output.seek(0)
 
@@ -695,7 +720,6 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
         )
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
-
 
 @require_POST
 def registrar_asistencia_rapida(request):
