@@ -27,11 +27,6 @@
         }
     </script>
     <style>
-        /* * Mantenemos solo el CSS que afecta a los campos de texto/select/textarea para el estilo de Forms.
-        * ELIMINAMOS cualquier estilo CSS para .form-radio para que use el estilo por defecto o el de tu proyecto.
-        */
-        
-        /* Estilos de fondo para las opciones de radio/checkbox (mejora de UX) */
         .option-label:hover {
             background-color: theme('colors.pink.50');
         }
@@ -77,9 +72,14 @@
 
                     <div class="form-group">
                         <label for="id_DNI" class="block text-sm font-medium text-gray-700">DNI *</label>
-                        <input type="text" name="DNI" id="id_DNI" required 
-                                class="mt-1 block w-full border-b border-gray-300 focus:border-pink-700 focus:ring-0 p-1 bg-transparent transition duration-150 text-gray-800 placeholder-gray-400"
-                                placeholder="Tu respuesta">
+                        <input type="text" name="DNI" id="id_DNI" required
+                            maxlength="8" 
+                            pattern="[0-9]{8}" 
+                            inputmode="numeric" 
+                            oninvalid="this.setCustomValidity('Por favor, ingresa 8 dígitos numéricos para el DNI.')" 
+                            oninput="this.setCustomValidity('')"
+                            class="mt-1 block w-full border-b border-gray-300 focus:border-pink-700 focus:ring-0 p-1 bg-transparent transition duration-150 text-gray-800 placeholder-gray-400"
+                            placeholder="Tu respuesta">
                     </div>
 
                     <div class="form-group">
@@ -92,8 +92,13 @@
                     <div class="form-group">
                         <label for="id_telefono" class="block text-sm font-medium text-gray-700">Número de teléfono (WhatsApp) *</label>
                         <input type="text" name="telefono_whatsapp" id="id_telefono" required
-                                class="mt-1 block w-full border-b border-gray-300 focus:border-pink-700 focus:ring-0 p-1 bg-transparent transition duration-150 text-gray-800 placeholder-gray-400"
-                                placeholder="Tu respuesta">
+                            maxlength="9" 
+                            pattern="[0-9]{9}" 
+                            inputmode="tel" 
+                            oninvalid="this.setCustomValidity('Por favor, ingresa 9 dígitos numéricos para el Teléfono.')" 
+                            oninput="this.setCustomValidity('')"
+                            class="mt-1 block w-full border-b border-gray-300 focus:border-pink-700 focus:ring-0 p-1 bg-transparent transition duration-150 text-gray-800 placeholder-gray-400"
+                            placeholder="Tu respuesta">
                     </div>
 
                     <div class="form-group">

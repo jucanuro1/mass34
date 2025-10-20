@@ -739,12 +739,6 @@ def registrar_asistencia_rapida(request):
 
 
 class RegistroPublicoCompletoView(View):
-    """
-    Vista pública para registrar la información básica (Candidato) y la cualificación 
-    (DatosCualificacion) en un solo envío de formulario.
-    """
-    
-    # MÉTODO GET: Correcto, usa 'nombre' para las sedes.
     def get(self, request):
         sedes_disponibles = Sede.objects.all().order_by('nombre') 
 
@@ -759,8 +753,6 @@ class RegistroPublicoCompletoView(View):
 
     @transaction.atomic
     def post(self, request):
-        # 1. Captura de Datos
-        # Datos del modelo Candidato
         dni = request.POST.get('DNI', '').strip()
         nombres_completos = request.POST.get('nombres_completos', '').strip()
         telefono_whatsapp = request.POST.get('telefono_whatsapp', '').strip()
@@ -768,8 +760,6 @@ class RegistroPublicoCompletoView(View):
         distrito = request.POST.get('distrito', '').strip() 
         sede_id_seleccionada = request.POST.get('sede_registro')
         
-        # Datos del modelo DatosCualificacion
-        # CAPTURA SEGURA (No la convertimos a bool todavía)
         secundaria_completa_post = request.POST.get('secundaria_completa') 
         
         experiencia_campanas_espanolas = request.POST.get('experiencia_campanas_espanolas') == 'Si'
@@ -782,31 +772,33 @@ class RegistroPublicoCompletoView(View):
         discapacidad_enfermedad_cronica = request.POST.get('discapacidad_enfermedad_cronica', '').strip()
         dificultad_habla = request.POST.get('dificultad_habla') == 'Si'
         
-        # 2. Validación de campos obligatorios/formato
         errors = {}
         
-        # Validación de campos generales
+        # VALIDACIÓN DE CAMPOS OBLIGATORIOS (vacíos)
         campos_obligatorios = [dni, nombres_completos, telefono_whatsapp, distrito, experiencia_ventas_tipo, tiempo_experiencia_vendedor, conforme_beneficios, sede_id_seleccionada]
+        
         if not all(campos_obligatorios):
              messages.error(request, 'Por favor, complete todos los campos obligatorios (*).')
              return redirect('registro_publico_completo')
              
-        # VALIDACIÓN CLAVE: RESUELVE EL "NOT NULL constraint failed"
+        # VALIDACIÓN DE secundaria_completa (RESUELVE NOT NULL)
         if secundaria_completa_post is None:
              messages.error(request, 'El campo "¿Tienes secundaria completa?" es obligatorio. Por favor, selecciona Sí o No.')
              return redirect('registro_publico_completo')
              
-        # Ahora que sabemos que el valor existe, lo convertimos a booleano
         secundaria_completa = secundaria_completa_post == 'Si'
 
-        if dni and not dni.isdigit():
-            errors['DNI'] = 'El DNI debe contener solo números.'
-        
-        if errors:
-             messages.error(request, 'Corrija los errores de formato: DNI debe ser numérico.')
-             return redirect('registro_publico_completo')
+        # VALIDACIÓN DE FORMATO: DNI (8 DÍGITOS NUMÉRICOS)
+        if not (dni and dni.isdigit() and len(dni) == 8):
+            messages.error(request, 'El DNI debe tener exactamente 8 dígitos y contener solo números.')
+            return redirect('registro_publico_completo')
+
+        # VALIDACIÓN DE FORMATO: TELÉFONO (9 DÍGITOS NUMÉRICOS)
+        if not (telefono_whatsapp and telefono_whatsapp.isdigit() and len(telefono_whatsapp) == 9):
+            messages.error(request, 'El número de teléfono (WhatsApp) debe tener exactamente 9 dígitos y contener solo números.')
+            return redirect('registro_publico_completo')
             
-        # 3. Obtener el objeto Sede usando el ID capturado
+        # 3. Obtener el objeto Sede
         try:
              sede_seleccionada = Sede.objects.get(pk=sede_id_seleccionada)
         except Sede.DoesNotExist:
@@ -818,7 +810,6 @@ class RegistroPublicoCompletoView(View):
             
         # 4. Guardado en Transacción
         try:
-            # 4.1 Crear Candidato
             candidato = Candidato.objects.create(
                 DNI=dni,
                 nombres_completos=nombres_completos,
@@ -829,11 +820,10 @@ class RegistroPublicoCompletoView(View):
                 estado_actual='REGISTRADO' 
             )
             
-            # 4.2 Crear DatosCualificacion
             DatosCualificacion.objects.create(
                 candidato=candidato,
-                distrito=distrito, # Asegúrate de que 'distrito' se guarde aquí también si el modelo lo pide
-                secundaria_completa=secundaria_completa, # AHORA ES UN VALOR SEGURO (True/False)
+                distrito=distrito,
+                secundaria_completa=secundaria_completa,
                 experiencia_campanas_espanolas=experiencia_campanas_espanolas,
                 experiencia_ventas_tipo=experiencia_ventas_tipo,
                 empresa_vendedor=empresa_vendedor if empresa_vendedor else None,
@@ -846,7 +836,6 @@ class RegistroPublicoCompletoView(View):
             )
             
         except IntegrityError as e:
-            # MANEJO MEJORADO DE INTEGRITY ERROR (DNI/Teléfono/Email)
             error_message = str(e)
             
             if 'DNI' in error_message or 'PRIMARY KEY' in error_message:
@@ -867,7 +856,6 @@ class RegistroPublicoCompletoView(View):
             messages.error(request, f'Error inesperado al guardar datos: {e}')
             return redirect('registro_publico_completo')
             
-        # 5. Respuesta de Éxito
-        messages.success(request, '✅ ¡Tu registro y cualificación se completaron con éxito! Pronto te contactaremos.')
-        messages.success(request, '✅ ¡Tu registro y cualificación se completaron con éxito! Pronto te contactaremos.')
+        # 5. Respuesta de Éxito (Redirigir al formulario vacío con el mensaje)
+        messages.success(request, '✅ ¡Tu registro y cualificación se completaron con éxito! Puedes registrar a alguien más si lo deseas.')
         return redirect('registro_publico_completo')
