@@ -1,6 +1,8 @@
 from django.db import models
 from datetime import date
 from django.core.exceptions import ValidationError
+from django.utils import timezone
+from django.contrib.auth.models import User
 
 class Empresa(models.Model):
     nombre = models.CharField(max_length=100, unique=True)
@@ -234,26 +236,71 @@ class Proceso(models.Model):
 
 
 class RegistroAsistencia(models.Model):
-    proceso = models.ForeignKey(Proceso, on_delete=models.CASCADE)
-    fecha = models.DateField()
-
-    TIPO_ASISTENCIA = [
-        ('TEORIA', 'Teoría'),
-        ('PRACTICA', 'Práctica/Llamada')
+    # Relación Principal: La asistencia siempre pertenece a un proceso.
+    proceso = models.ForeignKey('Proceso', on_delete=models.CASCADE)
+    
+    # 🆕 Campo Adicional SOLICITADO (opcional para mantener la normalización)
+    # Lo vinculamos directamente al candidato para consultas rápidas, si se desea.
+    candidato = models.ForeignKey(
+        'Candidato', 
+        on_delete=models.CASCADE, 
+        null=True, blank=True, # Lo dejamos opcional para manejar migraciones
+        help_text="Candidato asociado (duplicado para optimización de consultas)."
+    )
+    
+    # 🆕 CAMBIO CLAVE: Usamos DateTimeField para hora exacta de registro
+    momento_registro = models.DateTimeField(default=timezone.now)
+    
+    # Nuevo: Para diferenciar entre la hora de entrada y la hora de salida
+    TIPO_MOVIMIENTO = [
+        ('ENTRADA', 'Entrada'),
+        ('SALIDA', 'Salida'),
+        ('REGISTRO', 'Registro Único') # Para Convocado/Teoría si no requieren hora de salida
     ]
-    tipo = models.CharField(max_length=8, choices=TIPO_ASISTENCIA)
+
+    estado_asistencia = models.CharField(
+            max_length=1, 
+            default='A', # Por defecto 'A' (Asistió)
+            choices=[('A', 'Asistió'), ('F', 'Faltó'), ('T', 'Tardanza')]
+        )
+    registrado_por = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='registros_creados'
+    )
+
+    movimiento = models.CharField(max_length=8, choices=TIPO_MOVIMIENTO, default='REGISTRO')
+
+    # Nuevo: Almacenar la fase del proceso en el momento del registro
+    FASE_ASISTENCIA = [
+        ('CONVOCADO', 'Convocado'),
+        ('TEORIA', 'Capacitación Teórica'),
+        ('PRACTICA', 'Capacitación Práctica (OJT)'),
+    ]
+    fase_actual = models.CharField(max_length=15, choices=FASE_ASISTENCIA)
 
     ASISTENCIA_ESTADO = [
-        ('A', 'Asistió'),
-        ('F', 'Faltó'),
+        ('A', 'Asistió (Puntual)'),
         ('T', 'Tardanza'),
-        ('B', 'Baja/Desistió')
+        ('F', 'Faltó'),
+        ('J', 'Justificado') # Agregado 'Justificado' por si acaso
     ]
-    estado = models.CharField(max_length=1, choices=ASISTENCIA_ESTADO, default='F')
+    estado = models.CharField(max_length=1, choices=ASISTENCIA_ESTADO, default='A')
 
     class Meta:
-        unique_together = ('proceso', 'fecha', 'tipo')
         verbose_name_plural = "Registros de Asistencia"
+        ordering = ['-momento_registro']
 
+    # Se ajusta el __str__ para usar el campo directo si existe, sino la relación indirecta
     def __str__(self):
-        return f"{self.proceso.candidato.DNI} - {self.fecha} - {self.get_estado_display()}"
+        dni = self.candidato.DNI if self.candidato else self.proceso.candidato.DNI
+        return f"{dni} - {self.fase_actual} ({self.get_movimiento_display()}) el {self.momento_registro.strftime('%d/%m/%Y %H:%M')}"
+
+    # Opcional: Sobrescribir save() para asegurar que el campo candidato se llene automáticamente
+    def save(self, *args, **kwargs):
+        if not self.candidato and self.proceso_id:
+            # Asegura que el campo candidato se rellena con la relación indirecta
+            self.candidato = self.proceso.candidato
+        super().save(*args, **kwargs)

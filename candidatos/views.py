@@ -2,16 +2,19 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.generic import View, DetailView 
 from django.db import IntegrityError
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.decorators.http import require_POST
 from django.db import transaction
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse,HttpResponseForbidden
 from django.db.models import Q, Count, Prefetch
 from .models import Candidato, Proceso, Empresa, Sede, Supervisor, RegistroAsistencia,DatosCualificacion
 from datetime import date, datetime
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django.urls import reverse
+from django.views.decorators.http import require_http_methods
 from django.core.exceptions import ValidationError
 import pandas as pd
 import io
@@ -514,7 +517,220 @@ class AsistenciaDiariaCheckView(View):
 
         except Candidato.DoesNotExist:
             return JsonResponse({'asistencia_registrada': False, 'candidato_encontrado': False}, status=200)
+
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt 
+from django.views.decorators.http import require_http_methods
+from django.db import transaction
+from django.utils import timezone
+# *Importante: Elimina 'from django.shortcuts import redirect' y 'from django.contrib import messages' de esta vista.
+
+@csrf_exempt 
+@require_http_methods(["POST"])
+@transaction.atomic
+def registrar_asistencia_rapida(request):
+    """
+    Recibe los datos POST del modal (AJAX) para registrar la asistencia y devuelve JSON.
+    """
+    # 1. VERIFICACIÓN DE AUTENTICACIÓN (Devuelve JSON 403)
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            {'success': False, 'message': 'Fallo de autenticación. Sesión expirada. Recargue la página.'}, 
+            status=403
+        )
+
+    try:
+        proceso_id = request.POST.get('proceso_id')
+        fase_actual_key = request.POST.get('fase_actual') 
+        movimiento = request.POST.get('movimiento')      
+        estado_asistencia = request.POST.get('estado_asistencia', 'A') 
         
+        # 2. Validaciones básicas de datos POST (Devuelve JSON 400)
+        if not all([proceso_id, fase_actual_key, movimiento]):
+            return JsonResponse(
+                {'success': False, 'message': "Error de datos: Faltan campos obligatorios para el registro."}, 
+                status=400
+            )
+
+        # 3. Obtener el proceso
+        proceso = Proceso.objects.get(pk=proceso_id)
+        candidato_nombre = proceso.candidato.nombres_completos
+        hoy = timezone.localdate()
+        mensaje_exito = "" 
+        
+        # --- 4. Lógica de Verificación de Duplicidad y Consistencia (Devuelve JSON 409/400) ---
+        
+        if movimiento == 'REGISTRO':
+            # CONVOCADO / TEORIA: Solo un registro por día
+            registro_existente_hoy = RegistroAsistencia.objects.filter(
+                proceso=proceso,
+                fase_actual=fase_actual_key,
+                momento_registro__date=hoy
+            ).exclude(movimiento__in=['ENTRADA', 'SALIDA']).exists()
+
+            if registro_existente_hoy:
+                return JsonResponse(
+                    {'success': False, 'message': f"⚠️ El candidato ya tiene registrada la asistencia ÚNICA para hoy en la fase {fase_actual_key}."}, 
+                    status=409
+                )
+        
+        elif movimiento in ['ENTRADA', 'SALIDA'] and fase_actual_key == 'PRACTICA':
+            # PRACTICA: Control de Entrada/Salida
+            ultimo_registro_hoy = RegistroAsistencia.objects.filter(
+                proceso=proceso, 
+                fase_actual='PRACTICA', 
+                momento_registro__date=hoy
+            ).order_by('-momento_registro').first()
+            
+            if movimiento == 'ENTRADA' and ultimo_registro_hoy and ultimo_registro_hoy.movimiento == 'ENTRADA':
+                hora_registro = timezone.localtime(ultimo_registro_hoy.momento_registro).strftime('%H:%M')
+                return JsonResponse(
+                    {'success': False, 'message': f"❌ Error: Ya marcó ENTRADA hoy a las {hora_registro}."}, 
+                    status=409
+                )
+
+            if movimiento == 'SALIDA' and (not ultimo_registro_hoy or ultimo_registro_hoy.movimiento == 'SALIDA'):
+                return JsonResponse(
+                    {'success': False, 'message': "❌ Error: Debe marcar ENTRADA antes de marcar SALIDA."}, 
+                    status=409
+                )
+
+        # --- 5. Crear el nuevo registro de asistencia ---
+        RegistroAsistencia.objects.create(
+            proceso=proceso,
+            fase_actual=fase_actual_key,
+            movimiento=movimiento,
+            estado_asistencia=estado_asistencia,
+            registrado_por=request.user,
+            momento_registro=timezone.now()
+        )
+        
+        # --- 6. Lógica de Transición de Estado y Mensajes de Éxito ---
+        
+        # Si el candidato asiste a la convocatoria, avanza a Teoria
+        if proceso.estado == 'INICIADO' and fase_actual_key == 'CONVOCADO':
+            proceso.estado = 'TEORIA' 
+            proceso.save()
+            mensaje_exito = f"🎉 ¡Asistencia Registrada y Avance! {candidato_nombre} ha avanzado a la fase de TEORÍA."
+            
+        elif movimiento == 'REGISTRO':
+            mensaje_exito = f"✅ Asistencia Única para {candidato_nombre} en fase {fase_actual_key} registrada."
+        elif movimiento == 'ENTRADA':
+            mensaje_exito = f"🟢 ENTRADA registrada para {candidato_nombre}."
+        elif movimiento == 'SALIDA':
+            mensaje_exito = f"🔴 SALIDA registrada para {candidato_nombre}. ¡Fin de Jornada!"
+
+        # 7. RETORNO FINAL DE ÉXITO (JSON 200)
+        return JsonResponse({'success': True, 'message': mensaje_exito})
+
+    except Proceso.DoesNotExist:
+        return JsonResponse({'success': False, 'message': "Error: El proceso referenciado no existe o no es válido."}, status=404)
+
+    except Exception as e:
+        # Esto captura cualquier error de Python (500) y lo devuelve como JSON
+        return JsonResponse(
+            {'success': False, 'message': f"Error interno crítico en el servidor: {str(e)}"}, 
+            status=500
+        )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def asistencia_dashboard(request):
+    """
+    Muestra la interfaz para escanear/digitar DNI (GET) y maneja la búsqueda AJAX (POST).
+    """
+    
+    if request.method == 'POST':
+        # Esta función solo acepta peticiones AJAX (para mayor seguridad)
+        if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({'success': False, 'message': 'Método no permitido.'}, status=405)
+            
+        dni = request.POST.get('dni', '').strip()
+        
+        if not dni:
+            return JsonResponse({'success': False, 'message': 'DNI no puede estar vacío.'})
+
+        try:
+            # 1. Buscar el candidato por DNI
+            candidato = Candidato.objects.get(DNI=dni)
+            
+            # 2. Encontrar el proceso activo más reciente
+            ultimo_proceso = Proceso.objects.filter(
+                candidato=candidato
+            ).exclude(
+                estado__in=['CONTRATADO', 'NO_APTO', 'ABANDONO']
+            ).order_by('-fecha_inicio').first()
+            
+            if not ultimo_proceso:
+                return JsonResponse({
+                    'success': False, 
+                    'message': f'Candidato "{candidato.nombres_completos}" no tiene un proceso activo para registrar asistencia.'
+                })
+
+            # 3. Determinar el TIPO DE MOVIMIENTO y FASE
+            fase_proceso = ultimo_proceso.estado # Ejemplo: 'PRACTICA', 'INDUCCION', etc.
+            
+            # Solo la fase 'PRACTICA' o similar requiere control de Entrada/Salida
+            requiere_entrada_salida = (fase_proceso == 'PRACTICA')
+            
+            movimiento_requerido = 'REGISTRO' # Valor por defecto para fases que solo requieren un check-in
+            ultimo_registro_hoy = None 
+            
+            # Lógica específica para Entrada/Salida
+            if requiere_entrada_salida:
+                hoy = timezone.localdate()
+                
+                # Buscar el último movimiento de asistencia para hoy, en esta fase.
+                ultimo_registro_hoy = RegistroAsistencia.objects.filter(
+                    proceso=ultimo_proceso, 
+                    fase_actual=fase_proceso,
+                    momento_registro__date=hoy 
+                ).order_by('-momento_registro').first()
+
+                if ultimo_registro_hoy and ultimo_registro_hoy.movimiento == 'ENTRADA':
+                    movimiento_requerido = 'SALIDA'
+                elif ultimo_registro_hoy and ultimo_registro_hoy.movimiento == 'SALIDA':
+                    # Si ya marcó salida HOY, el próximo movimiento debe ser ENTRADA (mañana o si vuelve a entrar)
+                    # Se mantiene como 'ENTRADA' para un eventual nuevo turno o día.
+                    movimiento_requerido = 'ENTRADA'
+                else:
+                    # Si no hay registros o el último fue un registro único, asumimos ENTRADA.
+                    movimiento_requerido = 'ENTRADA'
+
+            # 4. Formatear la información del último registro (para el HTML/JS)
+            if ultimo_registro_hoy:
+                # Usamos get_movimiento_display() si tienes choices definidos en el modelo
+                # Ejemplo: 'ENTRADA' -> 'Entrada'
+                hora_local = timezone.localtime(ultimo_registro_hoy.momento_registro)
+                ultimo_registro_str = f"{ultimo_registro_hoy.get_movimiento_display()} a las {hora_local.strftime('%H:%M:%S')}"
+            else:
+                ultimo_registro_str = '' # Enviamos string vacío si es None
+
+            # 5. Devolver los datos para mostrar el modal de registro
+            return JsonResponse({
+                'success': True,
+                'proceso_id': ultimo_proceso.pk,
+                'candidato_nombre': candidato.nombres_completos,
+                'candidato_dni': candidato.DNI,
+                'fase_proceso': ultimo_proceso.get_estado_display(),
+                'fase_proceso_key': fase_proceso,
+                'movimiento_requerido': movimiento_requerido,
+                'requiere_entrada_salida': requiere_entrada_salida,
+                'ultimo_registro': ultimo_registro_str, # Se envía el string formateado
+            })
+
+        except Candidato.DoesNotExist:
+            return JsonResponse({'success': False, 'message': f'DNI "{dni}" no encontrado en la base de datos.'}, status=404)
+        
+        except Exception as e:
+            # Captura cualquier otro error de la base de datos o lógica
+            print(f"Error en asistencia_dashboard: {e}")
+            return JsonResponse({'success': False, 'message': f'Error interno en el servidor: {e}'}, status=500)
+
+    # Si es GET, renderiza la plantilla principal
+    return render(request, 'asistencia_dashboard.html', {'today': date.today()})
+
 
 @method_decorator(csrf_exempt, name='dispatch')
 class UpdateStatusView(LoginRequiredMixin, View):
@@ -720,47 +936,6 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
         )
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
-
-@require_POST
-def registrar_asistencia_rapida(request):
-    """
-    Registra la asistencia diaria para un proceso activo basado en el ID enviado desde el modal.
-    """
-    # El ID del proceso se obtiene del campo oculto 'proceso_id' del formulario POST.
-    proceso_id = request.POST.get('proceso_id')
-
-    # Usamos 'kanban_dashboard' como nombre de redirección por defecto, ajústalo si es otro.
-    REDIRECT_URL = 'kanban_dashboard' 
-
-    if not proceso_id:
-        messages.error(request, "Error: No se proporcionó el ID del Proceso para registrar la asistencia.")
-        return redirect(REDIRECT_URL)
-
-    try:
-        # Usamos select_related para obtener el candidato en la misma consulta
-        proceso = Proceso.objects.select_related('candidato').get(pk=proceso_id)
-        candidato = proceso.candidato
-        hoy = date.today()
-
-        if RegistroAsistencia.objects.filter(proceso=proceso, fecha=hoy).exists():
-            messages.warning(request, f"Advertencia: La asistencia para {candidato.nombres_completos} (DNI: {candidato.DNI}) ya estaba registrada hoy.")
-            return redirect(REDIRECT_URL)
-
-        RegistroAsistencia.objects.create(
-            proceso=proceso,
-            fecha=hoy,
-        )
-        
-        messages.success(request, f"✅ Asistencia registrada con éxito para DNI: {candidato.DNI} - {candidato.nombres_completos}.")
-        
-    except Proceso.DoesNotExist:
-        messages.error(request, f"Error: No se encontró un proceso activo con ID {proceso_id}.")
-        
-    except Exception as e:
-        messages.error(request, f"Ocurrió un error al registrar la asistencia: {e}")
-
-    return redirect(REDIRECT_URL)
-
 
 class RegistroPublicoCompletoView(View):
     def get(self, request):

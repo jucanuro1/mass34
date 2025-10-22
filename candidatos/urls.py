@@ -27,8 +27,9 @@ urlpatterns = [
     path('exportar/candidatos/<str:estado>/', views.ExportarCandidatosExcelView.as_view(), name='exportar_candidatos_excel'),
 
     # APIs para Búsqueda y Asistencia
+    path('asistencia/', views.asistencia_dashboard, name='asistencia_dashboard'),
+    path('asistencia/registrar/', views.registrar_asistencia_rapida, name='registrar_asistencia_rapida'),
     path('api/search-candidato/', views.CandidatoSearchView.as_view(), name='candidato_search_api'),
-    path('api/asistencia/registrar/', views.registrar_asistencia_rapida, name='registrar_asistencia_rapida'),
     path('api/asistencia-check/', views.AsistenciaDiariaCheckView.as_view(), name='api_asistencia_check'),
     
 ]
