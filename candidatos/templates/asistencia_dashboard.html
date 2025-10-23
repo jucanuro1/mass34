@@ -246,9 +246,11 @@
 
             // Permite enviar el formulario con la tecla Enter (para escáneres de código de barras)
             dniInput.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    $('#dni-search-form').submit(); 
+                if (e.key === 'Enter' || e.key === 'Tab') {
+                    e.preventDefault(); // Detiene el comportamiento de Tab (cambio de foco)
+                    if (dniInput.value.trim().length >= 8) {
+                        $('#dni-search-form').submit(); 
+                    }
                 }
             });
 
