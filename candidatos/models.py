@@ -304,3 +304,124 @@ class RegistroAsistencia(models.Model):
             # Asegura que el campo candidato se rellena con la relación indirecta
             self.candidato = self.proceso.candidato
         super().save(*args, **kwargs)
+
+
+class ComentarioProceso(models.Model):
+    """
+    Registra observaciones o comentarios sobre un candidato durante una fase de su proceso.
+    """
+    
+    proceso = models.ForeignKey(
+        'Proceso', 
+        on_delete=models.CASCADE, 
+        related_name='comentarios',
+        help_text="Proceso de convocatoria al que se le añade el comentario."
+    )
+    
+
+    fase_proceso = models.CharField(
+        max_length=150, 
+        choices=Proceso.ESTADOS_PROCESO, # Reutiliza los choices del modelo Proceso
+        default='INICIADO',
+        help_text="Fase del proceso en el momento del registro del comentario."
+    )
+    
+    texto = models.TextField(help_text="Contenido de la observación o comentario.")
+    
+    # Trazabilidad
+    registrado_por = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        help_text="Usuario del sistema que realizó la observación."
+    )
+    
+    fecha_registro = models.DateTimeField(
+        auto_now_add=True,
+        help_text="Fecha y hora exactas del registro."
+    )
+    
+    def __str__(self):
+        return f"Comentario en {self.proceso.candidato.DNI} ({self.get_fase_proceso_display()})"
+    
+    class Meta:
+        verbose_name = "Comentario de Proceso"
+        verbose_name_plural = "Comentarios de Procesos"
+        ordering = ['-fecha_registro'] 
+
+
+class RegistroTest(models.Model):
+    """
+    Registra la subida o realización de un test/archivo de un candidato durante una fase de su proceso.
+    Permite registrar múltiples tests/archivos por proceso.
+    """
+    proceso = models.ForeignKey(
+        'Proceso', 
+        on_delete=models.CASCADE, 
+        related_name='tests_registrados',
+        help_text="Proceso de convocatoria al que pertenece el registro del test."
+    )
+
+    fase_proceso = models.CharField(
+        max_length=150, 
+        choices=Proceso.ESTADOS_PROCESO, 
+        default='TEORIA', 
+        help_text="Fase del proceso en el momento del registro del test."
+    )
+    
+    TIPO_TEST_CHOICES = [
+        ('PSICOLOGICO', 'Test Psicológico'),
+        ('CONOCIMIENTO', 'Test de Conocimiento'),
+        ('VENTAS_PRACTICA', 'Simulación/Prueba de Ventas'),
+        ('DOCUMENTO', 'Documento/Archivo Adicional'),
+        ('OTRO', 'Otro')
+    ]
+    tipo_test = models.CharField(
+        max_length=50, 
+        choices=TIPO_TEST_CHOICES,
+        help_text="Tipo de test o archivo subido."
+    )
+    
+    archivo_url = models.FileField(
+        upload_to='proceso_tests/%Y/%m/', 
+        blank=True, 
+        null=True,
+        help_text="Archivo subido (PDF, imagen, etc.)."
+    )
+    
+    resultado_obtenido = models.CharField(
+        max_length=50,
+        blank=True, 
+        null=True,
+        help_text="Resultado o calificación obtenida (ej. 'Apto', '9/10', 'No Apto')."
+    )
+    
+    registrado_por = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        help_text="Usuario del sistema que registró el test/archivo."
+    )
+
+    fecha_registro = models.DateTimeField(
+        auto_now_add=True,
+        help_text="Fecha y hora exactas del registro."
+    )
+    
+    def clean(self):
+        """Asegura que al menos se suba un archivo."""
+        if not self.archivo_url:
+             raise ValidationError({
+                'archivo_url': 'Debe subir un archivo para registrar el test/documento.'
+             })
+
+
+    def __str__(self):
+        return f"{self.get_tipo_test_display()} de {self.proceso.candidato.DNI} en {self.get_fase_proceso_display()}"
+        
+    class Meta:
+        verbose_name = "Registro de Test/Archivo"
+        verbose_name_plural = "Registros de Tests/Archivos"
+        ordering = ['-fecha_registro']

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Empresa, Sede, Supervisor, Candidato, Proceso, RegistroAsistencia, DatosCualificacion
+from .models import Empresa, Sede, Supervisor, Candidato, Proceso, RegistroAsistencia, DatosCualificacion, ComentarioProceso, RegistroTest
 from django.utils.html import format_html
 
 admin.site.register(Empresa)
@@ -132,3 +132,117 @@ class DatosCualificacionAdmin(admin.ModelAdmin):
             'fields': ('conforme_beneficios', 'detalle_beneficios_otro', 'disponibilidad_horario', 'discapacidad_enfermedad_cronica', 'dificultad_habla'),
         }),
     )
+
+
+@admin.register(ComentarioProceso)
+class ComentarioProcesoAdmin(admin.ModelAdmin):
+    # Campos a mostrar en la lista principal
+    list_display = (
+        'candidato_nombre', 
+        'proceso_id', 
+        'fase_proceso', 
+        'registrado_por', 
+        'fecha_registro_format'
+    )
+    
+    # Campos por los que se puede filtrar
+    list_filter = (
+        'fase_proceso', 
+        'registrado_por', 
+        'proceso__empresa_proceso', 
+        'fecha_registro'
+    )
+    
+    # Campos que permiten la búsqueda
+    search_fields = (
+        'proceso__candidato__nombres_completos', 
+        'proceso__candidato__DNI', 
+        'texto'
+    )
+    
+    # Solo lectura
+    readonly_fields = ('fecha_registro', 'fase_proceso')
+
+    # Agrupación de campos en la vista de detalle
+    fieldsets = (
+        (None, {
+            'fields': ('proceso', 'texto', 'registrado_por')
+        }),
+        ('Trazabilidad', {
+            'fields': ('fase_proceso', 'fecha_registro'),
+            'classes': ('collapse',), # Ocultar por defecto
+        }),
+    )
+
+    # Funciones personalizadas para obtener datos de modelos relacionados
+    def candidato_nombre(self, obj):
+        return obj.proceso.candidato.nombres_completos
+    candidato_nombre.short_description = 'Candidato'
+    
+    def proceso_id(self, obj):
+        return obj.proceso.pk
+    proceso_id.short_description = 'ID Proceso'
+
+    def fecha_registro_format(self, obj):
+        # Muestra fecha y hora legible
+        return obj.fecha_registro.strftime("%d/%m/%Y %H:%M")
+    fecha_registro_format.short_description = 'Fecha/Hora'
+
+@admin.register(RegistroTest)
+class RegistroTestAdmin(admin.ModelAdmin):
+    # Campos a mostrar en la lista principal
+    list_display = (
+        'candidato_nombre', 
+        'proceso_id', 
+        'tipo_test', 
+        'fase_proceso', 
+        'resultado_obtenido', 
+        'descargar_archivo'
+    )
+    
+    # Campos por los que se puede filtrar
+    list_filter = (
+        'tipo_test', 
+        'fase_proceso', 
+        'registrado_por', 
+        'proceso__empresa_proceso'
+    )
+    
+    # Campos que permiten la búsqueda
+    search_fields = (
+        'proceso__candidato__nombres_completos', 
+        'proceso__candidato__DNI', 
+        'resultado_obtenido'
+    )
+    
+    # Solo lectura
+    readonly_fields = ('fecha_registro', 'fase_proceso')
+
+    # Agrupación de campos en la vista de detalle
+    fieldsets = (
+        (None, {
+            'fields': ('proceso', 'tipo_test', 'archivo_url', 'resultado_obtenido')
+        }),
+        ('Información de Registro', {
+            'fields': ('registrado_por', 'fase_proceso', 'fecha_registro'),
+        }),
+    )
+    
+    # Funciones personalizadas para obtener datos de modelos relacionados o acciones
+    def candidato_nombre(self, obj):
+        return obj.proceso.candidato.nombres_completos
+    candidato_nombre.short_description = 'Candidato'
+
+    def proceso_id(self, obj):
+        return obj.proceso.pk
+    proceso_id.short_description = 'ID Proceso'
+
+    # Función para crear un enlace de descarga en la lista (mejor UX que solo el path)
+    def descargar_archivo(self, obj):
+        if obj.archivo_url:
+            from django.utils.html import format_html
+            # Asegúrate de configurar MEDIA_URL en settings.py para que esto funcione
+            return format_html('<a href="{}" target="_blank">Descargar</a>', obj.archivo_url.url)
+        return "No hay archivo"
+    descargar_archivo.short_description = 'Archivo'
+

@@ -11,234 +11,17 @@
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
-        
-        /* 🎨 Paleta de Colores y Variables Dinámicas */
-        :root {
-            --color-primary-red: #FF3A3A; 
-            --color-primary-red-dark: #E60000; 
-            /* Sombra sutil y elegante */
-            --shadow-subtle: 0 4px 10px rgba(0, 0, 0, 0.05);
-        }
-
-        /* Clases de Color */
-        .bg-corporate-red { background-color: var(--color-primary-red); }
-        .hover\:bg-corporate-red-dark:hover { background-color: var(--color-primary-red-dark); }
-        .text-corporate-red { color: var(--color-primary-red); }
-
-        /* Estilo para el fondo base: Blanco puro */
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #FFFFFF; 
-        }
-        
-        /* Navbar: Glassmorphism y Flotante (Mejorado) */
-        .navbar-glass {
-            height: 64px; 
-            background-color: rgba(255, 255, 255, 0.98); 
-            backdrop-filter: blur(10px); 
-            -webkit-backdrop-filter: blur(10px); 
-            border-bottom: 1px solid rgba(0, 0, 0, 0.08); 
-            box-shadow: 0 1px 15px rgba(0, 0, 0, 0.08); 
-            padding-top: 4px; 
-            padding-bottom: 4px;
-        }
-
-        /* Contenido Principal (solo para mantener el layout) */
-        .main-content-kanban {
-            min-height: calc(100vh - 64px); 
-            padding-top: 64px;
-            padding-bottom: 2rem; 
-            max-width: none; 
-            width: 100%;
-            padding-left: 1rem;
-            padding-right: 1rem;
-        }
-
-        /* 🚀 NAVEGACIÓN POR ICONOS (UI FLOTANTE ELEGANTES) 🚀 */
-        .nav-icon-item {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 44px; 
-            width: 44px;
-            border-radius: 9999px; 
-            color: #6B7280; 
-            background-color: transparent;
-            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-            border: 2px solid transparent;
-        }
-
-        .nav-icon-item:hover {
-            color: var(--color-primary-red);
-            background-color: #FFF0F0; 
-            border-color: rgba(255, 58, 58, 0.2); 
-            box-shadow: 0 0 0 2px rgba(255, 58, 58, 0.05);
-        }
-        
-        /* Esta clase la gestiona Django/servidor */
-        .nav-icon-item.active {
-            color: white;
-            background-color: var(--color-primary-red);
-            border-color: var(--color-primary-red);
-            box-shadow: 0 6px 20px rgba(255, 58, 58, 0.35); 
-            transform: translateY(-2px); 
-        }
-
-        /* Botón de Login Outline Dinámico */
-        .btn-login-dynamic {
-            color: #4B5563; 
-            padding: 0.5rem 1.2rem;
-            border-radius: 9999px;
-            border: 2px solid transparent; 
-            font-weight: 600; 
-            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-        }
-
-        .btn-login-dynamic:hover {
-            color: var(--color-primary-red);
-            border-color: var(--color-primary-red);
-            background-color: rgba(255, 58, 58, 0.05); 
-            box-shadow: 0 0 8px rgba(255, 58, 58, 0.1);
-            transform: translateY(-1px);
-        }
-
-        .btn-login-dynamic svg {
-            transition: transform 0.3s ease-in-out;
-        }
-
-        .btn-login-dynamic:hover svg {
-            transform: translateX(-2px); 
-            color: var(--color-primary-red);
-        }
-
-        .title-gradient {
-            /* Un gradiente de rojo a un rojo oscuro sutil */
-            background: linear-gradient(to right, #E60000, #FF3A3A);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            /* Sombra sutil para el efecto flotante */
-            text-shadow: 0px 4px 8px rgba(255, 58, 58, 0.2); 
-        }
-
-        .btn-icon-red {
-            background-color: var(--color-primary-red);
-            color: white;
-            border-radius: 9999px; /* rounded-full */
-            box-shadow: 0 4px 10px rgba(255, 58, 58, 0.2);
-            transition: all 0.2s ease-in-out;
-            flex-shrink: 0; /* Evita que el botón se comprima */
-        }
-
-        .btn-icon-red:hover {
-            background-color: var(--color-primary-red-dark);
-            box-shadow: 0 6px 15px rgba(255, 58, 58, 0.4);
-            transform: translateY(-1px);
-        }
-        
-        /* Ajuste para el botón de copiar dentro del grupo */
-        .btn-icon-red.h-8.w-8 {
-            /* Asegura que el color se aplique correctamente al icono de Copiar */
-            background-color: var(--color-primary-red);
-            border: none;
-        }
-        
-        .btn-icon-red.h-8.w-8:hover {
-            background-color: var(--color-primary-red-dark);
-        }
-
     </style>
+    
+    <link rel="stylesheet" href="{% static 'css/base.css' %}">
+    
+    {% block extra_css %}
+    {% endblock extra_css %}
+    
 </head>
 <body class="antialiased overflow-x-hidden"> 
 
-
-    {% with request.resolver_match.url_name as current_url_name %}
-    <nav class="fixed top-0 left-0 right-0 navbar-glass z-30 flex items-center justify-between px-6 lg:px-10">
-        
-        <div class="flex items-center space-x-8">
-            
-            <div class="flex items-center space-x-2">
-                
-                <a href="{% url 'kanban_dashboard' %}" class="flex items-center space-x-2">
-                    <img src="{% static 'images/+34_SWO.png' %}" 
-                        alt="Logo +34 SWO" 
-                        class="h-12 w-auto object-contain"
-                        style="filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.1));"
-                    >
-                </a>
-            </div>
-            
-            <div class="hidden sm:flex h-full items-center space-x-1 border-l border-gray-100 pl-6">
-                
-                <a href="{% url 'kanban_dashboard' %}" 
-                    title="Tableros Kanban" 
-                    class="nav-icon-item 
-                        {% if current_url_name == 'kanban_dashboard' or not current_url_name %}active{% endif %}"> 
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-layout-grid"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><line x1="3" x2="21" y1="9" y2="9"/><line x1="3" x2="21" y1="15" y2="15"/><line x1="9" x2="9" y1="9" y2="15"/><line x1="15" x2="15" y1="9" y2="15"/></svg>
-                </a>
-                
-                <!-- NUEVO ENLACE DE ASISTENCIA RÁPIDA -->
-                <a href="{% url 'asistencia_dashboard' %}" 
-                    title="Registro de Asistencia" 
-                    class="nav-icon-item 
-                        {% if current_url_name == 'asistencia_dashboard' %}active{% endif %}">
-                    <!-- Icono: Watch (Reloj, simboliza control de tiempo) o ClipboardCheck -->
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-watch"><circle cx="12" cy="12" r="6"/><polyline points="12 10 12 12 14 12"/></svg>
-                </a>
-                
-                <a href="#" 
-                    title="Candidatos/Contratados" 
-                    class="nav-icon-item">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-users"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                </a>
-                
-                <a href="https://app.powerbi.com/view?r=eyJrIjoiN2Y5MWM1Y2QtMWIzOC00YWViLWIyODktMzA4ODJlNDViZTc2IiwidCI6ImY1YzBiYzI1LWY4NDUtNDA0Ni05ODEzLTQ4YzNhYTcyMjgwNiIsImMiOjR9" 
-                    title="Analíticas" 
-                    class="nav-icon-item"
-                    target="_blank" 
-                    rel="noopener noreferrer">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-activity"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-                </a>
-
-                <a href="#" 
-                    title="Ajustes" 
-                    class="nav-icon-item">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.78 1.48a2 2 0 0 0 .73 2.73l.15.08a2 2 0 0 1 1 1.74v.44a2 2 0 0 1-1 1.73l-.15.08a2 2 0 0 0-.73 2.73l.78 1.48a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73v.18a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.78-1.48a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.44a2 2 0 0 1 1-1.73l-.15-.08a2 2 0 0 0 .73-2.73l-.78-1.48a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-                </a>
-
-            </div>
-            
-        </div>
-        
-        <div class="flex items-center space-x-4">
-            
-            {% if user.is_authenticated %}
-                <form method="post" action="{% url 'logout' %}" style="display: inline;">
-                    {% csrf_token %}
-                    <div class="group relative flex items-center space-x-3">
-                        
-                        <a href="#" title="Ver Perfil" class="text-gray-700 text-sm font-semibold transition duration-200 hover:text-corporate-red hover:underline underline-offset-4 hidden sm:block">
-                            {% if user.first_name and user.last_name %}
-                                {{ user.first_name }} {{ user.last_name|truncatechars:15 }} 
-                            {% else %}
-                                {{ user.username|truncatechars:15 }} 
-                            {% endif %}
-                        </a>
-
-                        <button type="submit" title="Cerrar Sesión" class="flex items-center justify-center h-10 w-10 rounded-full bg-gray-100 text-gray-500 hover:bg-corporate-red hover:text-white transition duration-300 shadow-sm hover:shadow-lg hover:shadow-red-200">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-log-out"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
-                        </button>
-                    </div>
-                </form>
-            {% else %}
-                <a href="{% url 'login' %}" class="flex items-center text-sm font-bold uppercase btn-login-dynamic">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-log-in mr-2 transition-colors duration-300"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/></svg>
-                    INICIAR SESIÓN
-                </a>
-            {% endif %}
-        </div>
-    </nav>
-
-    {% endwith %}
+    {% include 'header.html' %} 
 
     <div class="min-h-screen flex flex-col">
         
@@ -251,9 +34,7 @@
             {% endblock %}
         </main>
 
-        <footer class="text-center text-xs text-gray-400 py-3 border-t border-gray-100 mt-auto px-4">
-            &copy; 2025 + 34 | Diseño de Interfaz de Usuario Avanzado.
-        </footer>
+        {% include 'footer.html' %} 
     </div>
     
     {% block extra_js %}

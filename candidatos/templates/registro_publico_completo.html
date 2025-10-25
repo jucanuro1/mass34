@@ -7,31 +7,11 @@
     <title>Registro y Cualificación de Candidato</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        // Configuración para definir los colores personalizados que usas (pink-700, pink-50, etc.)
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'pink-700': '#D4008B', 
-                        'pink-800': '#A3006D',
-                        'pink-50': '#FFF0F7',
-                        'blue-600': '#3b82f6',
-                        'pink-300': '#F9B7E3'
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    },
-                }
-            }
-        }
-    </script>
-    <style>
-        .option-label:hover {
-            background-color: theme('colors.pink.50');
-        }
-        
-    </style>
+    
+    <script src="{% static 'js/registro_formulario.js' %}"></script>
+    
+    <link rel="stylesheet" href="{% static 'css/registro_formulario.css' %}">
+
 </head>
 <body class="font-sans bg-gray-50">
     <div class="min-h-screen flex items-start justify-center p-4 sm:p-8">
@@ -207,7 +187,7 @@
                                     <input type="radio" name="conforme_beneficios" value="OTRO" class="form-radio text-blue-600">
                                     <span class="text-gray-900">Otro:</span>
                                 </div>
-                                <input type="text" name="detalle_beneficios_otro" 
+                                <input type="text" name="detalle_beneficios_otro" disabled 
                                         class="mt-1 ml-6 block w-full border-b border-gray-300 focus:border-pink-700 focus:ring-0 p-1 bg-transparent text-sm transition duration-150 text-gray-800 placeholder-gray-400"
                                         placeholder="Tu respuesta (detalle)">
                             </label>

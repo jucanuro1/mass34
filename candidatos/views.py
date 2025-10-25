@@ -8,7 +8,7 @@ from django.views.decorators.http import require_POST
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse,HttpResponseForbidden
 from django.db.models import Q, Count, Prefetch
-from .models import Candidato, Proceso, Empresa, Sede, Supervisor, RegistroAsistencia,DatosCualificacion
+from .models import Candidato, Proceso, Empresa, Sede, Supervisor, RegistroAsistencia,DatosCualificacion, ComentarioProceso, RegistroTest
 from datetime import date, datetime
 from django.utils import timezone
 from django.utils.decorators import method_decorator
@@ -210,7 +210,6 @@ class ActualizarProcesoView(LoginRequiredMixin, View):
 
         return redirect('kanban_dashboard')
     
-
 class KanbanDashboardView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
 
@@ -318,7 +317,6 @@ class KanbanDashboardView(LoginRequiredMixin, View):
         }
         return render(request, 'dashboard.html', context)
     
-
 @method_decorator(csrf_exempt, name='dispatch')
 class UpdateStatusMultipleView(LoginRequiredMixin, View):
     """
@@ -518,12 +516,6 @@ class AsistenciaDiariaCheckView(View):
         except Candidato.DoesNotExist:
             return JsonResponse({'asistencia_registrada': False, 'candidato_encontrado': False}, status=200)
 
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt 
-from django.views.decorators.http import require_http_methods
-from django.db import transaction
-from django.utils import timezone
-# *Importante: Elimina 'from django.shortcuts import redirect' y 'from django.contrib import messages' de esta vista.
 
 @csrf_exempt 
 @require_http_methods(["POST"])
@@ -698,10 +690,7 @@ def asistencia_dashboard(request):
                     # Si no hay registros o el último fue un registro único, asumimos ENTRADA.
                     movimiento_requerido = 'ENTRADA'
 
-            # 4. Formatear la información del último registro (para el HTML/JS)
             if ultimo_registro_hoy:
-                # Usamos get_movimiento_display() si tienes choices definidos en el modelo
-                # Ejemplo: 'ENTRADA' -> 'Entrada'
                 hora_local = timezone.localtime(ultimo_registro_hoy.momento_registro)
                 ultimo_registro_str = f"{ultimo_registro_hoy.get_movimiento_display()} a las {hora_local.strftime('%H:%M:%S')}"
             else:
@@ -1058,3 +1047,102 @@ class RegistroPublicoCompletoView(View):
         # 5. Respuesta de Éxito (Redirigir al formulario vacío con el mensaje)
         messages.success(request, '✅ ¡Tu registro y cualificación se completaron con éxito! Puedes registrar a alguien más si lo deseas.')
         return redirect('registro_publico_completo')
+    
+
+@login_required
+@require_http_methods(["POST"])
+@transaction.atomic
+def registrar_observacion(request):
+    """
+    Registra una nueva observación (ComentarioProceso) para un Proceso específico mediante AJAX.
+    """
+    
+    try:
+        # 1. Obtener datos y validación de existencia
+        proceso_id = request.POST.get('proceso_id')
+        observacion_texto = request.POST.get('observacion_texto', '').strip()
+        
+        if not proceso_id or not observacion_texto:
+            return JsonResponse({'success': False, 'message': 'Faltan datos obligatorios (ID de proceso u observación).'}, status=400)
+
+        if len(observacion_texto) > 500:
+             return JsonResponse({'success': False, 'message': 'La observación excede el límite de 500 caracteres.'}, status=400)
+
+        # 2. Buscar el Proceso
+        # Si el proceso no existe, Django devuelve un 404, no es necesario un bloque try/except grande aquí.
+        proceso = get_object_or_404(Proceso, pk=proceso_id)
+            
+        # 3. Crear el registro del comentario
+        ComentarioProceso.objects.create(
+            proceso=proceso,
+            texto=observacion_texto,
+            registrado_por=request.user, # El usuario logueado
+            fase_proceso=proceso.estado # Guarda la fase actual del Proceso
+        )
+        
+        # 4. Retorno de éxito
+        return JsonResponse({
+            'success': True, 
+            'message': f'Observación guardada con éxito para {proceso.candidato.nombres_completos} en fase {proceso.get_estado_display()}.'
+        })
+
+    except Exception as e:
+        # 5. Manejo de otros errores internos
+        print(f"Error al registrar observación: {e}") # Útil para depuración
+        return JsonResponse(
+            {'success': False, 'message': 'Error interno al guardar la observación.'}, 
+            status=500
+        )
+    
+
+@login_required
+@require_http_methods(["POST"])
+@transaction.atomic
+def registrar_test_archivo(request):
+    """
+    Registra un test (archivo y metadatos) para un Proceso específico usando RegistroTest.
+    Maneja la subida de archivos (request.FILES).
+    """
+    
+    # La autenticación se maneja con @login_required
+
+    try:
+        # 1. Obtener datos del POST (Archivo y Metadatos)
+        proceso_id = request.POST.get('proceso_id')
+        tipo_test = request.POST.get('tipo_test')
+        resultado_obtenido = request.POST.get('resultado_obtenido', '').strip()
+        archivo = request.FILES.get('archivo') # Uso de request.FILES para archivos
+
+        # 2. Validación obligatoria
+        if not proceso_id or not tipo_test or not archivo:
+            return JsonResponse({'success': False, 'message': 'Faltan datos obligatorios (ID de Proceso, Tipo de Test o Archivo).'}, status=400)
+
+        # 3. Buscar el Proceso
+        proceso = get_object_or_404(Proceso, pk=proceso_id)
+        
+        registro = RegistroTest.objects.create(
+            proceso=proceso,
+            fase_proceso=proceso.estado, # Guarda la fase actual
+            tipo_test=tipo_test,
+            archivo_url=archivo, 
+            resultado_obtenido=resultado_obtenido if resultado_obtenido else None,
+            registrado_por=request.user
+        )
+        
+        # 5. Retorno de éxito
+        return JsonResponse({
+            'success': True, 
+            'message': f'Test subido ({registro.get_tipo_test_display()}) y registrado con éxito para {proceso.candidato.nombres_completos}.'
+        })
+
+    except Exception as e:
+        # 6. Manejo de otros errores internos (ej. error de I/O al guardar el archivo)
+        print(f"Error al registrar test/archivo: {e}") # Útil para depuración
+        return JsonResponse(
+            {'success': False, 'message': 'Error interno al procesar la subida del archivo.'}, 
+            status=500
+        )
+    
+
+
+
