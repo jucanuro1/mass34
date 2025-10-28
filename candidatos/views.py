@@ -5,7 +5,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.views.decorators.http import require_POST
-from django.db import transaction
+from django.db import transaction, DatabaseError, OperationalError, IntegrityError
 from django.http import JsonResponse, HttpResponse,HttpResponseForbidden
 from django.db.models import Q, Count, Prefetch
 from .models import Candidato, Proceso, Empresa, Sede, Supervisor, RegistroAsistencia,DatosCualificacion, ComentarioProceso, RegistroTest
@@ -18,7 +18,10 @@ from django.views.decorators.http import require_http_methods
 from django.core.exceptions import ValidationError
 import pandas as pd
 import io
+from datetime import date
 from django.db import models
+import time
+
 
 class RegistroCandidatoView(LoginRequiredMixin, View):
     def get(self, request):
@@ -1051,97 +1054,124 @@ class RegistroPublicoCompletoView(View):
 
 @login_required
 @require_http_methods(["POST"])
-@transaction.atomic
 def registrar_observacion(request):
-    """
-    Registra una nueva observación (ComentarioProceso) para un Proceso específico mediante AJAX.
-    """
     
-    try:
-        # 1. Obtener datos y validación de existencia
-        proceso_id = request.POST.get('proceso_id')
-        observacion_texto = request.POST.get('observacion_texto', '').strip()
-        
-        if not proceso_id or not observacion_texto:
-            return JsonResponse({'success': False, 'message': 'Faltan datos obligatorios (ID de proceso u observación).'}, status=400)
+    proceso_id = request.POST.get('proceso_id')
+    observacion_texto = request.POST.get('observacion_texto', '').strip()
+    
+    if not proceso_id or not observacion_texto:
+        return JsonResponse({'success': False, 'message': 'Faltan datos obligatorios.'}, status=400)
 
-        if len(observacion_texto) > 500:
-             return JsonResponse({'success': False, 'message': 'La observación excede el límite de 500 caracteres.'}, status=400)
+    if len(observacion_texto) > 500:
+        return JsonResponse({'success': False, 'message': 'La observación excede el límite de 500 caracteres.'}, status=400)
 
-        # 2. Buscar el Proceso
-        # Si el proceso no existe, Django devuelve un 404, no es necesario un bloque try/except grande aquí.
-        proceso = get_object_or_404(Proceso, pk=proceso_id)
+    MAX_RETRIES = 3 
+    
+    for attempt in range(MAX_RETRIES):
+        try:
+            proceso = Proceso.objects.get(pk=proceso_id)
+
+            ComentarioProceso.objects.create(
+                proceso=proceso,
+                texto=observacion_texto,
+                registrado_por=request.user,
+                fase_proceso=proceso.estado
+            )
             
-        # 3. Crear el registro del comentario
-        ComentarioProceso.objects.create(
-            proceso=proceso,
-            texto=observacion_texto,
-            registrado_por=request.user, # El usuario logueado
-            fase_proceso=proceso.estado # Guarda la fase actual del Proceso
-        )
-        
-        # 4. Retorno de éxito
-        return JsonResponse({
-            'success': True, 
-            'message': f'Observación guardada con éxito para {proceso.candidato.nombres_completos} en fase {proceso.get_estado_display()}.'
-        })
+            return JsonResponse({
+                'success': True, 
+                'message': 'Observación guardada con éxito.' 
+            })
 
-    except Exception as e:
-        # 5. Manejo de otros errores internos
-        print(f"Error al registrar observación: {e}") # Útil para depuración
-        return JsonResponse(
-            {'success': False, 'message': 'Error interno al guardar la observación.'}, 
-            status=500
-        )
-    
+        except (OperationalError, DatabaseError) as e:
+            if "database is locked" not in str(e):
+                raise
+                
+            if attempt < MAX_RETRIES - 1:
+                print(f"Intento {attempt + 1} fallido (DB Locked). Reintentando...")
+                time.sleep(0.2 * (attempt + 1)) 
+            else:
+                return JsonResponse(
+                    {'success': False, 'message': f'Error interno en el servidor. Detalles: database is locked tras {MAX_RETRIES} intentos.'}, 
+                    status=500
+                )
+        
+        except Proceso.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'El proceso especificado no fue encontrado.'}, status=404)
+        
+        except Exception as e:
+            print(f"Error grave al registrar observación: {e}") 
+            return JsonResponse(
+                {'success': False, 'message': f'Error interno en el servidor. Detalles: {str(e)}'}, 
+                status=500
+            )
+
 
 @login_required
 @require_http_methods(["POST"])
-@transaction.atomic
 def registrar_test_archivo(request):
-    """
-    Registra un test (archivo y metadatos) para un Proceso específico usando RegistroTest.
-    Maneja la subida de archivos (request.FILES).
-    """
     
-    # La autenticación se maneja con @login_required
+    # 1. Obtener datos del POST (Archivo y Metadatos)
+    proceso_id = request.POST.get('proceso_id')
+    tipo_test = request.POST.get('tipo_test')
+    resultado_obtenido = request.POST.get('resultado_obtenido', '').strip()
+    archivo = request.FILES.get('archivo')
 
-    try:
-        # 1. Obtener datos del POST (Archivo y Metadatos)
-        proceso_id = request.POST.get('proceso_id')
-        tipo_test = request.POST.get('tipo_test')
-        resultado_obtenido = request.POST.get('resultado_obtenido', '').strip()
-        archivo = request.FILES.get('archivo') # Uso de request.FILES para archivos
+    # 2. Validación obligatoria (Status 400)
+    if not proceso_id or not tipo_test or not archivo:
+        return JsonResponse({'success': False, 'message': 'Faltan datos obligatorios (ID de Proceso, Tipo de Test o Archivo).'}, status=400)
 
-        # 2. Validación obligatoria
-        if not proceso_id or not tipo_test or not archivo:
-            return JsonResponse({'success': False, 'message': 'Faltan datos obligatorios (ID de Proceso, Tipo de Test o Archivo).'}, status=400)
+    MAX_RETRIES = 3 
+    
+    for attempt in range(MAX_RETRIES):
+        try:
+            # 3. Buscar el Proceso (Usamos get() para manejar 404 como JSON)
+            proceso = Proceso.objects.get(pk=proceso_id)
+            
+            # El decorador @transaction.atomic YA NO ES NECESARIO AQUÍ
+            # porque estamos manejando la lógica de reintento con try/except
+            
+            # 4. Crear el registro del test (Esta es la operación de escritura crítica)
+            RegistroTest.objects.create(
+                proceso=proceso,
+                fase_proceso=proceso.estado,
+                tipo_test=tipo_test,
+                archivo_url=archivo, 
+                resultado_obtenido=resultado_obtenido if resultado_obtenido else None,
+                registrado_por=request.user
+            )
+            
+            # 5. Retorno de éxito (Simple para evitar errores de serialización)
+            return JsonResponse({
+                'success': True, 
+                'message': 'Archivo de Test registrado y subido con éxito.'
+            })
 
-        # 3. Buscar el Proceso
-        proceso = get_object_or_404(Proceso, pk=proceso_id)
+        # 6. Captura de Error de Bloqueo de DB
+        except (OperationalError, DatabaseError) as e:
+            if "database is locked" not in str(e):
+                raise
+                
+            if attempt < MAX_RETRIES - 1:
+                print(f"Intento {attempt + 1} fallido (DB Locked en subida). Reintentando...")
+                time.sleep(0.5 * (attempt + 1)) # Aumentamos la espera a 0.5s para archivos
+            else:
+                return JsonResponse(
+                    {'success': False, 'message': f'Error interno en el servidor. Detalles: database is locked tras {MAX_RETRIES} intentos de subida.'}, 
+                    status=500
+                )
         
-        registro = RegistroTest.objects.create(
-            proceso=proceso,
-            fase_proceso=proceso.estado, # Guarda la fase actual
-            tipo_test=tipo_test,
-            archivo_url=archivo, 
-            resultado_obtenido=resultado_obtenido if resultado_obtenido else None,
-            registrado_por=request.user
-        )
+        # 7. Captura si el proceso no existe (Status 404)
+        except Proceso.DoesNotExist:
+            return JsonResponse({'success': False, 'message': 'El proceso especificado no fue encontrado.'}, status=404)
         
-        # 5. Retorno de éxito
-        return JsonResponse({
-            'success': True, 
-            'message': f'Test subido ({registro.get_tipo_test_display()}) y registrado con éxito para {proceso.candidato.nombres_completos}.'
-        })
-
-    except Exception as e:
-        # 6. Manejo de otros errores internos (ej. error de I/O al guardar el archivo)
-        print(f"Error al registrar test/archivo: {e}") # Útil para depuración
-        return JsonResponse(
-            {'success': False, 'message': 'Error interno al procesar la subida del archivo.'}, 
-            status=500
-        )
+        # 8. Captura cualquier otro error grave (incluidos errores de archivos/modelos)
+        except Exception as e:
+            print(f"Error grave al registrar test/archivo: {e}") 
+            return JsonResponse(
+                {'success': False, 'message': f'Error interno al procesar la subida. Detalles: {str(e)}'}, 
+                status=500
+            )
     
 
 

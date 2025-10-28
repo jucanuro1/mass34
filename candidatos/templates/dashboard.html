@@ -614,6 +614,15 @@
 </div>
 {% endblock content %}
 
+
 {% block extra_js %}
+        <script>
+            const AppConfig = {
+                updateUrl: "{% url 'update_candidato_status' %}",
+                massiveUpdateUrl: "{% url 'update_candidato_status_multiple' %}",
+                API_ASISTENCIA_CHECK_URL: "{% url 'api_asistencia_check' %}",
+                csrfToken: "{{ csrf_token }}"
+            };
+        </script>
         <script src="{% static 'js/dashboard.js' %}"></script>
 {% endblock extra_js %}

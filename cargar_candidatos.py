@@ -12,18 +12,8 @@ from candidatos.models import Candidato, Sede
 # Fecha de registro base, según tu solicitud
 FECHA_REGISTRO_BASE = date(2025, 10, 1)
 
-# Asumiendo que tienes una Sede por defecto para la carga inicial.
-# Si tu modelo Candidato.sede_registro no acepta NULL, debes pre-crear
-# una sede y obtener su ID o la instancia. 
-# EJEMPLO: Reemplaza 1 con el PK de tu Sede por Defecto
-# Puedes usar: Sede.objects.get(nombre="Sede Principal")
 SEDE_DEFECTO_ID = 1 
 
-# ==============================================================================
-# DATOS HARDCODEADOS DE LOS CANDIDATOS UNIFICADOS
-# Se ajustan a las fechas y se eliminan duplicados de DNI.
-# Se usa un conjunto para evitar duplicados y preservar el último estado visto.
-# ==============================================================================
 
 # Cuidado con los números de 9 dígitos que empiezan con 51. La limpieza es clave.
 DATA_RAW = [
@@ -186,5 +176,3 @@ def run_data_upload():
     print(f"Registros con ERRORES: {error_count}")
     print("¡Proceso de carga finalizado con éxito!")
 
-# NOTA: Para ejecutar esta función, guárdala en un archivo (ej. load_data.py)
-# y llama a run_data_upload() desde la shell de Django.

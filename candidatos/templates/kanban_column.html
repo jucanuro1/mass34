@@ -6,6 +6,8 @@
             <span>
                 {% if status_key == 'CAPACITACION_PRACTICA' %}
                     OJT 
+                {% elif status_key == 'CONVOCADO' %}
+                    Confirmado 
                 {% else %}
                     {{ title }}
                 {% endif %}
@@ -353,9 +355,6 @@
 </div>
 
 <script>
-// ======================================================================
-// 1. FUNCIONES PARA MODAL CENTRADO (COMENTARIOS)
-// ======================================================================
 
 function openCommentModal(procesoId, candidatoNombre) {
     const modal = document.getElementById('comment-modal');
@@ -398,16 +397,7 @@ function closeCommentModal() {
     }, 500); 
 }
 
-function closeCommentModal() {
-    const modal = document.getElementById('comment-modal');
-    const modalContent = document.getElementById('comment-modal-content');
-    
-    // Ocultar el modal con transición
-    modalContent.classList.add('scale-95', 'opacity-0');
-    setTimeout(() => {
-        modal.classList.add('hidden');
-    }, 300); 
-}
+
 
 
 // ======================================================================
@@ -465,13 +455,17 @@ $(document).ready(function() {
         $('#char-count').text(charCount);
     });
 
-    $('#registro-comentario-form').on('submit', function(e) {
+    // SOLUCIÓN DENTRO DE TU BLOQUE $(document).ready:
+
+    $('#registro-comentario-form').off('submit').on('submit', function(e) {
         e.preventDefault(); 
         const form = $(this);
         const submitBtn = $('#btn-guardar-comentario');
         
-        submitBtn.prop('disabled', true).text('Guardando...');
-
+        // DESHABILITAR EL BOTÓN
+        submitBtn.prop('disabled', true).html('<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v4m0 12v4m9-9h-4M7 12H3m14.07-5.07l-2.83 2.83M6.76 17.24l-2.83-2.83m14.07 0l-2.83-2.83M6.76 6.76l-2.83 2.83"/></svg> Guardando...');
+        
+        // Ejecución AJAX (Tu código actual)
         $.ajax({
             type: 'POST',
             url: form.attr('action'),
@@ -486,58 +480,73 @@ $(document).ready(function() {
                 }
             },
             error: function(xhr) {
-                let errorMessage = "Error al obtener la respuesta del servidor (Verifique la URL 'registrar_observacion').";
+                let status = xhr.status;
+                let defaultMessage = `Error ${status}: Fallo de comunicación con el servidor.`;
+                let errorMessage = defaultMessage;
+
                 try {
                     const responseJson = JSON.parse(xhr.responseText);
-                    errorMessage = responseJson.message || errorMessage;
+                    errorMessage = responseJson.message || defaultMessage;
                 } catch (e) {}
-                alert('🔴 Fallo de registro: ' + errorMessage);
+                
+                alert(`🔴 Fallo de registro (${status}): ${errorMessage}`);
             },
             complete: function() {
-                submitBtn.prop('disabled', false).text('Guardar Observación');
+                // Se ejecuta al final, sin importar si fue success o error
+                submitBtn.prop('disabled', false).html('<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10c0 3.866-3.134 7-7 7a6.96 6.96 0 01-3.692-.997l-3.53 1.059a.5.5 0 01-.63-.63l1.059-3.53A7 7 0 1118 10zm-6-4a1 1 0 10-2 0v2H8a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V6z" clip-rule="evenodd" /></svg> Guardar Observación');
             }
         });
     });
 
     // --- Lógica para Tests/Archivos (Subida de Archivo) ---
-    $('#registro-test-form').on('submit', function(e) {
-        e.preventDefault(); 
-        const form = $(this);
-        const submitBtn = $('#btn-guardar-test');
-        
-        // **IMPORTANTE**: Usar FormData para subir archivos
-        const formData = new FormData(this);
-        
-        submitBtn.prop('disabled', true).text('Subiendo Archivo...');
+    $('#registro-test-form').off('submit').on('submit', function(e) {
+    e.preventDefault(); 
+    const form = $(this);
+    const submitBtn = $('#btn-guardar-test');
+    
+    // **IMPORTANTE**: Usar FormData para subir archivos
+    const formData = new FormData(this);
+    
+    // Deshabilitar el botón y mostrar el estado de carga (Con spinner)
+    submitBtn.prop('disabled', true).html('<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v4m0 12v4m9-9h-4M7 12H3m14.07-5.07l-2.83 2.83M6.76 17.24l-2.83-2.83m14.07 0l-2.83-2.83M6.76 6.76l-2.83 2.83"/></svg> Subiendo Archivo...');
 
-        $.ajax({
-            type: 'POST',
-            url: form.attr('action'),
-            data: formData,
-            // Configuración clave para subir archivos
-            processData: false, 
-            contentType: false, 
-            dataType: 'json',
-            success: function(response) {
-                if (response.success) {
-                    alert('✅ Éxito: ' + response.message); 
-                    closeTestUploadModal();
-                } else {
-                    alert('❌ Error al subir: ' + response.message);
-                }
-            },
-            error: function(xhr) {
-                let errorMessage = "Error al obtener la respuesta del servidor (Verifique la URL 'registrar_test_archivo').";
-                try {
-                    const responseJson = JSON.parse(xhr.responseText);
-                    errorMessage = responseJson.message || errorMessage;
-                } catch (e) {}
-                alert('🔴 Fallo en la subida: ' + errorMessage);
-            },
-            complete: function() {
-                submitBtn.prop('disabled', false).html('<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L6.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg>Subir y Registrar Test');
+    $.ajax({
+        type: 'POST',
+        url: form.attr('action'),
+        data: formData,
+        // Configuración clave para subir archivos
+        processData: false, 
+        contentType: false, 
+        dataType: 'json',
+        success: function(response) {
+            if (response.success) {
+                alert('✅ Éxito: ' + response.message); 
+                closeTestUploadModal();
+            } else {
+                alert('❌ Error al subir: ' + response.message);
             }
-        });
+        },
+        error: function(xhr) {
+            let status = xhr.status;
+            let defaultMessage = `Error ${status}: Fallo de comunicación con el servidor.`;
+            let errorMessage = defaultMessage;
+
+            // Intenta parsear la respuesta JSON del servidor (si es que Django envió algo)
+            try {
+                const responseJson = JSON.parse(xhr.responseText);
+                errorMessage = responseJson.message || defaultMessage;
+            } catch (e) {
+                // Si no es un JSON, o si es un 500 estándar, usamos el mensaje por defecto.
+            }
+            
+            // Muestra una alerta más informativa
+            alert(`🔴 Fallo en la subida (${status}): ${errorMessage}`);
+        },
+        complete: function() {
+            // Se ejecuta al final, restableciendo el botón
+            submitBtn.prop('disabled', false).html('<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L6.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" /></svg> Subir y Registrar Test');
+        }
     });
+});
 });
 </script>

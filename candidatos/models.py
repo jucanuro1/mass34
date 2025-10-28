@@ -53,6 +53,8 @@ class Candidato(models.Model):
         ('CONVOCADO', 'Convocado (Segundo Contacto)'),
         ('CAPACITACION_TEORICA', 'En Capacitación Teórica'),
         ('CAPACITACION_PRACTICA', 'En Capacitación Práctica'),
+        ('NO_APTO', 'No Apto (Descarte por rendimiento)'),
+        ('DESISTE', 'Desiste / No Confirmó / Abandona'),
         ('CONTRATADO', 'Contratado'),
     ]
     estado_actual = models.CharField(max_length=250, choices=ESTADOS, default='REGISTRADO')
