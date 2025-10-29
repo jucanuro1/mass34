@@ -8,7 +8,7 @@ from django.views.decorators.http import require_POST
 from django.db import transaction, DatabaseError, OperationalError, IntegrityError
 from django.http import JsonResponse, HttpResponse,HttpResponseForbidden
 from django.db.models import Q, Count, Prefetch
-from .models import Candidato, Proceso, Empresa, Sede, Supervisor, RegistroAsistencia,DatosCualificacion, ComentarioProceso, RegistroTest
+from .models import Candidato, Proceso, Empresa, Sede, Supervisor, RegistroAsistencia,DatosCualificacion, ComentarioProceso, RegistroTest, MOTIVOS_DESCARTE
 from datetime import date, datetime
 from django.utils import timezone
 from django.utils.decorators import method_decorator
@@ -18,6 +18,7 @@ from django.views.decorators.http import require_http_methods
 from django.core.exceptions import ValidationError
 import pandas as pd
 import io
+import json
 from datetime import date
 from django.db import models
 import time
@@ -213,15 +214,15 @@ class ActualizarProcesoView(LoginRequiredMixin, View):
 
         return redirect('kanban_dashboard')
     
+
+ESTADOS_FINALES_OCULTOS = ['NO_APTO', 'DESISTE']
 class KanbanDashboardView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
 
         search_query = request.GET.get('search')
         fecha_inicio_filter = request.GET.get('fecha_inicio')
         
-        # 1. Optimización: Pre-obtener los últimos procesos
         latest_proceso_prefetch = Prefetch(
-            # CORRECCIÓN: Usar el nuevo related_name 'procesos'
             'procesos', 
             queryset=Proceso.objects.order_by('-pk').select_related('empresa_proceso', 'supervisor'),
             to_attr='latest_proceso'
@@ -229,14 +230,13 @@ class KanbanDashboardView(LoginRequiredMixin, View):
 
         candidatos = Candidato.objects.prefetch_related(latest_proceso_prefetch).all()
         
-        # 2. Manejo de Filtro por Fecha de Convocatoria 
+        candidatos = candidatos.exclude(estado_actual__in=ESTADOS_FINALES_OCULTOS)
+        
         if fecha_inicio_filter:
             try:
                 datetime.strptime(fecha_inicio_filter, '%Y-%m-%d').date() 
 
-                # Filtramos los candidatos que tienen un proceso que coincide con la fecha
                 candidatos = candidatos.filter(
-                    # CORRECCIÓN: Usar 'procesos__fecha_inicio'
                     procesos__fecha_inicio=fecha_inicio_filter
                 ).distinct()
 
@@ -244,8 +244,6 @@ class KanbanDashboardView(LoginRequiredMixin, View):
                 messages.error(request, "Formato de fecha de filtro inválido. Use AAAA-MM-DD.")
                 fecha_inicio_filter = None
         
-        # 3. Manejo de Búsqueda
-        # ... (el resto del código se mantiene igual)
         if search_query:
             candidatos = candidatos.filter(
                 Q(DNI__icontains=search_query) | 
@@ -259,20 +257,20 @@ class KanbanDashboardView(LoginRequiredMixin, View):
 
         total_candidatos = candidatos.count()
 
-        kanban_data = {
-            'REGISTRADO':[], 'CONVOCADO': [], 'CAPACITACION_TEORICA': [],
-            'CAPACITACION_PRACTICA': [], 'CONTRATADO': [], 'NO_APTO': [], 
-        }
+        ESTADOS_KANBAN_ACTIVOS = [
+            estado[0] for estado in Candidato.ESTADOS 
+            if estado[0] not in ESTADOS_FINALES_OCULTOS
+        ]
+        
+        kanban_data = {estado: [] for estado in ESTADOS_KANBAN_ACTIVOS}
 
         PROCESO_ESTADOS = getattr(Proceso, 'ESTADOS_PROCESO', None)
 
         for candidato in candidatos:
             estado = candidato.estado_actual
 
-            if estado in kanban_data:
-                # La lógica de acceso a latest_proceso (to_attr) se mantiene:
+            if estado in kanban_data: 
                 proceso_actual = candidato.latest_proceso[0] if candidato.latest_proceso else None
-                # ... (el resto de la lógica para construir kanban_data se mantiene igual)
                 
                 proceso_status_display = 'N/A'
                 proceso_id = None
@@ -291,8 +289,6 @@ class KanbanDashboardView(LoginRequiredMixin, View):
                     factor_actitud = 'true' if proceso_actual.factor_actitud_aplica else 'false'
                     fecha_inicio = proceso_actual.fecha_inicio
                 
-                
-
                 kanban_data[estado].append({
                     'candidato': candidato,
                     'proceso': proceso_actual,
@@ -317,9 +313,13 @@ class KanbanDashboardView(LoginRequiredMixin, View):
             'convocatoria_dates': convocatoria_dates,
             'active_date': fecha_inicio_filter,
             'total_candidatos': total_candidatos,
+            
+            'motivos_descarte': MOTIVOS_DESCARTE,
         }
+        
         return render(request, 'dashboard.html', context)
     
+
 @method_decorator(csrf_exempt, name='dispatch')
 class UpdateStatusMultipleView(LoginRequiredMixin, View):
     """
@@ -946,6 +946,7 @@ class RegistroPublicoCompletoView(View):
     def post(self, request):
         dni = request.POST.get('DNI', '').strip()
         nombres_completos = request.POST.get('nombres_completos', '').strip()
+        edad = request.POST.get('edad','').strip()
         telefono_whatsapp = request.POST.get('telefono_whatsapp', '').strip()
         email = request.POST.get('email', '').strip()
         distrito = request.POST.get('distrito', '').strip() 
@@ -1004,6 +1005,7 @@ class RegistroPublicoCompletoView(View):
             candidato = Candidato.objects.create(
                 DNI=dni,
                 nombres_completos=nombres_completos,
+                edad = edad,
                 telefono_whatsapp=telefono_whatsapp,
                 email=email if email else None,
                 distrito=distrito,
@@ -1174,5 +1176,87 @@ def registrar_test_archivo(request):
             )
     
 
+@require_http_methods(["POST"])
+def actualizar_fecha_proceso(request, proceso_id):
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'No autorizado.'}, status=401)
+        
+    try:
+        proceso = Proceso.objects.get(pk=proceso_id)
+        
+        try:
+            data = json.loads(request.body)
+            date_type = data.get('date_type')
+            new_date = data.get('new_date')
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': 'Datos JSON inválidos.'}, status=400)
+
+        field_map = {
+            'inicio': 'fecha_inicio',
+            'teorico': 'fecha_teorico',
+            'practico': 'fecha_practico',
+            'contratacion': 'fecha_contratacion',
+        }
+        
+        if date_type not in field_map:
+            return JsonResponse({'success': False, 'error': 'Tipo de fecha inválido.'}, status=400)
+            
+        field_name = field_map[date_type]
+        
+        try:
+            new_date_obj = datetime.strptime(new_date, '%Y-%m-%d').date()
+        except ValueError:
+             return JsonResponse({'success': False, 'error': 'Formato de fecha inválido (debe ser YYYY-MM-DD).'}, status=400)
+
+        current_state = proceso.estado
+         
+        allowed_changes = {
+            'INICIADO': ['inicio', 'teorico'],
+            'TEORIA': ['teorico', 'practico'],
+            'PRACTICA': ['practico', 'contratacion'],
+        }
+        
+        if date_type not in allowed_changes.get(current_state, []):
+            return JsonResponse({
+                'success': False, 
+                'error': f'No puedes cambiar la fecha de {date_type.capitalize()} porque el proceso está actualmente en estado "{current_state}".'
+            }, status=403) 
+        
+        if date_type == 'inicio':
+            if proceso.fecha_teorico and proceso.fecha_teorico < new_date_obj:
+                return JsonResponse({
+                    'success': False, 
+                    'error': f'La nueva Fecha de Inicio ({new_date}) es posterior a la Fecha Teórica actual ({proceso.fecha_teorico.strftime("%d/%m/%Y")}).'
+                }, status=400)
+
+        elif date_type == 'teorico':
+            if proceso.fecha_inicio and new_date_obj < proceso.fecha_inicio:
+                return JsonResponse({
+                    'success': False, 
+                    'error': f'La Fecha Teórica no puede ser anterior a la Fecha de Inicio ({proceso.fecha_inicio.strftime("%d/%m/%Y")}).'
+                }, status=400)
+            if proceso.fecha_practico and proceso.fecha_practico < new_date_obj:
+                return JsonResponse({
+                    'success': False, 
+                    'error': f'La Fecha Teórica ({new_date}) es posterior a la Fecha Práctica actual ({proceso.fecha_practico.strftime("%d/%m/%Y")}).'
+                }, status=400)
+                
+        elif date_type == 'practico':
+            if proceso.fecha_teorico and new_date_obj < proceso.fecha_teorico:
+                return JsonResponse({
+                    'success': False, 
+                    'error': f'La Fecha Práctica no puede ser anterior a la Fecha Teórica ({proceso.fecha_teorico.strftime("%d/%m/%Y")}).'
+                }, status=400)
+
+        setattr(proceso, field_name, new_date_obj)
+        proceso.save()
+        
+        return JsonResponse({'success': True, 'message': 'Fecha actualizada correctamente.'})
+
+    except Proceso.DoesNotExist:
+        return JsonResponse({'success': False, 'error': f'Proceso con ID {proceso_id} no encontrado.'}, status=404)
+    except Exception as e:
+        print(f"Error al actualizar la fecha: {e}") # Log del error
+        return JsonResponse({'success': False, 'error': 'Error interno del servidor.'}, status=500)
 
 

@@ -21,7 +21,7 @@ class ProcesoInline(admin.TabularInline):
 
 @admin.register(Candidato)
 class CandidatoAdmin(admin.ModelAdmin):
-    list_display = ('DNI', 'nombres_completos', 'estado_actual', 'telefono_whatsapp','email','fecha_registro')
+    list_display = ('DNI', 'nombres_completos','edad', 'estado_actual', 'telefono_whatsapp','email','fecha_registro')
     list_filter = ('estado_actual',) 
     search_fields = ('DNI', 'nombres_completos')
     inlines = [ProcesoInline] 

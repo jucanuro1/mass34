@@ -31,9 +31,19 @@ class Supervisor(models.Model):
     def __str__(self):
         return self.nombre
 
+
+MOTIVOS_DESCARTE = [
+    ('NO_CONFIRMA', 'No Confirma Asistencia'),
+    ('NO_SE_PRESENTE', 'No Se Presentó'),
+    ('SALARIO_NO_CONVENIENTE', 'Salario No Conveniente'),
+    ('PROBLEMAS_PERSONALES', 'Problemas Personales'),
+    ('OTRO', 'Otro Motivo'),
+]
+
 class Candidato(models.Model):
     DNI = models.CharField(max_length=8, unique=True, primary_key=True)
     nombres_completos = models.CharField(max_length=255)
+    edad = models.IntegerField(blank=True, null=True, help_text="Edad del candidato.")
     telefono_whatsapp = models.CharField(max_length=9)
     email = models.EmailField(max_length=255,blank=True,null=True)
     distrito = models.CharField(max_length=200)
@@ -58,6 +68,13 @@ class Candidato(models.Model):
         ('CONTRATADO', 'Contratado'),
     ]
     estado_actual = models.CharField(max_length=250, choices=ESTADOS, default='REGISTRADO')
+    motivo_descarte = models.CharField(
+        max_length=255, 
+        choices=MOTIVOS_DESCARTE, 
+        blank=True, 
+        null=True, 
+        help_text="Motivo por el cual el candidato desistió o fue descartado."
+    )
 
     def clean(self):
         if self.DNI and not self.DNI.isdigit():
@@ -68,17 +85,12 @@ class Candidato(models.Model):
         return f"{self.nombres_completos} ({self.DNI})"
 
 class DatosCualificacion(models.Model):
-    # Relación 1:1 con Candidato. Esto asegura que cada candidato solo tenga un set de respuestas.
-    # Usamos on_delete=models.CASCADE: si el candidato es eliminado, también se eliminan sus respuestas.
     candidato = models.OneToOneField(
         Candidato, 
         on_delete=models.CASCADE, 
         primary_key=True
     )
     
-    # --- CAMPOS DEL FORMULARIO REAL (Basado en las imágenes) ---
-    
-    # (image_dfc7de.png)
     distrito = models.CharField(max_length=100, help_text="Distrito de residencia.")
     secundaria_completa = models.BooleanField(
         help_text="¿Tienes secundaria completa?"

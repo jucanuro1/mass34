@@ -1,7 +1,14 @@
+// ====================================================================
+// CONFIGURACIÓN GLOBAL Y MAPEO DE ESTADOS
+// ====================================================================
+
 const updateUrl = AppConfig.updateUrl;
 const massiveUpdateUrl = AppConfig.massiveUpdateUrl;
 const API_ASISTENCIA_CHECK_URL = AppConfig.API_ASISTENCIA_CHECK_URL;
 const csrfToken = AppConfig.csrfToken;
+// Asumo que historyApiUrl existe en AppConfig o está definida en otro lugar
+const historyApiUrl = AppConfig.historyApiUrl; 
+
 
 const STATUS_MAP = {
     'column-REGISTRADO': 'REGISTRADO',
@@ -11,7 +18,11 @@ const STATUS_MAP = {
     'column-CONTRATADO': 'CONTRATADO'
 };
     
-let selectedCards = [];
+let selectedCards = []; // Array maestro para el estado de las tarjetas
+
+// ====================================================================
+// A. GESTIÓN DE SELECCIÓN DE TARJETAS (MODIFICADO)
+// ====================================================================
 
 function toggleCardSelection(cardElement) {
     const dni = cardElement.getAttribute('data-dni');
@@ -20,25 +31,25 @@ function toggleCardSelection(cardElement) {
     if (cardElement.classList.contains('dragging')) return;
 
     if (cardElement.classList.contains('selected')) {
+        // Deseleccionar
         cardElement.classList.remove('selected', 'border-4', 'border-blue-500', 'ring-2', 'ring-blue-500'); 
         selectedCards = selectedCards.filter(card => card.dni !== dni);
     } else {
+        // Seleccionar
         cardElement.classList.add('selected', 'border-4', 'border-blue-500', 'ring-2', 'ring-blue-500');
         selectedCards.push({ dni: dni, proceso_id: procesoId });
     }
     
-    const massBtn = document.getElementById('btn-mass-action');
-    const selectedCountSpan = document.getElementById('selected-count');
-    
-    if (selectedCards.length > 0) {
-        massBtn.classList.remove('hidden');
-        selectedCountSpan.textContent = selectedCards.length;
-    } else {
-        massBtn.classList.add('hidden');
-    }
+    // 🛑 AJUSTE CLAVE: Se elimina la lógica duplicada de mostrar/ocultar el botón
+    // y se llama a la función centralizada que gestiona la visibilidad y el evento de clic.
+    updateMassActionButton(); 
     
     console.log(`Tarjetas seleccionadas: ${selectedCards.length}`, selectedCards);
 }
+
+// --------------------------------------------------------------------
+// B. DRAG & DROP
+// --------------------------------------------------------------------
 
 function allowDrop(event) {
     event.preventDefault();
@@ -196,6 +207,131 @@ function triggerMassAction(targetStatus) {
     clearSelection();
 }
 
+// --------------------------------------------------------------------
+// C. GESTIÓN CENTRALIZADA DE LA SELECCIÓN Y BOTÓN
+// --------------------------------------------------------------------
+
+// 🛑 AJUSTE CLAVE: getSelectedDnis ahora usa el array maestro global selectedCards
+function getSelectedDnis() {
+    return selectedCards.map(card => card.dni); 
+}
+
+function clearSelection() {
+    selectedCards = [];
+    document.querySelectorAll('.kanban-card.selected').forEach(card => card.classList.remove('selected', 'border-4', 'border-blue-500', 'ring-2', 'ring-blue-500'));
+    
+    // 🛑 AJUSTE: Llama al controlador para asegurar que el botón se oculte.
+    updateMassActionButton();
+}
+
+// --------------------------------------------------------------------
+// D. LÓGICA DEL BOTÓN FLOTANTE Y MENÚ DE ACCIÓN MASIVA
+// --------------------------------------------------------------------
+
+function closeMassActionMenu() {
+    document.getElementById('mass-action-menu').classList.add('hidden');
+    const secondaryMenu = document.getElementById('massActionMenu');
+    if (secondaryMenu) {
+        secondaryMenu.classList.add('hidden');
+    }
+    
+    document.removeEventListener('click', closeMenuOutside); 
+    document.getElementById('descarte-motivo-select').value = "";
+}
+
+function closeMenuOutside(event) {
+    const descarteMenu = document.getElementById('mass-action-menu');
+    const button = document.getElementById('btn-mass-action');
+    
+    if (descarteMenu && button && !descarteMenu.contains(event.target) && !button.contains(event.target)) {
+        closeMassActionMenu();
+    }
+}
+
+function openMassActionMenu(event) {
+    const dnisArray = getSelectedDnis(); 
+    const selectedCount = dnisArray.length;
+    const menu = document.getElementById('mass-action-menu');
+
+    if (selectedCount === 0) {
+        alert("Selecciona al menos un candidato para realizar una acción masiva.");
+        return;
+    }
+    
+    document.getElementById('menu-selected-count').innerText = selectedCount;
+    
+    menu.classList.remove('hidden');
+
+    if (event) {
+        event.stopPropagation();
+    }
+    
+    document.addEventListener('click', closeMenuOutside);
+}
+
+// 🛑 FUNCIÓN CENTRALIZADA DE CONTROL DEL BOTÓN
+function updateMassActionButton() {
+    const dnisArray = getSelectedDnis(); 
+    const selectedCount = dnisArray.length;
+    
+    const button = document.getElementById('btn-mass-action');
+    const countSpan = document.getElementById('selected-count');
+
+    if (!button || !countSpan) return;
+
+    if (selectedCount > 0) {
+        button.classList.remove('hidden'); // Usa classList para Tailwind
+        button.style.display = 'flex'; // Mantener el display:flex para el layout si se usa style
+        countSpan.innerText = selectedCount; 
+        button.onclick = openMassActionMenu; // Asigna el evento de clic
+        
+    } else {
+        button.classList.add('hidden');
+        button.style.display = 'none'; 
+        button.onclick = null; 
+        
+        // Cierra el menú si se deselecciona el último elemento
+        const menu = document.getElementById('mass-action-menu');
+        if (menu && !menu.classList.contains('hidden')) {
+            closeMassActionMenu();
+        }
+    }
+}
+
+function confirmMassDescarte() {
+    const dnisArray = getSelectedDnis(); 
+    const motivoSelect = document.getElementById('descarte-motivo-select');
+    const motivoKey = motivoSelect.value;
+    
+    if (dnisArray.length === 0) {
+        alert("Error: No hay candidatos seleccionados.");
+        return;
+    }
+    /*
+    if (!motivoKey) {
+        alert("Por favor, selecciona un motivo de descarte para confirmar la acción.");
+        return;
+    }*/
+    
+    const newStatus = 'DESISTE'; 
+    const extraData = {
+        'motivo_descarte': motivoKey 
+    };
+
+    confirmMassUpdate(dnisArray, newStatus, extraData)
+        .then(() => {
+            closeMassActionMenu();
+        })
+        .catch(error => {
+            console.error("Fallo al procesar descarte masivo:", error);
+            alert("Ocurrió un error al intentar descartar a los candidatos.");
+        });
+}
+
+// --------------------------------------------------------------------
+// E. COMUNICACIÓN CON EL BACKEND (Fetch API)
+// --------------------------------------------------------------------
+
 function confirmIndividualUpdate(dni, newStatus) {
     fetch(updateUrl, {
         method: 'POST',
@@ -226,7 +362,7 @@ function confirmMassUpdate(dnisArray, newStatus, extraData) {
     
     if (dnisArray.length === 0) {
         alert("Error en actualización masiva: DNI list is required.");
-        return;
+        return Promise.reject(new Error("No DNI list"));
     }
     
     dnisArray.forEach(dni => {
@@ -239,7 +375,7 @@ function confirmMassUpdate(dnisArray, newStatus, extraData) {
         formData.append(key, extraData[key]);
     }
     
-    fetch(massiveUpdateUrl, {
+    return fetch(massiveUpdateUrl, {
         method: 'POST',
         headers: {
             'X-CSRFToken': csrfToken,
@@ -259,24 +395,22 @@ function confirmMassUpdate(dnisArray, newStatus, extraData) {
     .then(data => {
         if (data.status === 'success') {
             window.location.reload(); 
+            return data;
         } else {
             alert(`❌ Error en actualización masiva: ${data.message}`);
+            throw new Error(data.message);
         }
     })
     .catch(error => {
         console.error('Error FATAL en la actualización masiva:', error);
         alert(`🔴 Fallo en la acción masiva. Mensaje: ${error.message}`);
+        throw error;
     });
 }
 
-function clearSelection() {
-    selectedCards = [];
-    document.querySelectorAll('.kanban-card.selected').forEach(card => card.classList.remove('selected', 'border-4', 'border-blue-500', 'ring-2', 'ring-blue-500'));
-    const massBtn = document.getElementById('btn-mass-action');
-    if (massBtn) {
-        massBtn.classList.add('hidden');
-    }
-}
+// --------------------------------------------------------------------
+// F. GESTIÓN DE MODALES (Funciones auxiliares)
+// --------------------------------------------------------------------
 
 function openMassConvocatoriaModal(dnisArray) {
     const count = dnisArray.length;
@@ -353,35 +487,60 @@ function closeAssignSupervisorIndividualModal() {
 }
 
 function openUpdateProcessModal(procesoId, nombre, estado, empresa, supervisor, objetivo, actitud) {
-    document.getElementById('update-proceso-id').value = procesoId;
-    document.getElementById('update-candidato-nombre').textContent = nombre;
-    document.getElementById('update-empresa-nombre').textContent = empresa;
-    document.getElementById('update-supervisor-nombre').textContent = supervisor;
+    // Definición de IDs a usar
+    const ids = ['update-proceso-id', 'update-candidato-nombre', 'update-empresa-nombre', 'update-supervisor-nombre'];
+    const values = [procesoId, nombre, empresa, supervisor];
+
+    // Bucle defensivo para asignar valores
+    for (let i = 0; i < ids.length; i++) {
+        const element = document.getElementById(ids[i]);
+        if (element) {
+            // Usa .value para inputs y .textContent para spans/h3
+            if (ids[i].includes('proceso-id')) {
+                element.value = values[i];
+            } else {
+                element.textContent = values[i];
+            }
+        } else {
+            // Muestra una advertencia si el elemento no se encuentra (ayuda a la depuración)
+            console.warn(`Elemento HTML con ID ${ids[i]} no encontrado en el DOM.`);
+            // Si el elemento es crítico, puedes salir de la función: return;
+        }
+    }
+
+    const form = document.getElementById('updateProcessForm');
+    // ... el resto de la lógica de tu función ...
     
     document.getElementById('id_estado_proceso_update').value = estado;
     
-    const form = document.getElementById('updateProcessForm');
-    const baseAction = form.dataset.baseAction || form.action.replace(new RegExp(`/${procesoId}/$`), '/0/');
-    form.action = baseAction.replace('/0/', `/${procesoId}/`); 
-    
-    const performanceFields = document.getElementById('performance-fields');
-    const updateSelect = document.getElementById('id_estado_proceso_update');
+    // [Se mantiene el resto de tu código para el formulario y togglePerformanceFields]
 
-    function togglePerformanceFields() {
+    const updateSelect = document.getElementById('id_estado_proceso_update');
+    const performanceFields = document.getElementById('performance-fields');
+    
+    if (updateSelect && performanceFields) {
+        function togglePerformanceFields() {
             const selectedState = updateSelect.value;
             if (selectedState === 'CONTRATADO' || selectedState === 'NO_APTO') {
                 performanceFields.style.display = 'block';
-                document.getElementById('id_objetivo_ventas_alcanzado').checked = objetivo === 'true';
-                document.getElementById('id_factor_actitud_aplica').checked = actitud === 'true';
+                if (document.getElementById('id_objetivo_ventas_alcanzado')) {
+                    document.getElementById('id_objetivo_ventas_alcanzado').checked = objetivo === 'true';
+                }
+                if (document.getElementById('id_factor_actitud_aplica')) {
+                    document.getElementById('id_factor_actitud_aplica').checked = actitud === 'true';
+                }
             } else {
                 performanceFields.style.display = 'none';
             }
+        }
+
+        updateSelect.onchange = togglePerformanceFields;
+        togglePerformanceFields();
     }
     
-    updateSelect.onchange = togglePerformanceFields;
-    togglePerformanceFields();
-    
-    document.getElementById('updateProcessModal').style.display = 'flex';
+    if (document.getElementById('updateProcessModal')) {
+        document.getElementById('updateProcessModal').style.display = 'flex';
+    }
 }
 
 function closeUpdateProcessModal() {
@@ -445,17 +604,13 @@ function openConvocarModal(dni, nombre) {
 
 function copyLink(buttonElement, linkToCopy) {
     
-    // 1. Copiar el enlace al portapapeles
-    // (Usamos la API moderna Clipboard si está disponible, si no, el método antiguo)
     if (navigator.clipboard) {
         navigator.clipboard.writeText(linkToCopy).then(() => {
-            // Éxito en la copia
             showCopyFeedback(buttonElement);
         }).catch(err => {
             console.error('Error al copiar (API Clipboard):', err);
         });
     } else {
-        // Método de respaldo (requiere crear y usar un textarea temporal)
         const tempInput = document.createElement('textarea');
         tempInput.value = linkToCopy;
         document.body.appendChild(tempInput);
@@ -467,40 +622,45 @@ function copyLink(buttonElement, linkToCopy) {
     }
 }
 
-// Función para mostrar la retroalimentación visual
 function showCopyFeedback(buttonElement) {
     const messageSpan = buttonElement.querySelector('#copy-message');
     
-    // 1. Mostrar el mensaje
     messageSpan.classList.remove('opacity-0');
     messageSpan.classList.add('opacity-100');
 
-    // 2. Revertir el estado después de 2 segundos
     setTimeout(() => {
         messageSpan.classList.remove('opacity-100');
         messageSpan.classList.add('opacity-0');
     }, 2000);
 }
 
-const messageContainer = document.getElementById('message-container');
-    if (messageContainer) {
-        // Oculta después de 2 segundos (2000ms)
-        setTimeout(() => {
-            messageContainer.style.display = 'none';
-        }, 2000); 
-    }
+// --------------------------------------------------------------------
+// G. INICIALIZACIÓN DE EVENTOS (DOM CONTENT LOADED)
+// --------------------------------------------------------------------
 
 document.addEventListener('DOMContentLoaded', () => {
+    
+    // 1. Inicialización de columnas Kanban
     document.querySelectorAll('.kanban-column-body').forEach(column => {
         column.addEventListener('dragover', allowDrop);
         column.addEventListener('drop', drop);
         column.id = `column-${column.dataset.status}`;
     });
     
+    // 2. Inicialización de tarjetas (Solo DragStart)
     document.querySelectorAll('.kanban-card').forEach(card => {
         card.addEventListener('dragstart', drag);
+        
     });
     
+    // 3. Alertas
+    const messageContainer = document.getElementById('message-container');
+    if (messageContainer) {
+        setTimeout(() => {
+            messageContainer.style.display = 'none';
+        }, 2000); 
+    }
+
     const messageAlerts = document.querySelectorAll('.message-alert');
     messageAlerts.forEach(alert => {
         setTimeout(() => {
@@ -511,31 +671,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 5000); 
     });
 
+    // 4. Filtros de fecha
     const dateButtons = document.querySelectorAll('.filter-date-btn');
-
     dateButtons.forEach(button => {
         button.addEventListener('click', (event) => {
             const selectedDate = event.currentTarget.dataset.date;
             const currentUrl = new URL(window.location.href);
-            
             currentUrl.searchParams.set('fecha_inicio', selectedDate);
-            
             window.location.href = currentUrl.toString();
         });
     });
 
     const allDatesButton = document.getElementById('all-dates-filter-btn');
     if (allDatesButton) {
-            allDatesButton.addEventListener('click', (event) => {
-                event.preventDefault(); 
-                const currentUrl = new URL(window.location.href);
-                currentUrl.searchParams.delete('fecha_inicio');
-                window.location.href = currentUrl.toString();
-            });
+        allDatesButton.addEventListener('click', (event) => {
+            event.preventDefault(); 
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.delete('fecha_inicio');
+            window.location.href = currentUrl.toString();
+        });
     }
     
+    // 5. Búsqueda por DNI
     const dniSearchInput = document.getElementById('dni-search');
-    
     dniSearchInput.addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault(); 
@@ -578,49 +736,25 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
-        function openMassActionMenu() {
-        document.getElementById('massActionMenu').classList.remove('hidden');
-        }
-    
-        function closeMassActionMenu() {
-            document.getElementById('massActionMenu').classList.add('hidden');
-        }
-    
-        document.addEventListener('click', function(event) {
-            const menu = document.getElementById('massActionMenu');
-            const button = document.getElementById('btn-mass-action');
-            if (menu && button && !menu.contains(event.target) && !button.contains(event.target) && !menu.classList.contains('hidden')) {
-                closeMassActionMenu();
-            }
-        });
 
     const toggleHeader = document.getElementById('toggle-header');
     const collapsibleContent = document.getElementById('collapsible-content');
     const toggleIcon = document.getElementById('toggle-icon');
     
-    // --- 1. Funcionalidad de Plegar/Desplegar (Acordeón) ---
     if (toggleHeader && collapsibleContent && toggleIcon) {
-        // Aseguramos que el contenido esté VISIBLE al cargar por defecto, 
-        // a menos que desees que inicie oculto (en ese caso, añade 'hidden' al div del contenido y quita 'rotate-180' al icono).
-        // Lo dejaremos visible inicialmente para buena UX.
-        
         toggleHeader.addEventListener('click', function() {
-            // Alternar la visibilidad del contenido
             collapsibleContent.classList.toggle('hidden'); 
-            
-            // Rotar el ícono de flecha (90 grados para cerrar, 180 para abrir)
             toggleIcon.classList.toggle('rotate-180');
         });
     }
 
 
-    // --- 2. Funcionalidad del Dropdown de Desactivación ---
+    // 7. Funcionalidad del Dropdown de Desactivación
     const menuButton = document.getElementById('menu-button');
     const dropdownMenu = document.getElementById('dropdown-menu');
 
     if (menuButton && dropdownMenu) {
         
-        // Función para alternar la visibilidad del menú
         function toggleDropdown() {
             const isHidden = dropdownMenu.classList.contains('hidden');
             if (isHidden) {
@@ -632,13 +766,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Abrir/Cerrar al hacer clic en el botón de menú
         menuButton.addEventListener('click', function(event) {
-            event.stopPropagation(); // Evita que el clic cierre inmediatamente el menú o afecte otros elementos
+            event.stopPropagation(); 
             toggleDropdown();
         });
 
-        // Cerrar al hacer clic fuera del menú o presionar ESC
         document.addEventListener('click', function (event) {
             if (!menuButton.contains(event.target) && !dropdownMenu.contains(event.target)) {
                 if (!dropdownMenu.classList.contains('hidden')) {

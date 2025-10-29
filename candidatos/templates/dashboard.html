@@ -597,13 +597,41 @@
         </div>
     </div>
 </div>
-
 <button 
     id="btn-mass-action" 
-    class="hidden fixed bottom-5 right-5 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-xl transition duration-300"
-    onclick="openMassActionMenu()">
-    Acción Masiva <span id="selected-count" class="ml-1 px-2 py-1 bg-white text-blue-600 rounded-full text-xs font-black">0</span>
+    class="fixed bottom-5 right-5 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-xl transition duration-300"
+    style="display: none;" 
+>
+    Acción Masiva 
+    <span id="selected-count" class="ml-1 px-2 py-1 bg-white text-blue-600 rounded-full text-xs font-black">
+        0
+    </span>
 </button>
+
+<div id="mass-action-menu" class="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex items-center justify-center z-100 hidden">
+    <div class="bg-white p-6 rounded-lg shadow-2xl w-full max-w-sm">
+        <h3 class="text-xl font-bold mb-4">Acción Masiva (Descarte)</h3>
+        <p class="mb-4">Vas a descartar a <span id="menu-selected-count" class="font-bold">0</span> candidatos.</p>
+        
+        <div class="hidden"> 
+            <label for="descarte-motivo-select" class="block text-sm font-medium text-gray-700">Motivo de Descarte</label>
+            <select id="descarte-motivo-select" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                 <option value="DESISTE" selected>Desiste (Fijo)</option> 
+            </select>
+        </div>
+        
+        <p class="text-sm text-red-600 font-semibold mt-4">La acción de descarte masivo aplicará el motivo por defecto.</p>
+
+        <div class="mt-6 flex justify-end space-x-3">
+            <button onclick="closeMassActionMenu()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md">Cancelar</button>
+            
+            <button onclick="confirmMassDescarte('DESISTE')" 
+                    class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md">
+                Confirmar Descarte
+            </button>
+        </div>
+    </div>
+</div>
 
 <div id="massActionMenu" class="hidden fixed bottom-20 right-5 p-4 bg-white border rounded shadow-lg z-50">
     <p class="font-bold mb-2">Mover Seleccionados a:</p>
@@ -621,6 +649,7 @@
                 updateUrl: "{% url 'update_candidato_status' %}",
                 massiveUpdateUrl: "{% url 'update_candidato_status_multiple' %}",
                 API_ASISTENCIA_CHECK_URL: "{% url 'api_asistencia_check' %}",
+                historyApiUrl: "",
                 csrfToken: "{{ csrf_token }}"
             };
         </script>

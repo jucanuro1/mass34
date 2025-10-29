@@ -29,10 +29,14 @@ urlpatterns = [
     path('proceso/registrar-observacion/', views.registrar_observacion, name='registrar_observacion'),
     path('proceso/registrar-test-archivo/', views.registrar_test_archivo, name='registrar_test_archivo'),
 
+    
+
     # APIs para Búsqueda y Asistencia
     path('asistencia/', views.asistencia_dashboard, name='asistencia_dashboard'),
     path('asistencia/registrar/', views.registrar_asistencia_rapida, name='registrar_asistencia_rapida'),
     path('api/search-candidato/', views.CandidatoSearchView.as_view(), name='candidato_search_api'),
     path('api/asistencia-check/', views.AsistenciaDiariaCheckView.as_view(), name='api_asistencia_check'),
+
+    path('api/proceso/<int:proceso_id>/actualizar_fecha/', views.actualizar_fecha_proceso, name='actualizar_fecha_proceso_api'),
     
 ]

@@ -70,6 +70,18 @@
                     </div>
 
                     <div class="form-group">
+                        <label for="id_edad" class="block text-sm font-medium text-gray-700">Edad *</label>
+                        <input type="number" 
+                            name="edad" 
+                            id="id_edad" 
+                            required
+                            min="16" 
+                            max="99"
+                            class="mt-1 block w-full border-b border-gray-300 focus:border-pink-700 focus:ring-0 p-1 bg-transparent transition duration-150 text-gray-800 placeholder-gray-400"
+                            placeholder="Tu edad">
+                    </div>
+
+                    <div class="form-group">
                         <label for="id_telefono" class="block text-sm font-medium text-gray-700">Número de teléfono (WhatsApp) *</label>
                         <input type="text" name="telefono_whatsapp" id="id_telefono" required
                             maxlength="9" 

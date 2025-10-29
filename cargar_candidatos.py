@@ -52,13 +52,11 @@ DATA_RAW = [
     {'DNI': '75906949', 'nombres_completos': 'Miguel Rodrigo Morales Calderón', 'telefono_whatsapp': '995251636', 'origen_estado': 'REGISTRADO'},
     {'DNI': '60806671', 'nombres_completos': 'Aaron Obed Guevara Davila', 'telefono_whatsapp': '977861951', 'origen_estado': 'REGISTRADO'},
     {'DNI': '60282414', 'nombres_completos': 'ERICK WILGER ROJAS DAVILA', 'telefono_whatsapp': '903164622', 'origen_estado': 'REGISTRADO'},
-    # Candidatos en el Kanban de las otras imágenes (ej. Convocado, Teoría)
     {'DNI': '75546442', 'nombres_completos': 'Alexis Joaquín CUSTODIO Ballena', 'telefono_whatsapp': '989658073', 'origen_estado': 'REGISTRADO'},
     {'DNI': '73463417', 'nombres_completos': 'Brandon Jordhy Saavedra Ramón', 'telefono_whatsapp': '904874533', 'origen_estado': 'REGISTRADO'},
     {'DNI': '49031690', 'nombres_completos': 'Cesar Alejandro salas Rivero', 'telefono_whatsapp': '925227109', 'origen_estado': 'REGISTRADO'},
     {'DNI': '76592054', 'nombres_completos': 'Elar Jhon Herrera coronado', 'telefono_whatsapp': '962620987', 'origen_estado': 'REGISTRADO'},
     {'DNI': '70926381', 'nombres_completos': 'Jose miguel mego silva', 'telefono_whatsapp': '930586074', 'origen_estado': 'REGISTRADO'},
-    {'DNI': '44894523', 'nombres_completos': 'Juan Carlos Núñez Rodrigo', 'telefono_whatsapp': '916393838', 'origen_estado': 'REGISTRADO'}, 
 ]
 
 # ==============================================================================
