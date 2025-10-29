@@ -855,8 +855,10 @@ class AsignarSupervisorIndividualView(LoginRequiredMixin, View):
 
 class ExportarCandidatosExcelView(LoginRequiredMixin, View):
     def get(self, request, estado, *args, **kwargs):
-        # Es altamente recomendable usar select_related y prefetch_related para evitar consultas N+1
-        candidatos = Candidato.objects.filter(estado_actual=estado).order_by('fecha_registro').prefetch_related(
+        candidatos = Candidato.objects.filter(estado_actual=estado).order_by('fecha_registro').select_related(
+            'sede_registro',
+            'datoscualificacion' 
+        ).prefetch_related(
             models.Prefetch('procesos', queryset=Proceso.objects.order_by('-fecha_inicio').select_related('supervisor', 'empresa_proceso'))
         )
 
@@ -865,57 +867,71 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
             return redirect('kanban_dashboard')
 
         data = []
+        
+        def format_date(date_field):
+            return date_field.strftime('%d/%m/%Y') if date_field else ''
+        
+        def format_bool(bool_field):
+            if bool_field is True: return 'SÍ'
+            if bool_field is False: return 'NO'
+            return 'N/A' # Para campos nulos
+        
         for c in candidatos:
-            # Obtenemos el proceso más reciente del prefetch
-            # Se asume que 'c.procesos.all()' devuelve el queryset prefetch (ordenado por fecha_inicio descendente)
-            ultimo_proceso = next(iter(c.procesos.all()), None) # Obtiene el primer elemento si existe, sino None
+            ultimo_proceso = next(iter(c.procesos.all()), None)
+            # Accedemos a la cualificación. Usamos getattr para manejar el caso donde no existe.
+            cualificacion = getattr(c, 'datoscualificacion', None) 
 
-            # Funcionalidad de ayuda para formatear fechas
-            def format_date(date_field):
-                return date_field.strftime('%d/%m/%Y') if date_field else ''
-
-            data.append({
+            # --- DICCIONARIO DE DATOS (Columnas limpias para evitar ValueError en Excel) ---
+            row = {
+                # --- DATOS DEL CANDIDATO (Modelo Candidato) ---
                 'DNI': c.DNI,
-                'Nombres Completos': c.nombres_completos,
-                'Teléfono / WhatsApp': c.telefono_whatsapp,
+                'Nombres_Completos': c.nombres_completos,
+                'Telefono_Whatsapp': c.telefono_whatsapp,
                 'Email': c.email if c.email else '',
-                'Estado Actual': c.get_estado_actual_display(), 
-                'Fecha Registro': format_date(c.fecha_registro),
-                'Sede de Registro': c.sede_registro.nombre if c.sede_registro else 'N/A',
+                'Edad': c.edad,
+                'Distrito_Candidato': c.distrito, 
+                'Estado_Actual_Candidato': c.get_estado_actual_display(), 
+                'Fecha_Registro': format_date(c.fecha_registro),
+                'Sede_Registro': c.sede_registro.nombre if c.sede_registro else 'N/A',
 
-                # DATOS DEL ÚLTIMO PROCESO
-                'Empresa Cliente': ultimo_proceso.empresa_proceso.nombre if ultimo_proceso and ultimo_proceso.empresa_proceso else '',
-                'Fecha Convocatoria': format_date(ultimo_proceso.fecha_inicio) if ultimo_proceso else '',
-                
-                # 🆕 NUEVAS FECHAS AGREGADAS
-                'Fecha Teórico': format_date(ultimo_proceso.fecha_teorico) if ultimo_proceso else '',
-                'Fecha Práctico': format_date(ultimo_proceso.fecha_practico) if ultimo_proceso else '',
-                'Fecha Contratación': format_date(ultimo_proceso.fecha_contratacion) if ultimo_proceso else '',
-                # -------------------------
-                
-                'Supervisor Asignado': ultimo_proceso.supervisor.nombre if ultimo_proceso and ultimo_proceso.supervisor else '',
-                'Estado Proceso': ultimo_proceso.get_estado_display() if ultimo_proceso else 'N/A', 
-                'Objetivo Ventas': 'Sí' if ultimo_proceso and ultimo_proceso.objetivo_ventas_alcanzado else ('No' if ultimo_proceso and ultimo_proceso.estado in ['CONTRATADO', 'NO_APTO'] else 'N/A'),
-                'Factor Actitud': 'Sí' if ultimo_proceso and ultimo_proceso.factor_actitud_aplica else ('No' if ultimo_proceso and ultimo_proceso.estado in ['CONTRATADO', 'NO_APTO'] else 'N/A'),
+                # --- DATOS DE CUALIFICACIÓN (Modelo DatosCualificacion) ---
+                'Secundaria_Completa': format_bool(cualificacion.secundaria_completa) if cualificacion else '',
+                'Exp_Campanas_Espanolas': format_bool(cualificacion.experiencia_campanas_espanolas) if cualificacion else '', 
+                'Tipo_Exp_Ventas': cualificacion.get_experiencia_ventas_tipo_display() if cualificacion else '', 
+                'Empresa_Exp_Ventas': cualificacion.empresa_vendedor if cualificacion else '',
+                'Tiempo_Experiencia_Vendedor': cualificacion.get_tiempo_experiencia_vendedor_display() if cualificacion else '', 
+                'Conforme_Beneficios': cualificacion.get_conforme_beneficios_display() if cualificacion else '',
+                'Detalle_Beneficios_Otro': cualificacion.detalle_beneficios_otro if cualificacion else '', 
+                'Disponibilidad_Horario': format_bool(cualificacion.disponibilidad_horario) if cualificacion else '',
+                'Discapacidad_Enfermedad_Cronica': cualificacion.discapacidad_enfermedad_cronica if cualificacion else '',
+                'Dificultad_Habla': format_bool(cualificacion.dificultad_habla) if cualificacion else '',
 
-            })
+                # --- DATOS DEL ÚLTIMO PROCESO (Manteniendo la estructura) ---
+                'Empresa_Cliente': ultimo_proceso.empresa_proceso.nombre if ultimo_proceso and ultimo_proceso.empresa_proceso else '',
+                'Fecha_Convocatoria': format_date(ultimo_proceso.fecha_inicio) if ultimo_proceso else '',
+                'Fecha_Teorico': format_date(ultimo_proceso.fecha_teorico) if ultimo_proceso else '',
+                'Fecha_Practico': format_date(ultimo_proceso.fecha_practico) if ultimo_proceso else '',
+                'Fecha_Contratacion': format_date(ultimo_proceso.fecha_contratacion) if ultimo_proceso else '',
+                'Supervisor_Asignado': ultimo_proceso.supervisor.nombre if ultimo_proceso and ultimo_proceso.supervisor else '',
+                'Estado_Proceso': ultimo_proceso.get_estado_display() if ultimo_proceso else 'N/A', 
+                
+            }
+            
+            data.append(row)
 
         df = pd.DataFrame(data)
 
         output = io.BytesIO()
         writer = pd.ExcelWriter(output, engine='openpyxl') 
-
+            
         nombre_hoja = f"Candidatos_{estado}"[:31]
         df.to_excel(writer, sheet_name=nombre_hoja, index=False)
 
         worksheet = writer.sheets[nombre_hoja]
         for col_idx, column in enumerate(df.columns):
-            # Ajuste de ancho de columna
             max_len = max(df[column].astype(str).map(len).max(), len(column)) + 2 
             worksheet.column_dimensions[chr(65 + col_idx)].width = max_len
 
-        # Importante: El método writer.close() debe ser usado si se usa openpyxl
-        # En versiones más recientes de pandas, writer.close() reemplaza a writer.save()
         writer.close() 
 
         output.seek(0)
@@ -1256,7 +1272,7 @@ def actualizar_fecha_proceso(request, proceso_id):
     except Proceso.DoesNotExist:
         return JsonResponse({'success': False, 'error': f'Proceso con ID {proceso_id} no encontrado.'}, status=404)
     except Exception as e:
-        print(f"Error al actualizar la fecha: {e}") # Log del error
+        print(f"Error al actualizar la fecha: {e}") 
         return JsonResponse({'success': False, 'error': 'Error interno del servidor.'}, status=500)
 
 
