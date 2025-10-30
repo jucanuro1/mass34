@@ -519,7 +519,6 @@ class AsistenciaDiariaCheckView(View):
         except Candidato.DoesNotExist:
             return JsonResponse({'asistencia_registrada': False, 'candidato_encontrado': False}, status=200)
 
-
 @csrf_exempt 
 @require_http_methods(["POST"])
 @transaction.atomic
@@ -540,7 +539,6 @@ def registrar_asistencia_rapida(request):
         movimiento = request.POST.get('movimiento')      
         estado_asistencia = request.POST.get('estado_asistencia', 'A') 
         
-        # 2. Validaciones básicas de datos POST (Devuelve JSON 400)
         if not all([proceso_id, fase_actual_key, movimiento]):
             return JsonResponse(
                 {'success': False, 'message': "Error de datos: Faltan campos obligatorios para el registro."}, 
@@ -553,10 +551,8 @@ def registrar_asistencia_rapida(request):
         hoy = timezone.localdate()
         mensaje_exito = "" 
         
-        # --- 4. Lógica de Verificación de Duplicidad y Consistencia (Devuelve JSON 409/400) ---
         
         if movimiento == 'REGISTRO':
-            # CONVOCADO / TEORIA: Solo un registro por día
             registro_existente_hoy = RegistroAsistencia.objects.filter(
                 proceso=proceso,
                 fase_actual=fase_actual_key,
@@ -570,7 +566,6 @@ def registrar_asistencia_rapida(request):
                 )
         
         elif movimiento in ['ENTRADA', 'SALIDA'] and fase_actual_key == 'PRACTICA':
-            # PRACTICA: Control de Entrada/Salida
             ultimo_registro_hoy = RegistroAsistencia.objects.filter(
                 proceso=proceso, 
                 fase_actual='PRACTICA', 
@@ -723,7 +718,6 @@ def asistencia_dashboard(request):
     # Si es GET, renderiza la plantilla principal
     return render(request, 'asistencia_dashboard.html', {'today': date.today()})
 
-
 @method_decorator(csrf_exempt, name='dispatch')
 class UpdateStatusView(LoginRequiredMixin, View):
     def post(self, request):
@@ -855,15 +849,33 @@ class AsignarSupervisorIndividualView(LoginRequiredMixin, View):
 
 class ExportarCandidatosExcelView(LoginRequiredMixin, View):
     def get(self, request, estado, *args, **kwargs):
-        candidatos = Candidato.objects.filter(estado_actual=estado).order_by('fecha_registro').select_related(
+        
+        fecha_filtro_str = request.GET.get('fecha_filtro')
+        
+        proceso_queryset = Proceso.objects.order_by('-fecha_inicio').select_related('supervisor', 'empresa_proceso')
+        
+        if fecha_filtro_str:
+            proceso_queryset = proceso_queryset.filter(fecha_inicio=fecha_filtro_str)
+        
+        candidatos_qs = Candidato.objects.filter(estado_actual=estado)
+        
+        # FILTRO CLAVE: Asegura que el Candidato tiene un Proceso con la fecha seleccionada
+        if fecha_filtro_str:
+            candidatos_qs = candidatos_qs.filter(procesos__fecha_inicio=fecha_filtro_str).distinct()
+
+        candidatos_qs = candidatos_qs.order_by('fecha_registro').select_related(
             'sede_registro',
             'datoscualificacion' 
-        ).prefetch_related(
-            models.Prefetch('procesos', queryset=Proceso.objects.order_by('-fecha_inicio').select_related('supervisor', 'empresa_proceso'))
         )
 
-        if not candidatos.exists():
-            messages.info(request, f"No se encontraron candidatos en el estado: {estado}")
+        candidatos = candidatos_qs.prefetch_related(
+            models.Prefetch('procesos', queryset=proceso_queryset)
+        )
+        
+        candidatos_a_exportar = list(candidatos)
+        
+        if not candidatos_a_exportar:
+            messages.info(request, f"No se encontraron candidatos en el estado: {estado} para la fecha: {fecha_filtro_str if fecha_filtro_str else 'Todas'}")
             return redirect('kanban_dashboard')
 
         data = []
@@ -874,16 +886,15 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
         def format_bool(bool_field):
             if bool_field is True: return 'SÍ'
             if bool_field is False: return 'NO'
-            return 'N/A' # Para campos nulos
+            return 'N/A' 
         
-        for c in candidatos:
+        for c in candidatos_a_exportar:
+            
+            # El queryset c.procesos.all() ya está filtrado por la fecha si se usó el filtro
             ultimo_proceso = next(iter(c.procesos.all()), None)
-            # Accedemos a la cualificación. Usamos getattr para manejar el caso donde no existe.
             cualificacion = getattr(c, 'datoscualificacion', None) 
 
-            # --- DICCIONARIO DE DATOS (Columnas limpias para evitar ValueError en Excel) ---
             row = {
-                # --- DATOS DEL CANDIDATO (Modelo Candidato) ---
                 'DNI': c.DNI,
                 'Nombres_Completos': c.nombres_completos,
                 'Telefono_Whatsapp': c.telefono_whatsapp,
@@ -894,7 +905,6 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
                 'Fecha_Registro': format_date(c.fecha_registro),
                 'Sede_Registro': c.sede_registro.nombre if c.sede_registro else 'N/A',
 
-                # --- DATOS DE CUALIFICACIÓN (Modelo DatosCualificacion) ---
                 'Secundaria_Completa': format_bool(cualificacion.secundaria_completa) if cualificacion else '',
                 'Exp_Campanas_Espanolas': format_bool(cualificacion.experiencia_campanas_espanolas) if cualificacion else '', 
                 'Tipo_Exp_Ventas': cualificacion.get_experiencia_ventas_tipo_display() if cualificacion else '', 
@@ -906,7 +916,6 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
                 'Discapacidad_Enfermedad_Cronica': cualificacion.discapacidad_enfermedad_cronica if cualificacion else '',
                 'Dificultad_Habla': format_bool(cualificacion.dificultad_habla) if cualificacion else '',
 
-                # --- DATOS DEL ÚLTIMO PROCESO (Manteniendo la estructura) ---
                 'Empresa_Cliente': ultimo_proceso.empresa_proceso.nombre if ultimo_proceso and ultimo_proceso.empresa_proceso else '',
                 'Fecha_Convocatoria': format_date(ultimo_proceso.fecha_inicio) if ultimo_proceso else '',
                 'Fecha_Teorico': format_date(ultimo_proceso.fecha_teorico) if ultimo_proceso else '',
@@ -914,7 +923,6 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
                 'Fecha_Contratacion': format_date(ultimo_proceso.fecha_contratacion) if ultimo_proceso else '',
                 'Supervisor_Asignado': ultimo_proceso.supervisor.nombre if ultimo_proceso and ultimo_proceso.supervisor else '',
                 'Estado_Proceso': ultimo_proceso.get_estado_display() if ultimo_proceso else 'N/A', 
-                
             }
             
             data.append(row)
@@ -944,6 +952,7 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
         )
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
+    
 
 class RegistroPublicoCompletoView(View):
     def get(self, request):

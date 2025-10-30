@@ -36,7 +36,6 @@
                     {% url 'registro_publico_completo' as public_registration_path %}
                     {% with request.scheme as scheme %}
                     {% with request.get_host as host_name %}
-
                         {% with absolute_url=scheme|add:'://'|add:host_name|add:public_registration_path %}
 
                             <button type="button" 
@@ -103,15 +102,12 @@
         </div>
     {% endif %}
 
-    <div class="mb-8 bg-white rounded-xl shadow-2xl overflow-hidden border border-gray-100/80 transition-all duration-300">
-        
+    <div class="mb-8 bg-white rounded-xl shadow-2xl overflow-hidden border border-gray-100/80 transition-all duration-300"> 
         <div class="p-5 flex justify-between items-center bg-gray-50 hover:bg-gray-100 cursor-pointer select-none border-b border-gray-100" 
             id="toggle-header">
-            
             <h2 class="text-xl font-medium text-gray-800 flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3 text-red-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                 <span class="font-bold text-gray-900 tracking-tight">Filtro de Convocatorias</span> 
-                
                 <span class="ml-3 text-sm font-light hidden sm:inline">
                     {% if active_date %}
                         <span class="text-red-700 font-semibold">Fecha Activa: {{ active_date|date:"d M Y" }}</span>
@@ -120,7 +116,6 @@
                     {% endif %}
                 </span>
             </h2>
-
             <div class="flex items-center space-x-3">
                 <div class="relative inline-block text-left">
                     <button type="button" id="menu-button" aria-expanded="false" aria-haspopup="true"
@@ -129,7 +124,6 @@
                             <path d="M10 6a1 1 0 110-2 1 1 0 010 2zm0 4a1 1 0 110-2 1 1 0 010 2zm0 4a1 1 0 110-2 1 1 0 010 2z" />
                         </svg>
                     </button>
-                
                     <div id="dropdown-menu" class="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-lg bg-white shadow-xl ring-1 ring-black ring-opacity-5 hidden" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
                         <div class="py-1" role="none">
                             <a href="#" class="text-red-700 block px-4 py-2 text-sm hover:bg-red-50 hover:font-medium transition-colors" role="menuitem" tabindex="-1" id="menu-item-0">
