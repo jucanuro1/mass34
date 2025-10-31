@@ -22,7 +22,6 @@
                         <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>
                     </svg>
                 </a>
-
                 <a href="{% url 'registro_publico_completo' %}" 
                 title="Acceder a Formulario Público"
                 target="_blank" 
@@ -124,14 +123,31 @@
                             <path d="M10 6a1 1 0 110-2 1 1 0 010 2zm0 4a1 1 0 110-2 1 1 0 010 2zm0 4a1 1 0 110-2 1 1 0 010 2z" />
                         </svg>
                     </button>
-                    <div id="dropdown-menu" class="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-lg bg-white shadow-xl ring-1 ring-black ring-opacity-5 hidden" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
+                    <div id="dropdown-menu" class="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-lg bg-white shadow-xl ring-1 ring-black ring-opacity-5" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
                         <div class="py-1" role="none">
-                            <a href="#" class="text-red-700 block px-4 py-2 text-sm hover:bg-red-50 hover:font-medium transition-colors" role="menuitem" tabindex="-1" id="menu-item-0">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-2 align-text-bottom" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
-                                </svg>
-                                Desactivar Convocatoria
-                            </a>
+
+                            {% with filter_date=request.GET.fecha_inicio %}
+                            <form method="POST" action="{% url 'desactivar_convocatoria' %}">
+                                {% csrf_token %}
+                                
+                                {% if filter_date %}
+                                    <input type="hidden" name="fecha_filtro" value="{{ filter_date }}">
+                                {% endif %}
+
+                                <button type="submit" 
+                                        class="text-red-700 block w-full text-left px-4 py-2 text-sm hover:bg-red-50 hover:font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
+                                        role="menuitem" 
+                                        tabindex="-1" 
+                                        id="menu-item-0"
+                                        {% if not filter_date %}disabled title="Selecciona una fecha para desactivar"{% endif %}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-2 align-text-bottom" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clip-rule="evenodd"></path>
+                                    </svg>
+                                    Desactivar
+                                </button>
+                            </form>
+                            {% endwith %}
+
                         </div>
                     </div>
                 </div>
@@ -147,7 +163,6 @@
             
             <div class="flex flex-wrap gap-x-2 gap-y-2" id="convocatoria-filters">
                 
-                {# Botón de TODAS las Fechas #}
                 {% url 'kanban_dashboard' as all_url %}
                 <a href="{{ all_url }}"
                     class="flex items-center px-3 py-1 text-xs font-semibold rounded-full transition duration-200 border transform hover:scale-[1.03]
@@ -172,7 +187,6 @@
                     </span>
                 </a>
 
-                {# Loops de Fechas #}
                 {% for date_obj in convocatoria_dates %}
                     {% with date_str=date_obj.fecha_inicio|date:"Y-m-d" %}
                         {% url 'kanban_dashboard' as base_url %}
@@ -576,7 +590,6 @@
         </form>
     </div>
 </div>
-
 <div id="historyModal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden items-center justify-center z-50">
     <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
         <h3 class="text-xl font-bold text-gray-800 mb-4">Historial de Convocatorias y Procesos</h3>

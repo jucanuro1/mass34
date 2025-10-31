@@ -29,6 +29,7 @@ urlpatterns = [
     path('proceso/registrar-observacion/', views.registrar_observacion, name='registrar_observacion'),
     path('proceso/registrar-test-archivo/', views.registrar_test_archivo, name='registrar_test_archivo'),
 
+    path('convocatoria/desactivar/', views.DesactivarConvocatoriaView.as_view(), name='desactivar_convocatoria'),
 
     # APIs para Búsqueda y Asistencia
     path('asistencia/', views.asistencia_dashboard, name='asistencia_dashboard'),

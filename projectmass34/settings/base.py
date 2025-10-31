@@ -22,6 +22,7 @@ INSTALLED_APPS = [
 
     #apps
     'candidatos',
+    'coaching_agenda',
 ]
 
 MIDDLEWARE = [

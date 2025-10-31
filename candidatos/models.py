@@ -68,6 +68,13 @@ class Candidato(models.Model):
         ('CONTRATADO', 'Contratado'),
     ]
     estado_actual = models.CharField(max_length=250, choices=ESTADOS, default='REGISTRADO')
+    usuario_ultima_modificacion = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='candidatos_modificados',
+    )
     motivo_descarte = models.CharField(
         max_length=255, 
         choices=MOTIVOS_DESCARTE, 
@@ -135,7 +142,6 @@ class DatosCualificacion(models.Model):
         help_text="¿Cuánto tiempo de experiencia has tenido como vendedor?"
     )
     
-    # (image_dfc727.png)
     conforme_beneficios = models.CharField(
         max_length=10, 
         choices=[('SI', 'Sí'), ('NO', 'No'), ('OTRO', 'Otro')],
@@ -179,6 +185,7 @@ class Proceso(models.Model):
 
     empresa_proceso = models.ForeignKey('Empresa', on_delete=models.CASCADE, help_text="Cliente para este ciclo de prueba.")
     sede_proceso = models.ForeignKey('Sede', on_delete=models.CASCADE, help_text="Sede donde tomó la prueba.")
+    kanban_activo = models.BooleanField(default=True)
 
     ESTADOS_PROCESO = [
         ('INICIADO', 'Iniciado/Confirmado'),

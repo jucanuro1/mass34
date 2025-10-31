@@ -12,7 +12,7 @@ class ProcesoInline(admin.TabularInline):
     fields = [
         'fecha_inicio', 'empresa_proceso', 'sede_proceso', 'estado', 
         'objetivo_ventas_alcanzado', 'factor_actitud_aplica', 
-        'supervisor', 'fecha_teorico', 'fecha_practico', 'fecha_contratacion'
+        'supervisor', 'fecha_teorico', 'fecha_practico', 'fecha_contratacion','kanban_activo'
     ]
     readonly_fields = [
         'objetivo_ventas_alcanzado', 'factor_actitud_aplica', 
@@ -21,7 +21,7 @@ class ProcesoInline(admin.TabularInline):
 
 @admin.register(Candidato)
 class CandidatoAdmin(admin.ModelAdmin):
-    list_display = ('DNI', 'nombres_completos','edad', 'estado_actual', 'telefono_whatsapp','email','fecha_registro')
+    list_display = ('DNI', 'nombres_completos','edad', 'estado_actual', 'telefono_whatsapp','email','fecha_registro','usuario_ultima_modificacion')
     list_filter = ('estado_actual',) 
     search_fields = ('DNI', 'nombres_completos')
     inlines = [ProcesoInline] 
@@ -38,7 +38,7 @@ class RegistroAsistenciaInline(admin.TabularInline):
 class ProcesoAdmin(admin.ModelAdmin):
     list_display = (
         'candidato', 'empresa_proceso', 'sede_proceso', 'fecha_inicio', 'estado', 
-        'objetivo_ventas_alcanzado', 'factor_actitud_aplica'
+        'objetivo_ventas_alcanzado', 'factor_actitud_aplica','kanban_activo'
     )
     list_filter = ('empresa_proceso', 'sede_proceso', 'estado', 'objetivo_ventas_alcanzado', 'factor_actitud_aplica')
     date_hierarchy = 'fecha_inicio' 

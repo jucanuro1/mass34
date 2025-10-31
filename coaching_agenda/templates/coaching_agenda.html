@@ -1,0 +1,325 @@
+{% extends "base.html" %} 
+{% load static %}
+
+{% block title %}Agenda para Psicología y Coaching{% endblock %}
+
+{% block extra_css %}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+    :root {
+        font-family: 'Inter', sans-serif;
+    }
+    /* Definición de la cuadrícula del calendario */
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        grid-auto-rows: minmax(100px, auto); /* Altura mínima para las celdas de día */
+    }
+    /* Definición del color primario (Azul Oscuro - Corporativo) */
+    .text-primary-dark {
+        color: #1e3a8a; /* blue-800 */
+    }
+    /* Color de acento (Rose - Prioridad/Acción) */
+    .border-accent-rose {
+        border-color: #e11d48; /* rose-700 */
+    }
+    /* Color de acento (Azul Claro) */
+    .text-accent-blue {
+        color: #1d4ed8; /* blue-700 */
+    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+<body class="bg-gray-50 min-h-screen antialiased">
+
+    <div id="app" class="flex flex-col h-full"> 
+
+        <header class="p-4 bg-white text-primary-dark shadow-xl flex items-center justify-between sticky top-0 z-10 border-b-4 border-accent-rose">
+            <div class="flex items-center space-x-4">
+                <h1 class="text-lg font-extrabold flex items-center">
+                    <svg class="inline w-6 h-6 mr-2 text-rose-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    Panel de Actividades
+                </h1>
+
+                <button class="bg-red-700 text-sm text-white font-bold py-2 px-4 rounded-lg shadow-md border border-rose-500 transition duration-150 transform hover:scale-105 hover:bg-rose-800" onclick="alert('Esta acción cargaría la vista del día actual.')">
+                    HOY
+                </button>
+                
+                <div class="flex items-center space-x-1 text-primary-dark">
+                    <button class="p-2 rounded-full hover:bg-gray-200 transition duration-150" onclick="alert('Ir al mes anterior.')">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                    </button>
+                    <button class="p-2 rounded-full hover:bg-gray-200 transition duration-150" onclick="alert('Ir al mes siguiente.')">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            <h2 class="text-sm font-light flex-grow text-center md:text-left md:ml-12 hidden sm:block text-gray-700">
+                Octubre 2025
+            </h2>
+
+            <div class="flex items-center space-x-3">
+                <select class="p-2 border border-blue-600 rounded-lg text-blue-900 bg-gray-50 focus:ring-blue-500 focus:border-blue-500 hidden sm:block">
+                    <option>Mes</option>
+                    <option>Semana</option>
+                    <option>Día</option>
+                </select>
+                <button class="bg-red-700 text-white font-semibold py-2 px-4 rounded-full hover:bg-rose-800 transition duration-150 shadow-md md:hidden" onclick="alert('Abrir modal para crear una nueva sesión.')">
+                    <svg class="inline w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                </button>
+            </div>
+        </header>
+
+        <main class="flex-grow flex overflow-hidden">
+
+            <div class="hidden md:block w-64 p-4 border-r bg-white flex-shrink-0 overflow-y-auto space-y-6 shadow-lg">
+                
+                <h3 class="text-lg font-extrabold text-primary-dark hidden border-b-2 border-rose-200 pb-2">Menú de Registros</h3>
+                
+                <nav class="space-y-3 text-sm">
+                    
+                    <button class="w-full text-left p-3 flex items-center space-x-3 font-medium text-white bg-red-700 rounded-xl shadow-lg hover:bg-rose-800 transition duration-150 transform hover:scale-[1.02]" onclick="alert('Acción: Abrir formulario para Programar Nueva Cita')">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2zM15 11l-3 3-3-3"></path></svg>
+                        <span>Programación de Citas</span>
+                    </button>
+                    
+                    <button class="w-full text-left p-3 flex items-center space-x-3 text-accent-blue hover:bg-blue-100/50 rounded-xl transition duration-150" onclick="alert('Acción: Registrar o Consultar Estrategias Mentales')">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        <span>Estrategias Mentales</span>
+                    </button>
+
+                    <button class="w-full text-left p-3 flex items-center space-x-3 text-rose-700 hover:bg-rose-100/50 rounded-xl transition duration-150" onclick="alert('Acción: Registrar o Consultar Dinámicas')">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20h-2m2 0h-2M7 12a4 4 0 11-8 0 4 4 0 018 0zm6 0a4 4 0 11-8 0 4 4 0 018 0zM12 20h9"></path></svg>
+                        <span>Dinámicas Grupales</span>
+                    </button>
+
+                    <button class="w-full text-left p-3 flex items-center space-x-3 text-emerald-600 hover:bg-emerald-100/50 rounded-xl transition duration-150" onclick="alert('Acción: Abrir Planificador de Actividades')">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2m-9 0V3h4v2m-4 0h4m-4 0v4m4-4h4"></path></svg>
+                        <span>Planificación de Actividades</span>
+                    </button>
+                    
+                    <a href="{% url 'admin:index' %}" class="w-full text-left p-3 flex items-center space-x-3 text-gray-700 hover:bg-gray-200 rounded-xl transition duration-150 border-t mt-6 pt-6" target="_blank">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.9.546 2.016.142 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        <span>Panel de Administración</span>
+                    </a>
+                </nav>
+
+            </div>
+
+            <div class="flex-grow p-4 overflow-y-auto">
+                <div class="bg-white border rounded-xl shadow-lg h-full">
+
+                    <div class="calendar-grid text-center font-bold text-sm text-gray-700 border-b-2 border-blue-200 bg-blue-50 rounded-t-xl">
+                        <span class="p-2">DOM</span>
+                        <span class="p-2">LUN</span>
+                        <span class="p-2">MAR</span>
+                        <span class="p-2">MIÉ</span>
+                        <span class="p-2">JUE</span>
+                        <span class="p-2">VIE</span>
+                        <span class="p-2">SÁB</span>
+                    </div>
+
+                    <div id="calendar-grid-content" class="calendar-grid divide-x divide-y border-b">
+                        
+                        <div class="relative p-1 text-right text-gray-400 bg-gray-100 hover:bg-rose-50 cursor-pointer">
+                            <span class="text-sm">29</span>
+                        </div>
+                        <div class="relative p-1 text-right text-gray-400 bg-gray-100 hover:bg-rose-50 cursor-pointer">
+                            <span class="text-sm">30</span>
+                        </div>
+                        <div class="relative p-1 text-right text-gray-400 bg-gray-100 hover:bg-rose-50 cursor-pointer">
+                            <span class="text-sm">31</span>
+                        </div>
+                        
+                        <div class="relative p-1 text-right text-gray-700 hover:bg-rose-50 cursor-pointer">
+                            <span class="text-sm font-semibold">1</span>
+                            <div class="text-left mt-1 space-y-0.5">
+                                <div class="text-xs text-white bg-rose-700 rounded-md px-1 truncate shadow-sm" onclick="openSessionModal('{&quot;id&quot;:&quot;SESS001&quot;,&quot;title&quot;:&quot;Terapia de Pareja&quot;,&quot;client&quot;:&quot;Familia R.&quot;,&quot;time&quot;:&quot;16:00 - 17:30&quot;,&quot;type&quot;:&quot;Cita&quot;,&quot;notes&quot;:&quot;Revisar dinámica de comunicación. Usar juego de roles.&quot;,&quot;color&quot;:&quot;bg-rose-700&quot;}')">Terapia de Personal</div>
+                            </div>
+                        </div>
+                        
+                        <div class="relative p-1 text-right text-gray-700 border-4 border-blue-500 rounded-lg hover:bg-rose-50 cursor-pointer">
+                            <span class="text-sm font-bold bg-blue-500 text-white rounded-full h-6 w-6 inline-flex items-center justify-center">25</span>
+                            <div class="text-left mt-1 space-y-0.5">
+                                <div class="text-xs text-white bg-blue-700 rounded-md px-1 truncate shadow-sm" onclick="openSessionModal('{&quot;id&quot;:&quot;SESS002&quot;,&quot;title&quot;:&quot;Coaching Grupal&quot;,&quot;client&quot;:&quot;Equipo Alpha&quot;,&quot;time&quot;:&quot;09:00 - 11:00&quot;,&quot;type&quot;:&quot;Actividad&quot;,&quot;notes&quot;:&quot;Módulo de Inteligencia Emocional. Necesito el proyector.&quot;,&quot;color&quot;:&quot;bg-blue-700&quot;}')">Sesión de Coaching Grupal</div>
+                                <div class="text-xs text-white bg-rose-700 rounded-md px-1 truncate shadow-sm" onclick="openSessionModal('{&quot;id&quot;:&quot;SESS003&quot;,&quot;title&quot;:&quot;Consulta Inicial (Nuevo)&quot;,&quot;client&quot;:&quot;Paciente X&quot;,&quot;time&quot;:&quot;11:30 - 12:30&quot;,&quot;type&quot;:&quot;Cita&quot;,&quot;notes&quot;:&quot;Recopilación de historial. Envié formulario de admisión.&quot;,&quot;color&quot;:&quot;bg-rose-700&quot;}')">Consulta Inicial (Paciente Nuevo)</div>
+                                <div class="text-xs text-white bg-amber-500 rounded-md px-1 truncate shadow-sm" onclick="openSessionModal('{&quot;id&quot;:&quot;FOLLOWUP&quot;,&quot;title&quot;:&quot;Revisión de Documentos&quot;,&quot;client&quot;:&quot;Administrativo&quot;,&quot;time&quot;:&quot;14:00 - 15:00&quot;,&quot;type&quot;:&quot;Recordatorio&quot;,&quot;notes&quot;:&quot;Revisar el borrador del nuevo contrato de servicios.&quot;,&quot;color&quot;:&quot;bg-amber-500&quot;}')">Revisión Docs (Ámbar)</div>
+                            </div>
+                        </div>
+                        
+                        <div class="relative p-1 text-right text-gray-700 hover:bg-rose-50 cursor-pointer">
+                            <span class="text-sm font-semibold">2</span>
+                        </div>
+                        
+                        <div class="relative p-1 text-right text-gray-700 hover:bg-rose-50 cursor-pointer">
+                            <span class="text-sm font-semibold">3</span>
+                        </div>
+                        
+                        <div class="relative p-1 text-right text-gray-700 hover:bg-rose-50 cursor-pointer">
+                            <span class="text-sm font-semibold">29</span>
+                            <div class="text-left mt-1 space-y-0.5">
+                                <div class="text-xs text-white bg-gray-800 rounded-md px-1 truncate shadow-sm" onclick="openSessionModal('{&quot;id&quot;:&quot;ADMIN001&quot;,&quot;title&quot;:&quot;Cierre de Facturación&quot;,&quot;client&quot;:&quot;Administrativo&quot;,&quot;time&quot;:&quot;14:00 - 17:00&quot;,&quot;type&quot;:&quot;Actividad&quot;,&quot;notes&quot;:&quot;Revisar pagos pendientes y generar recibos de honorarios.&quot;,&quot;color&quot;:&quot;bg-gray-800&quot;}')">Cierre de Actividades</div>
+                            </div>
+                        </div>
+                        
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="sessionDetailModal" class="fixed inset-0 bg-gray-900 bg-opacity-0 z-50 transition-opacity duration-300 hidden" onclick="closeSessionModal()">
+        
+        <div id="modalDrawer" class="bg-white h-full w-full md:w-96 shadow-2xl p-6 absolute right-0 transform translate-x-full transition-transform duration-300 overflow-y-auto" onclick="event.stopPropagation()">
+            
+            <div class="flex justify-between items-start border-b pb-3 mb-4">
+                <h3 id="modalTitle" class="text-lg font-bold text-blue-700">Detalles de la Cita</h3>
+                <button onclick="closeSessionModal()" class="text-gray-400 hover:text-gray-700 transition">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            
+            <div class="space-y-4 text-gray-700">
+                <p class="text-sm font-medium">Tipo de Registro:</p>
+                <p id="modalType" class="text-sm font-semibold text-gray-800 p-2 bg-gray-100 rounded-lg shadow-inner"></p>
+                
+                <p class="text-sm font-medium">Cliente/Involucrados:</p>
+                <p id="modalClient" class="text-sm font-bold text-rose-800"></p>
+                
+                <p class="text-sm font-medium">Horario:</p>
+                <p id="modalTime" class="text-sm font-semibold"></p>
+                
+                <div class="pt-4 border-t mt-4">
+                    <p class="text-sm font-medium mb-2 text-blue-700">Notas de Preparación / Detalles:</p>
+                    <p id="modalNotes" class="text-sm text-gray-600 italic bg-gray-50 p-3 rounded-lg border border-gray-200"></p>
+                </div>
+            </div>
+            
+            <div class="mt-8 flex justify-end">
+                <button class="bg-red-700 hover:bg-rose-800 text-white font-semibold py-3 px-8 rounded-full shadow-xl transition duration-150 transform hover:scale-[1.03]" onclick="alert('Redirigiendo a la vista completa de la sesión ID: ' + document.getElementById('modalTitle').textContent.split(' ')[document.getElementById('modalTitle').textContent.split(' ').length - 1])">
+                    <svg class="inline w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    Ver Detalles
+                </button>
+            </div>
+        </div>
+    </div>
+
+</body>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // --- FUNCIONES DEL MODAL (AHORA DRAWER) ---
+    const modal = document.getElementById('sessionDetailModal');
+    const modalDrawer = document.getElementById('modalDrawer');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalType = document.getElementById('modalType');
+    const modalClient = document.getElementById('modalClient');
+    const modalTime = document.getElementById('modalTime');
+    const modalNotes = document.getElementById('modalNotes');
+
+    function openSessionModal(sessionJsonString) {
+        try {
+            // Reemplaza las comillas de entidad HTML por comillas normales para JSON.parse
+            const cleanJsonString = sessionJsonString.replace(/&quot;/g, '"');
+            const sessionDetails = JSON.parse(cleanJsonString);
+            
+            // 1. Llenar el Modal con los detalles
+            modalTitle.textContent = sessionDetails.title;
+            modalType.textContent = sessionDetails.type;
+            modalClient.textContent = sessionDetails.client;
+            modalTime.textContent = sessionDetails.time;
+            modalNotes.textContent = sessionDetails.notes || "No hay notas de preparación para este registro.";
+
+            // 2. Mostrar el Drawer
+            modal.classList.remove('hidden');
+            document.body.style.overflow = 'hidden'; 
+            
+            // Usar setTimeout para aplicar las transiciones después de que se muestre el overlay
+            setTimeout(() => {
+                modal.classList.add('bg-opacity-50'); 
+                modalDrawer.classList.remove('translate-x-full'); 
+            }, 10);
+        } catch (error) {
+            console.error("Error al parsear los detalles de la sesión:", error);
+            const errorMessage = document.createElement('div');
+            errorMessage.className = 'fixed top-5 right-5 bg-rose-600 text-white p-4 rounded-lg shadow-xl z-[9999]';
+            errorMessage.textContent = 'Ocurrió un error al cargar los detalles del registro.';
+            document.body.appendChild(errorMessage);
+            setTimeout(() => document.body.removeChild(errorMessage), 3000);
+        }
+    }
+
+    function closeSessionModal() {
+        modal.classList.remove('bg-opacity-50'); 
+        modalDrawer.classList.add('translate-x-full'); 
+
+        // Esperar a que termine la animación del cajón (300ms) antes de ocultar el contenedor principal
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            document.body.style.overflow = ''; 
+        }, 300);
+    }
+
+    // --- SCRIPT PARA LLENAR LA CUADRÍCULA DEL CALENDARIO (SIMULACIÓN) ---
+    document.addEventListener('DOMContentLoaded', () => {
+        const calendarGrid = document.getElementById('calendar-grid-content');
+
+        // Lista de eventos de ejemplo para llenar el calendario
+        const eventsData = [
+            // Rojo Bajito (Cita - Prioridad)
+            { id: 'SESS004', title: 'Sesión con Supervisores', color: 'bg-red-700', client: 'Esther G.', time: '10:00 - 11:00', type: 'Cita', notes: 'Práctica de escaneo corporal. Enviar audio guiado.' },
+            // Azul (Actividad/Dinámica - Secundario)
+            { id: 'SESS006', title: 'Taller de Gestión Emocional', color: 'bg-blue-700', client: 'Comunidad', time: '18:00 - 20:00', type: 'Actividad', notes: 'Módulo 3: Reconocimiento y Validación.' },
+            // VERDE ESMERALDA (Nuevo - Tareas/Logística)
+            { id: 'TASK001', title: 'Preparar Nuevo Material', color: 'bg-emerald-600', client: 'Interno', time: '13:00 - 14:00', type: 'Tarea', notes: 'Diseño de infografía sobre ansiedad.' },
+            // AMARILLO ÁMBAR (Nuevo - Seguimiento/Recordatorio)
+            { id: 'FOLLOW01', title: 'Llamada de Seguimiento', color: 'bg-amber-500', client: 'Paciente Z', time: '17:00 - 17:15', type: 'Recordatorio', notes: 'Verificar progreso con ejercicios de respiración.' },
+            // Gris Oscuro (Administrativo - Neutro)
+            { id: 'SESS005', title: 'Reunión de Supervisión', color: 'bg-gray-800', client: 'Dra. López', time: '14:30 - 15:30', type: 'Administrativo', notes: 'Caso de paciente difícil. Revisar bibliografía sobre TLP.' }
+        ];
+        
+        const dayHtmlTemplate = (day, events) => {
+            const dayEventsHtml = events.map(e => {
+                // Codifica los detalles de la sesión para el onclick
+                const sessionJson = JSON.stringify(e).replace(/"/g, '&quot;');
+                return `<div class="text-xs text-white ${e.color} rounded-md px-1 truncate shadow-sm" onclick="openSessionModal('${sessionJson}')">${e.title}</div>`;
+            }).join('');
+
+            return `
+                <div class="relative p-1 text-right text-gray-700 hover:bg-rose-50 cursor-pointer border-t" style="min-height: 100px;">
+                    <span class="text-sm font-semibold">${day}</span>
+                    <div class="text-left mt-1 space-y-0.5">
+                        ${dayEventsHtml}
+                    </div>
+                </div>
+            `;
+        };
+
+        // Llenar las celdas restantes (simulación para un mes completo de 42 celdas)
+        const totalCells = 42;
+        const existingCells = calendarGrid.children.length;
+
+        for (let i = existingCells + 1; i <= totalCells; i++) {
+            const day = (i % 31) + 1; // Número de día genérico
+            
+            // Asigna eventos de forma aleatoria a 1 de cada 4 días
+            const dayEvents = Math.random() > 0.75 ? eventsData.slice(0, Math.floor(Math.random() * eventsData.length) + 1) : [];
+            
+            let cellHtml;
+            if (i > 3 && i < 35) { // Días normales del mes (simulación)
+                cellHtml = dayHtmlTemplate(day, dayEvents);
+            } else if (i >= 35) { // Días del mes siguiente (simulación)
+                cellHtml = `<div class="relative p-1 text-right text-gray-400 bg-gray-100 hover:bg-rose-50 cursor-pointer border-t" style="min-height: 100px;"><span class="text-sm">${day}</span></div>`;
+            } else {
+                continue; // Los días anteriores ya están definidos en el HTML
+            }
+
+            calendarGrid.innerHTML += cellHtml;
+        }
+    });
+</script>
+{% endblock %}

@@ -19,6 +19,7 @@ from django.core.exceptions import ValidationError
 import pandas as pd
 import io
 import json
+from django.db.models import Prefetch, OuterRef, Subquery
 from datetime import date
 from django.db import models
 import time
@@ -319,7 +320,6 @@ class KanbanDashboardView(LoginRequiredMixin, View):
         
         return render(request, 'dashboard.html', context)
     
-
 @method_decorator(csrf_exempt, name='dispatch')
 class UpdateStatusMultipleView(LoginRequiredMixin, View):
     """
@@ -327,30 +327,38 @@ class UpdateStatusMultipleView(LoginRequiredMixin, View):
     y sus procesos activos en una sola transacción.
     """
     def post(self, request):
+        # ⚠️ Verificación de que el usuario esté autenticado (LoginRequiredMixin ya lo hace, pero es buena práctica)
+        if not request.user.is_authenticated:
+            return JsonResponse({'status': 'error', 'message': 'Autenticación requerida.'}, status=401)
+            
         try:
             # 1. Validación de Request
             if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
                 return JsonResponse({'status': 'error', 'message': 'Invalid request: Must be an AJAX POST.'}, status=400)
             
-            # Obtener datos: la lista de DNI's, el nuevo estado y la fecha de inicio (si aplica)
+            # Obtener datos:
             dni_list = request.POST.getlist('dnis[]')
             new_status_key = request.POST.get('new_status')
-            fecha_inicio_nueva = request.POST.get('fecha_inicio') # Nuevo dato para el flujo REGISTRADO->CONVOCADO
+            fecha_inicio_str = request.POST.get('fecha_inicio') # Nuevo dato para el flujo REGISTRADO->CONVOCADO
 
             if not dni_list or not new_status_key:
-                # Este error es el 'DNI list and new status are required.'
-                # Se mantiene, la solución está en el FRONTEND (Función confirmMassUpdate).
                 return JsonResponse({'status': 'error', 'message': 'DNI list and new status are required.'}, status=400)
 
+            # Convertir la fecha de inicio si existe
+            fecha_inicio_nueva = None
+            if fecha_inicio_str:
+                try:
+                    fecha_inicio_nueva = date.fromisoformat(fecha_inicio_str)
+                except ValueError:
+                    return JsonResponse({'status': 'error', 'message': 'Formato de fecha de inicio no válido. Use AAAA-MM-DD.'}, status=400)
+
             # 2. Mapeo de Estados
-            # Usaremos 'INICIADO' para CONVOCADO, que es el estado inicial del Proceso.
             proceso_estado_map = {
                 'CONVOCADO': 'INICIADO', 
                 'CAPACITACION_TEORICA': 'TEORIA',
                 'CAPACITACION_PRACTICA': 'PRACTICA',
                 'CONTRATADO': 'CONTRATADO',
                 'NO_APTO': 'NO_APTO', 
-                # 'REGISTRADO' no requiere actualización de Proceso
             }
 
             proceso_status_to_update = proceso_estado_map.get(new_status_key)
@@ -358,27 +366,34 @@ class UpdateStatusMultipleView(LoginRequiredMixin, View):
             
             candidatos_actualizados = 0
 
+            # 3. Solución a FOREIGN KEY: Obteniendo valores por defecto para creación de Proceso
+            # ⚠️ Esto es clave: si el frontend no proporciona estos IDs, DEBES asegurarte
+            # de que los IDs existan o el Proceso.objects.create() fallará.
+            try:
+                # Usamos .first() para obtener el primer registro si no hay datos específicos
+                default_supervisor = Supervisor.objects.first()
+                default_empresa = Empresa.objects.first()
+                if not default_supervisor or not default_empresa:
+                    raise Exception("Valores por defecto de Supervisor o Empresa no encontrados.")
+            except Exception as e:
+                 return JsonResponse({'status': 'error', 'message': f'Fallo de configuración: {str(e)}'}, status=500)
+
+
             with transaction.atomic():
                 
-                # 3. Obtener Candidatos con la CORRECCIÓN del related_name
+                # 4. Obtener Candidatos con Prefetch
                 candidatos = Candidato.objects.filter(DNI__in=dni_list).prefetch_related(
                     Prefetch(
-                        'procesos', # <-- CORRECCIÓN CLAVE: Usar 'procesos'
+                        'procesos',
                         queryset=Proceso.objects.order_by('-fecha_inicio'), 
                         to_attr='latest_proceso'
                     )
                 )
                 
-                # Si la transición es a CONVOCADO, necesitamos la fecha
                 is_to_convocado = new_status_key == 'CONVOCADO'
                 if is_to_convocado and not fecha_inicio_nueva:
-                     return JsonResponse({'status': 'error', 'message': 'La fecha de inicio es requerida para iniciar el proceso de convocatoria masiva.'}, status=400)
+                    return JsonResponse({'status': 'error', 'message': 'La fecha de inicio es requerida para iniciar el proceso de convocatoria masiva.'}, status=400)
 
-                # Definir IDs por defecto para la creación de Proceso (AJUSTAR SEGÚN NECESIDAD)
-                # *Necesitas obtener estos valores del frontend o usar valores por defecto/primeros*
-                # Ejemplo de valores por defecto (asegúrate de que existan)
-                default_supervisor_id = 1 
-                default_empresa_id = 1
                 
                 for candidato in candidatos:
                     
@@ -386,7 +401,7 @@ class UpdateStatusMultipleView(LoginRequiredMixin, View):
                     new_order = estado_orden.get(new_status_key, -1)
 
                     # Solo actualizar si es un avance o un estado final
-                    if new_order > current_order or new_status_key in ['CONTRATADO', 'NO_APTO']:
+                    if new_order > current_order or new_status_key in ['CONTRATADO', 'NO_APTO', 'DESISTE']:
                         
                         proceso_activo = candidato.latest_proceso[0] if candidato.latest_proceso else None
                         
@@ -396,37 +411,41 @@ class UpdateStatusMultipleView(LoginRequiredMixin, View):
                             Proceso.objects.create(
                                 candidato=candidato,
                                 fecha_inicio=fecha_inicio_nueva,
-                                # Usamos la sede del candidato, y valores por defecto para los demás
-                                supervisor_id=default_supervisor_id, 
-                                empresa_proceso_id=default_empresa_id, 
-                                sede_proceso_id=candidato.sede_registro_id, 
+                                supervisor=default_supervisor, 
+                                empresa_proceso=default_empresa, 
+                                sede_proceso=candidato.sede_registro, 
                                 estado='INICIADO'
                             )
-                            # El nuevo proceso se crea, no es necesario reasignar proceso_activo aquí
+                            # Actualizar estado maestro del Candidato (FUERA DEL BUCLE DE PROCESO)
+                            candidato.estado_actual = new_status_key
                             
                         # B. Actualización de Proceso Existente
-                        elif proceso_status_to_update and proceso_activo:
-                            
-                            if proceso_status_to_update == 'CONTRATADO':
-                                proceso_activo.fecha_contratacion = date.today()
-                            
+                        elif proceso_status_to_update:
+                            if not proceso_activo:
+                                # Si no hay proceso activo para una etapa posterior, lo omitimos o lo marcamos
+                                print(f"Advertencia: Candidato {candidato.DNI} sin proceso activo para actualizar a {new_status_key}")
+                                continue
+                                
+                            # Si es CONTRATADO, la fecha de contratación se debe actualizar vía save() del Proceso
                             proceso_activo.estado = proceso_status_to_update
-                            proceso_activo.save()
+                            proceso_activo.save() # Llama al save personalizado que actualiza fechas
+
+                            # Actualizar estado maestro del Candidato
+                            candidato.estado_actual = new_status_key
                         
-                        # Actualizar estado maestro del Candidato
-                        candidato.estado_actual = new_status_key
-                        candidato.save()
+                        # 5. SOLUCIÓN AL FOREIGN KEY (Actualización de Auditoría)
+                        # Asignamos el usuario de Django antes de guardar el candidato.
+                        candidato.usuario_ultima_modificacion = request.user
+                        candidato.save() # Guarda los cambios de estado_actual y usuario_ultima_modificacion
                         
                         candidatos_actualizados += 1
                         
                 # 6. Respuesta JSON
-                # Usamos el método de instancia get_FOO_display() de Django.
-                if candidatos:
-                    # Usamos el display name del nuevo estado (no de un candidato específico)
+                if candidatos_actualizados > 0:
                     display_status = dict(Candidato.ESTADOS).get(new_status_key, new_status_key)
                 else:
                     display_status = new_status_key 
-                
+                    
                 return JsonResponse({
                     'status': 'success', 
                     'message': f'{candidatos_actualizados} candidatos movidos a **{display_status}** con éxito.',
@@ -435,7 +454,8 @@ class UpdateStatusMultipleView(LoginRequiredMixin, View):
                 })
 
         except Exception as e:
-            print(f"Error en UpdateStatusMultipleView: {e}")
+            # Capturamos el error original (FOREIGN KEY constraint failed, si persiste)
+            print(f"Error FATAL en UpdateStatusMultipleView: {e}")
             return JsonResponse({'status': 'error', 'message': f'Error al actualizar estados masivamente: {str(e)}'}, status=500)
 
 class CandidatoDetailView(LoginRequiredMixin, DetailView):
@@ -1284,4 +1304,24 @@ def actualizar_fecha_proceso(request, proceso_id):
         print(f"Error al actualizar la fecha: {e}") 
         return JsonResponse({'success': False, 'error': 'Error interno del servidor.'}, status=500)
 
+class DesactivarConvocatoriaView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        fecha_filtro_str = request.POST.get('fecha_filtro') 
+        
+        if not fecha_filtro_str:
+            messages.error(request, "Error: No se proporcionó una fecha de convocatoria para desactivar.")
+            return redirect('kanban_dashboard')
+            
+        try:
+            count = Proceso.objects.filter(
+                fecha_inicio=fecha_filtro_str, 
+                kanban_activo=True
+            ).update(kanban_activo=False)
+            
+            messages.success(request, f"¡Éxito! Se han desactivado **{count}** procesos para la convocatoria del **{fecha_filtro_str}**. Los candidatos ya no se mostrarán en el Kanban, pero su estado se mantiene.")
+        except Exception as e:
+            messages.error(request, f"Error al desactivar la convocatoria: {e}")
+            
+        return redirect('kanban_dashboard')
+    
 

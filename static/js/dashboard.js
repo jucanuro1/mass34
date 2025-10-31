@@ -360,11 +360,13 @@ function confirmIndividualUpdate(dni, newStatus) {
 function confirmMassUpdate(dnisArray, newStatus, extraData) {
     const formData = new FormData();
     
+    // 1. Validación de entrada
     if (dnisArray.length === 0) {
         alert("Error en actualización masiva: DNI list is required.");
         return Promise.reject(new Error("No DNI list"));
     }
     
+    // 2. Construcción de FormData
     dnisArray.forEach(dni => {
         formData.append('dnis[]', dni); 
     });
@@ -374,36 +376,63 @@ function confirmMassUpdate(dnisArray, newStatus, extraData) {
     for (const key in extraData) {
         formData.append(key, extraData[key]);
     }
-    
+
+    // 3. Inicio de la petición con manejo robusto de red y respuesta
     return fetch(massiveUpdateUrl, {
         method: 'POST',
         headers: {
             'X-CSRFToken': csrfToken,
             'X-Requested-With': 'XMLHttpRequest', 
+            // Nota: Con FormData, el 'Content-Type' se maneja automáticamente
         },
         body: formData
     })
-    .then(response => {
+    .then(async response => { // Usamos 'async' para el manejo de texto/JSON
         if (!response.ok) {
-            return response.text().then(text => { 
-                console.error(`Error HTTP ${response.status} en la petición. Cuerpo del error:`, text);
+            // Si el status es 4xx o 5xx, intentamos leer el cuerpo para depuración
+            const errorBody = await response.text();
+            console.error(`Error HTTP ${response.status} en la petición. Cuerpo del error:`, errorBody);
+            
+            // Intentamos parsear el JSON de error (si existe) para un mensaje más limpio
+            try {
+                const errorData = JSON.parse(errorBody);
+                throw new Error(errorData.message || `Petición fallida. Código: ${response.status}.`);
+            } catch (e) {
+                // Si falla JSON.parse (ej. HTML o texto plano), usamos un mensaje genérico
                 throw new Error(`Petición fallida. Código: ${response.status}. Revise la consola.`);
-            });
+            }
         }
-        return response.json();
+        
+        // 4. Solución al SyntaxError: Si la respuesta es OK (200), leemos el JSON
+        // (Esto es donde puede fallar si Django no devuelve JSON, aunque response.ok lo mitiga)
+        try {
+            return response.json();
+        } catch (e) {
+            console.error('Error FATAL: La respuesta del servidor no es JSON válida.', e);
+            throw new Error('Respuesta del servidor corrupta.');
+        }
     })
     .then(data => {
         if (data.status === 'success') {
             window.location.reload(); 
             return data;
         } else {
+            // Si el backend devuelve status: 'error' (como con el FOREIGN KEY), se atrapa aquí.
             alert(`❌ Error en actualización masiva: ${data.message}`);
             throw new Error(data.message);
         }
     })
     .catch(error => {
-        console.error('Error FATAL en la actualización masiva:', error);
-        alert(`🔴 Fallo en la acción masiva. Mensaje: ${error.message}`);
+        // 5. Captura de Errores FATALES (incluido NetworkError)
+        const errorMessage = error.message || String(error);
+        
+        if (errorMessage.includes("NetworkError") || errorMessage.includes("Failed to fetch")) {
+             console.error('Error FATAL en la actualización masiva: Fallo de red/conexión.', error);
+             alert(`🔴 Fallo de conexión. Verifique la URL (${massiveUpdateUrl}) o si el servidor está activo.`);
+        } else {
+             console.error('Error FATAL en la actualización masiva:', error);
+             alert(`🔴 Fallo en la acción masiva. Mensaje: ${errorMessage}`);
+        }
         throw error;
     });
 }
@@ -634,9 +663,6 @@ function showCopyFeedback(buttonElement) {
     }, 2000);
 }
 
-// --------------------------------------------------------------------
-// G. INICIALIZACIÓN DE EVENTOS (DOM CONTENT LOADED)
-// --------------------------------------------------------------------
 
 document.addEventListener('DOMContentLoaded', () => {
     
