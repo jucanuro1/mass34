@@ -221,7 +221,10 @@ class KanbanDashboardView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
 
         search_query = request.GET.get('search')
-        fecha_inicio_filter = request.GET.get('fecha_inicio')
+        fecha_inicio_filter = request.GET.get('fecha_inicio') # <-- Sigue siendo el STRING para DB
+        
+        # 1. INICIALIZAMOS la nueva variable para la plantilla
+        active_date_for_template = None 
         
         latest_proceso_prefetch = Prefetch(
             'procesos', 
@@ -235,8 +238,11 @@ class KanbanDashboardView(LoginRequiredMixin, View):
         
         if fecha_inicio_filter:
             try:
-                datetime.strptime(fecha_inicio_filter, '%Y-%m-%d').date() 
+                # 2. CONVERSIÓN CRUCIAL: Creamos el objeto date
+                active_date_for_template = datetime.strptime(fecha_inicio_filter, '%Y-%m-%d').date()
 
+                # 3. El FILTRO DE DATOS sigue usando el STRING (fecha_inicio_filter),
+                # lo que garantiza que la funcionalidad existente NO CAMBIE.
                 candidatos = candidatos.filter(
                     procesos__fecha_inicio=fecha_inicio_filter
                 ).distinct()
@@ -244,6 +250,7 @@ class KanbanDashboardView(LoginRequiredMixin, View):
             except ValueError:
                 messages.error(request, "Formato de fecha de filtro inválido. Use AAAA-MM-DD.")
                 fecha_inicio_filter = None
+                active_date_for_template = None # Aseguramos que no se muestre fecha inválida
         
         if search_query:
             candidatos = candidatos.filter(
@@ -289,7 +296,7 @@ class KanbanDashboardView(LoginRequiredMixin, View):
                     objetivo_alcanzado = 'true' if proceso_actual.objetivo_ventas_alcanzado else 'false'
                     factor_actitud = 'true' if proceso_actual.factor_actitud_aplica else 'false'
                     fecha_inicio = proceso_actual.fecha_inicio
-                
+                    
                 kanban_data[estado].append({
                     'candidato': candidato,
                     'proceso': proceso_actual,
@@ -312,7 +319,8 @@ class KanbanDashboardView(LoginRequiredMixin, View):
             'title': 'Dashboard Kanban de Candidatos',
 
             'convocatoria_dates': convocatoria_dates,
-            'active_date': fecha_inicio_filter,
+            # 4. PASAMOS el objeto de fecha al contexto bajo el nombre 'active_date'
+            'active_date': active_date_for_template, 
             'total_candidatos': total_candidatos,
             
             'motivos_descarte': MOTIVOS_DESCARTE,
@@ -327,7 +335,7 @@ class UpdateStatusMultipleView(LoginRequiredMixin, View):
     y sus procesos activos en una sola transacción.
     """
     def post(self, request):
-        # ⚠️ Verificación de que el usuario esté autenticado (LoginRequiredMixin ya lo hace, pero es buena práctica)
+        # ⚠️ Verificación de que el usuario esté autenticado 
         if not request.user.is_authenticated:
             return JsonResponse({'status': 'error', 'message': 'Autenticación requerida.'}, status=401)
             
@@ -336,10 +344,11 @@ class UpdateStatusMultipleView(LoginRequiredMixin, View):
             if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
                 return JsonResponse({'status': 'error', 'message': 'Invalid request: Must be an AJAX POST.'}, status=400)
             
-            # Obtener datos:
+            # Obtener datos de FormData:
             dni_list = request.POST.getlist('dnis[]')
-            new_status_key = request.POST.get('new_status')
+            new_status_key = request.POST.get('new_status') # Ej: 'DESISTE'
             fecha_inicio_str = request.POST.get('fecha_inicio') # Nuevo dato para el flujo REGISTRADO->CONVOCADO
+            motivo_descarte = request.POST.get('motivo_descarte') # Dato de la acción masiva de descarte
 
             if not dni_list or not new_status_key:
                 return JsonResponse({'status': 'error', 'message': 'DNI list and new status are required.'}, status=400)
@@ -359,6 +368,7 @@ class UpdateStatusMultipleView(LoginRequiredMixin, View):
                 'CAPACITACION_PRACTICA': 'PRACTICA',
                 'CONTRATADO': 'CONTRATADO',
                 'NO_APTO': 'NO_APTO', 
+                # DESISTE no necesita mapeo de proceso, se actualiza directo
             }
 
             proceso_status_to_update = proceso_estado_map.get(new_status_key)
@@ -367,10 +377,7 @@ class UpdateStatusMultipleView(LoginRequiredMixin, View):
             candidatos_actualizados = 0
 
             # 3. Solución a FOREIGN KEY: Obteniendo valores por defecto para creación de Proceso
-            # ⚠️ Esto es clave: si el frontend no proporciona estos IDs, DEBES asegurarte
-            # de que los IDs existan o el Proceso.objects.create() fallará.
             try:
-                # Usamos .first() para obtener el primer registro si no hay datos específicos
                 default_supervisor = Supervisor.objects.first()
                 default_empresa = Empresa.objects.first()
                 if not default_supervisor or not default_empresa:
@@ -419,7 +426,7 @@ class UpdateStatusMultipleView(LoginRequiredMixin, View):
                             # Actualizar estado maestro del Candidato (FUERA DEL BUCLE DE PROCESO)
                             candidato.estado_actual = new_status_key
                             
-                        # B. Actualización de Proceso Existente
+                        # B. Actualización de Proceso Existente (y estado maestro)
                         elif proceso_status_to_update:
                             if not proceso_activo:
                                 # Si no hay proceso activo para una etapa posterior, lo omitimos o lo marcamos
@@ -432,11 +439,24 @@ class UpdateStatusMultipleView(LoginRequiredMixin, View):
 
                             # Actualizar estado maestro del Candidato
                             candidato.estado_actual = new_status_key
-                        
-                        # 5. SOLUCIÓN AL FOREIGN KEY (Actualización de Auditoría)
-                        # Asignamos el usuario de Django antes de guardar el candidato.
+                            
+                        # C. LÓGICA DE ACTUALIZACIÓN DIRECTA PARA ESTADOS FINALES (NO NECESITA PROCESO)
+                        # ¡ESTA ES LA SOLUCIÓN PARA DESISTE y NO_APTO!
+                        elif new_status_key in ['DESISTE', 'NO_APTO']:
+                            # Actualizar el estado maestro del Candidato directamente
+                            candidato.estado_actual = new_status_key
+                            
+                            # Si existe un campo 'motivo_descarte' en tu modelo Candidato
+                            if motivo_descarte: 
+                                candidato.motivo_descarte = motivo_descarte # Asume campo existe
+                            
+                        else:
+                            # Si no encaja en A, B o C (ej: mover de CONVOCADO a REGISTRADO), lo omitimos.
+                            continue # Siguiente candidato
+
+                        # 5. Guardar los cambios si hubo una actualización en A, B o C
                         candidato.usuario_ultima_modificacion = request.user
-                        candidato.save() # Guarda los cambios de estado_actual y usuario_ultima_modificacion
+                        candidato.save() # Guarda los cambios de estado_actual, motivo_descarte y usuario_ultima_modificacion
                         
                         candidatos_actualizados += 1
                         
@@ -454,9 +474,9 @@ class UpdateStatusMultipleView(LoginRequiredMixin, View):
                 })
 
         except Exception as e:
-            # Capturamos el error original (FOREIGN KEY constraint failed, si persiste)
-            print(f"Error FATAL en UpdateStatusMultipleView: {e}")
-            return JsonResponse({'status': 'error', 'message': f'Error al actualizar estados masivamente: {str(e)}'}, status=500)
+            # 7. Manejo de errores
+            print(f"Error fatal en UpdateStatusMultipleView: {e}")
+            return JsonResponse({'status': 'error', 'message': f'Error interno del servidor: {str(e)}'}, status=500)
 
 class CandidatoDetailView(LoginRequiredMixin, DetailView):
     """
