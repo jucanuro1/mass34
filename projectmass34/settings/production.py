@@ -1,37 +1,26 @@
-# projectmass34/settings/production.py
-
 from .base import *
 import dj_database_url
 import os
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False # Siempre False en producción
+DOTENV_PATH = BASE_DIR / ".env"
 
-# La clave secreta debe venir exclusivamente del entorno de AWS
+if DOTENV_PATH.exists():
+    env.read_env(str(DOTENV_PATH))
+
+DEBUG = False
 SECRET_KEY = env('DJANGO_SECRET_KEY')
 
-# Los hosts permitidos vendrán de la variable de entorno DJANGO_ALLOWED_HOSTS
-ALLOWED_HOSTS = env.list('DJANGO_ALLOWED_HOSTS', default=['.elasticbeanstalk.com'])
+ALLOWED_HOSTS = ['reclutamiento.mass34.com', '3.146.169.121', 'localhost', '127.0.0.1']
 
-# Database (MySQL para producción)
-# dj_database_url leerá la variable DATABASE_URL inyectada por AWS
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+
+CSRF_TRUSTED_ORIGINS = ['https://reclutamiento.mass34.com']
+
 DATABASES = {
     'default': dj_database_url.config(
         default=env('DATABASE_URL'),
-        conn_max_age=600 # Opcional: mantiene la conexión abierta por más tiempo
+        conn_max_age=600
     )
 }
-
-# --- CONFIGURACIÓN DE SEGURIDAD PARA PRODUCCIÓN ---
-# Es vital para entornos reales. Asume que usas SSL/HTTPS.
-SECURE_SSL_REDIRECT = env.bool('SECURE_SSL_REDIRECT', default=True) # Redireccionar a HTTPS
-SESSION_COOKIE_SECURE = env.bool('SESSION_COOKIE_SECURE', default=True)
-CSRF_COOKIE_SECURE = env.bool('CSRF_COOKIE_SECURE', default=True)
-SECURE_HSTS_SECONDS = 31536000 # Habilitar HSTS por 1 año
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-SECURE_HSTS_PRELOAD = True
-
-# Opcional: Añade WhiteNoise para servir estáticos si no usas S3
-# INSTALLED_APPS.append('whitenoise.runserver_nostatic')
-# MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
-# STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'

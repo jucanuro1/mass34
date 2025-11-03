@@ -2,13 +2,10 @@
 
 from pathlib import Path
 import os
-import environ # Importamos para usar env.list y env()
+import environ 
 
-# Configuración del manejo de entorno. La carga del .env se hace en development.py o production.py
 env = environ.Env()
 
-# BASE_DIR: Para llegar a projectmass34/ (donde está manage.py) desde settings/base.py
-# (settings/base.py -> settings/ -> projectmass34/ -> projectmass34/)
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 # Application definition
@@ -69,16 +66,12 @@ TIME_ZONE = 'America/Lima' # Usa tu zona horaria
 USE_I18N = True
 USE_TZ = True
 
-# Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'
-# Directorio donde Django recolectará los estáticos en producción (EB/collectstatic)
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') 
-# Directorios de estáticos globales para DESARROLLO (el warning viene de aquí)
 STATICFILES_DIRS = [ 
     os.path.join(BASE_DIR, 'static'), 
 ]
 
-# Media files (archivos subidos por usuarios)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'mediafiles')
 
@@ -87,7 +80,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_REDIRECT_URL = 'kanban/'
 LOGIN_URL = '/login/'
 
-# Las siguientes 3 variables serán definidas/sobrescritas en development/production
 SECRET_KEY = '' 
 DEBUG = False
 ALLOWED_HOSTS = []
