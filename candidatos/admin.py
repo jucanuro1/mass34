@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Empresa, Sede, Supervisor, Candidato, Proceso, RegistroAsistencia, DatosCualificacion, ComentarioProceso, RegistroTest
+from .models import Empresa, Sede, Supervisor, Candidato, Proceso, RegistroAsistencia, DatosCualificacion, ComentarioProceso, RegistroTest, DocumentoCandidato
 from django.utils.html import format_html
 
 admin.site.register(Empresa)
@@ -190,7 +190,6 @@ class ComentarioProcesoAdmin(admin.ModelAdmin):
 
 @admin.register(RegistroTest)
 class RegistroTestAdmin(admin.ModelAdmin):
-    # Campos a mostrar en la lista principal
     list_display = (
         'candidato_nombre', 
         'proceso_id', 
@@ -200,7 +199,6 @@ class RegistroTestAdmin(admin.ModelAdmin):
         'descargar_archivo'
     )
     
-    # Campos por los que se puede filtrar
     list_filter = (
         'tipo_test', 
         'fase_proceso', 
@@ -208,17 +206,14 @@ class RegistroTestAdmin(admin.ModelAdmin):
         'proceso__empresa_proceso'
     )
     
-    # Campos que permiten la búsqueda
     search_fields = (
         'proceso__candidato__nombres_completos', 
         'proceso__candidato__DNI', 
         'resultado_obtenido'
     )
     
-    # Solo lectura
     readonly_fields = ('fecha_registro', 'fase_proceso')
 
-    # Agrupación de campos en la vista de detalle
     fieldsets = (
         (None, {
             'fields': ('proceso', 'tipo_test', 'archivo_url', 'resultado_obtenido')
@@ -228,7 +223,6 @@ class RegistroTestAdmin(admin.ModelAdmin):
         }),
     )
     
-    # Funciones personalizadas para obtener datos de modelos relacionados o acciones
     def candidato_nombre(self, obj):
         return obj.proceso.candidato.nombres_completos
     candidato_nombre.short_description = 'Candidato'
@@ -241,8 +235,61 @@ class RegistroTestAdmin(admin.ModelAdmin):
     def descargar_archivo(self, obj):
         if obj.archivo_url:
             from django.utils.html import format_html
-            # Asegúrate de configurar MEDIA_URL en settings.py para que esto funcione
             return format_html('<a href="{}" target="_blank">Descargar</a>', obj.archivo_url.url)
         return "No hay archivo"
     descargar_archivo.short_description = 'Archivo'
+
+
+@admin.register(DocumentoCandidato)
+class DocumentoCandidatoAdmin(admin.ModelAdmin):
+    list_display = (
+        'candidato_link', 
+        'tipo_documento', 
+        'proceso', 
+        'fecha_subida', 
+        'subido_por', 
+        'archivo_link'
+    )
+    
+    list_filter = (
+        'tipo_documento', 
+        'proceso', 
+        'fecha_subida'
+    )
+    
+    # Campos por los que se puede buscar
+    search_fields = (
+        'candidato__nombres_completos', 
+        'candidato__DNI', 
+        'observaciones'
+    )
+    
+    # Campos que se muestran en el formulario de detalle/edición
+    fieldsets = (
+        (None, {
+            'fields': ('candidato', 'proceso', 'tipo_documento', 'archivo', 'observaciones'),
+        }),
+        ('Metadatos', {
+            'fields': ('fecha_subida', 'subido_por'),
+            'classes': ('collapse',), # Opcional: Oculta por defecto
+        }),
+    )
+    
+    # Hacer que algunos campos se muestren pero no sean editables
+    readonly_fields = ('fecha_subida', 'subido_por')
+    
+    @admin.display(description='Candidato')
+    def candidato_link(self, obj):
+        from django.utils.html import format_html
+        return format_html('<a href="{}">{}</a>',
+                           f'/admin/candidatos/candidato/{obj.candidato.pk}/change/', # Ajusta 'tu_app_name'
+                           obj.candidato.nombres_completos)
+    
+    # Muestra el enlace para descargar el archivo
+    @admin.display(description='Descargar Archivo')
+    def archivo_link(self, obj):
+        from django.utils.html import format_html
+        if obj.archivo:
+            return format_html('<a href="{}">Ver/Descargar</a>', obj.archivo.url)
+        return "N/A"
 

@@ -37,6 +37,14 @@ urlpatterns = [
     path('api/search-candidato/', views.CandidatoSearchView.as_view(), name='candidato_search_api'),
     path('api/asistencia-check/', views.AsistenciaDiariaCheckView.as_view(), name='api_asistencia_check'),
 
+    path('candidatos/', views.CandidatoListView.as_view(), name='candidatos_list'),
+    path('candidatos/exportar/', views.CandidatoExportView.as_view(), name='candidatos_export'),
+
+    path('candidatos/asistencia/', views.CandidatoAsistenciaListView.as_view(), name='candidatos_asistencia_list'),
+    path('candidatos/asistencia/<int:pk>/detalle/', views.RegistroAsistenciaDetailView.as_view(), name='registro_asistencia_detalle'),
+
+    path('documentos/registrar/', views.RegistrarDocumentoView.as_view(), name='registrar_documento_laboral'),
+
     path('api/proceso/<int:proceso_id>/actualizar_fecha/', views.actualizar_fecha_proceso, name='actualizar_fecha_proceso_api'),
     
 ]

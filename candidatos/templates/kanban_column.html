@@ -208,7 +208,7 @@
                     {% endif %}
                 </div>
 
-                <div class="flex items-center justify-between mt-2 pt-2 border-t border-gray-100">
+                <div class="flex items-center justify-between mt-2 pt-2 border-t border-red-100">
                     <div class="flex items-center space-x-1">
                         
                         {% if proceso %}
@@ -220,6 +220,17 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                             </svg>
                         </button>
+                        {% endif %}
+
+                        {% if proceso %}
+                            <button 
+                                onclick="event.stopPropagation(); openDocumentUploadModal('{{ proceso.pk }}', '{{ candidato.nombres_completos }}')"
+                                class="p-1 text-gray-400 hover:text-red-600 rounded-full hover:bg-red-50 transition duration-150"
+                                title="Subir Certificados o Documentos Laborales">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3-3v6m-9 5h16a2 2 0 002-2V7a2 2 0 00-2-2H9.586a1 1 0 01-.707-.293l-1.586-1.586A1 1 0 006.586 3H4a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                </svg>
+                            </button>
                         {% endif %}
 
                         {% if proceso %}
@@ -447,6 +458,86 @@
     </div>
 </div>
 
+<div id="document-upload-modal" class="fixed inset-0 z-50 hidden" aria-labelledby="slide-over-title-docs" role="dialog" aria-modal="true">
+    <div class="absolute inset-0 bg-gray-900 bg-opacity-75 transition-opacity" onclick="closeDocumentUploadModal()" id="document-upload-overlay"></div>
+    <div class="fixed inset-y-0 right-0 max-w-full flex">
+        <div class="w-screen max-w-md transform transition ease-in-out duration-500 sm:duration-700 translate-x-full" id="document-upload-panel">
+            <div class="h-full flex flex-col bg-white shadow-xl overflow-y-auto">
+                <div class="px-4 py-4 bg-red-700 sm:px-6">
+                    <div class="flex items-start justify-between">
+                        <h2 class="text-lg font-bold text-white" id="slide-over-title-docs">
+                            📜 Certificados y Documentos
+                        </h2>
+                        <div class="ml-3 h-7 flex items-center">
+                            <button type="button" class="bg-red-700 rounded-md text-red-200 hover:text-white focus:outline-none focus:ring-2 focus:ring-white" onclick="closeDocumentUploadModal()">
+                                <span class="sr-only">Cerrar panel</span>
+                                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="relative flex-1 py-6 px-4 sm:px-6">
+                    <div class="p-3 bg-gray-50 border border-red-200 rounded-lg mb-6 shadow-sm">
+                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Candidato:</p>
+                        <p class="text-lg font-bold text-red-800 truncate" id="doc-candidato-nombre">--</p>
+                        <p class="text-sm text-gray-600 mt-1">
+                            <span class="font-medium">Proceso ID:</span> 
+                            <span id="doc-proceso-id-display" class="font-bold text-gray-700">--</span>
+                        </p>
+                    </div>
+                    <form id="registro-documento-form" 
+                        method="POST" 
+                        action="{% url 'registrar_documento_laboral' %}" 
+                        enctype="multipart/form-data" 
+                        class="space-y-6"
+                        hx-post="{% url 'registrar_documento_laboral' %}" hx-encoding="multipart/form-data" hx-target="#registro-documento-form" hx-swap="none" hx-on::after-request="closeDocumentUploadModal(); mostrarToastExito('Documento subido con éxito.')"> 
+                        {% csrf_token %}
+                        <input type="hidden" id="input-proceso-id-doc" name="proceso_id" value="">
+                        <div>
+                            <label for="tipo_documento" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento:</label>
+                            <select id="tipo_documento" name="tipo_documento" required 
+                                    class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-red-500 focus:border-red-500 transition duration-150">
+                                <option value="" disabled selected>Seleccione el tipo de documento</option>
+                                <option value="CERTIFICADO_LABORAL">Certificado de Experiencia Laboral</option>
+                                <option value="CUL">Certificado Único Laboral (CUL)</option>
+                                <option value="ANTECEDENTES">Certificado de Antecedentes</option>
+                                <option value="CURRICULUM">Curriculum Vitae (CV)</option>
+                                <option value="OTRO">Otro Documento</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="archivo_doc" class="block text-sm font-medium text-gray-700 mb-1">Archivo del Documento (PDF, JPG, PNG):</label>
+                            <input type="file" id="archivo_doc" name="archivo_doc" required accept=".pdf, .jpg, .jpeg, .png"
+                                    class="w-full p-3 border border-gray-300 rounded-lg shadow-sm bg-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100">
+                            <p class="text-xs text-gray-500 mt-1">Archivos permitidos: PDF, JPG, PNG. Máx. 5MB.</p>
+                        </div>
+
+                        <div>
+                            <label for="observaciones_doc" class="block text-sm font-medium text-gray-700 mb-1">Observaciones (Opcional):</label>
+                            <textarea id="observaciones_doc" name="observaciones_doc" rows="3"
+                                    class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-red-500 focus:border-red-500 transition duration-150"
+                                    placeholder="Notas sobre la validez o contenido del documento..."></textarea>
+                        </div>
+
+                        <div class="pt-4 border-t border-gray-200">
+                            <button 
+                                type="submit" 
+                                id="btn-guardar-doc"
+                                class="w-full flex justify-center items-center bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-lg transition duration-150 shadow-lg shadow-red-300/50 disabled:bg-red-400"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" /></svg>
+                                Subir Documento
+                            </button>
+                        </div>
+                    </form>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 
 function openCommentModal(procesoId, candidatoNombre) {
@@ -636,6 +727,42 @@ function closeDateEditModal() {
 
 function closeDateEditModal() {
     document.getElementById('dateEditModal').classList.add('hidden');
+}
+
+function openDocumentUploadModal(proceso_pk, nombre_candidato) {
+    document.getElementById('document-upload-modal').classList.remove('hidden');
+    setTimeout(() => {
+        document.getElementById('document-upload-panel').classList.remove('translate-x-full');
+    }, 10); 
+
+    document.getElementById('doc-candidato-nombre').textContent = nombre_candidato;
+    document.getElementById('doc-proceso-id-display').textContent = proceso_pk;
+    
+    document.getElementById('input-proceso-id-doc').value = proceso_pk;
+
+    document.getElementById('registro-documento-form').reset();
+}
+
+/**
+ * Cierra el modal de carga de documentos.
+ */
+function closeDocumentUploadModal() {
+    document.getElementById('document-upload-panel').classList.add('translate-x-full');
+
+    setTimeout(() => {
+        document.getElementById('document-upload-modal').classList.add('hidden');
+    }, 500); 
+}
+
+function mostrarToastExito(mensaje) {
+    alert('✅ Éxito: ' + mensaje); 
+}
+
+function closeDocumentUploadModal() {
+    document.getElementById('document-upload-panel').classList.add('translate-x-full');
+    setTimeout(() => {
+        document.getElementById('document-upload-modal').classList.add('hidden');
+    }, 500); 
 }
 
 document.getElementById('dateEditForm').addEventListener('submit', function(event) {

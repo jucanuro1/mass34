@@ -1,28 +1,36 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from django.views.generic import View, DetailView 
-from django.db import IntegrityError
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.contrib.auth.decorators import login_required
-from django.contrib import messages
-from django.views.decorators.http import require_POST
-from django.db import transaction, DatabaseError, OperationalError, IntegrityError
-from django.http import JsonResponse, HttpResponse,HttpResponseForbidden
-from django.db.models import Q, Count, Prefetch
-from .models import Candidato, Proceso, Empresa, Sede, Supervisor, RegistroAsistencia,DatosCualificacion, ComentarioProceso, RegistroTest, MOTIVOS_DESCARTE
-from datetime import date, datetime
-from django.utils import timezone
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
-from django.urls import reverse
-from django.views.decorators.http import require_http_methods
-from django.core.exceptions import ValidationError
-import pandas as pd
 import io
 import json
-from django.db.models import Prefetch, OuterRef, Subquery
-from datetime import date
-from django.db import models
 import time
+from datetime import date, datetime
+
+import pandas as pd
+
+from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
+from django.urls import reverse
+from django.utils import timezone
+from django.utils.decorators import method_decorator
+
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+
+from django.db import IntegrityError, DatabaseError, OperationalError
+from django.db import models
+from django.db import transaction
+from django.db.models import Q, Count, Prefetch, OuterRef, Subquery, When, Case, CharField, DateTimeField
+
+from django.http import JsonResponse, HttpResponse, HttpResponseForbidden,HttpResponseBadRequest
+from django.shortcuts import render, redirect, get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST, require_http_methods
+from django.views.generic import View, DetailView, ListView
+
+from .models import (
+    Candidato, Proceso, Empresa, Sede, Supervisor, 
+    RegistroAsistencia, DatosCualificacion, ComentarioProceso, 
+    RegistroTest, MOTIVOS_DESCARTE,DocumentoCandidato
+)   
 
 
 class RegistroCandidatoView(LoginRequiredMixin, View):
@@ -215,7 +223,6 @@ class ActualizarProcesoView(LoginRequiredMixin, View):
 
         return redirect('kanban_dashboard')
     
-
 ESTADOS_FINALES_OCULTOS = ['NO_APTO', 'DESISTE']
 class KanbanDashboardView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
@@ -663,7 +670,6 @@ def registrar_asistencia_rapida(request):
             status=500
         )
 
-
 @login_required
 @require_http_methods(["GET", "POST"])
 def asistencia_dashboard(request):
@@ -993,7 +999,6 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
     
-
 class RegistroPublicoCompletoView(View):
     def get(self, request):
         sedes_disponibles = Sede.objects.all().order_by('nombre') 
@@ -1118,7 +1123,6 @@ class RegistroPublicoCompletoView(View):
         messages.success(request, '✅ ¡Tu registro y cualificación se completaron con éxito! Puedes registrar a alguien más si lo deseas.')
         return redirect('registro_publico_completo')
     
-
 @login_required
 @require_http_methods(["POST"])
 def registrar_observacion(request):
@@ -1172,7 +1176,6 @@ def registrar_observacion(request):
                 {'success': False, 'message': f'Error interno en el servidor. Detalles: {str(e)}'}, 
                 status=500
             )
-
 
 @login_required
 @require_http_methods(["POST"])
@@ -1240,7 +1243,6 @@ def registrar_test_archivo(request):
                 status=500
             )
     
-
 @require_http_methods(["POST"])
 def actualizar_fecha_proceso(request, proceso_id):
     if not request.user.is_authenticated:
@@ -1344,4 +1346,319 @@ class DesactivarConvocatoriaView(LoginRequiredMixin, View):
             
         return redirect('kanban_dashboard')
     
+ESTADOS_FINALES_OCULTOS = ['DESISTE', 'NO_APTO']
+class CandidatoListView(LoginRequiredMixin, ListView):
+    model = Candidato
+    template_name = 'candidatos_list.html'
+    context_object_name = 'candidatos'
+    paginate_by = 25 
+    ordering = ['-fecha_registro'] 
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Corrección: No excluimos nada por defecto para mostrar TODOS
+        # (La línea de exclusión original ha sido removida/comentada aquí)
+
+        search_query = self.request.GET.get('search')
+        estado_filter = self.request.GET.get('estado')
+        motivo_descarte_filter = self.request.GET.get('descarte')
+        
+        if search_query:
+            queryset = queryset.filter(
+                Q(DNI__icontains=search_query) | 
+                Q(nombres_completos__icontains=search_query)
+            )
+
+        if estado_filter:
+            queryset = queryset.filter(estado_actual=estado_filter)
+        
+        if motivo_descarte_filter:
+            queryset = queryset.filter(motivo_descarte=motivo_descarte_filter)
+            
+        if self.request.GET.get('asistencia') == 'presentes':
+            # Lógica de filtro de asistencia
+            pass
+            
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Nota: Asegúrate de que Candidato.ESTADOS y MOTIVOS_DESCARTE estén accesibles.
+        context['ESTADOS_CANDIDATO'] = Candidato.ESTADOS
+        context['MOTIVOS_DESCARTE'] = MOTIVOS_DESCARTE 
+        context['active_filters'] = self.request.GET.dict() 
+        
+        return context
+
+def format_date(dt):
+    if isinstance(dt, date):
+        return dt.strftime('%Y-%m-%d')
+    return ''
+
+def format_bool(val):
+    if val is True:
+        return 'Sí'
+    elif val is False:
+        return 'No'
+    return ''
+
+class CandidatoExportView(LoginRequiredMixin, View):
+    
+    def get(self, request, *args, **kwargs):
+        
+        search_query = request.GET.get('search')
+        estado_filter = request.GET.get('estado')
+        motivo_descarte_filter = request.GET.get('descarte')
+        
+        candidatos_qs = Candidato.objects.all()
+                
+        if search_query:
+            candidatos_qs = candidatos_qs.filter(
+                Q(DNI__icontains=search_query) | 
+                Q(nombres_completos__icontains=search_query)
+            )
+            
+        if estado_filter:
+            candidatos_qs = candidatos_qs.filter(estado_actual=estado_filter)
+        
+        if motivo_descarte_filter:
+            candidatos_qs = candidatos_qs.filter(motivo_descarte=motivo_descarte_filter)
+        
+        
+        proceso_queryset = Proceso.objects.order_by('-fecha_inicio').select_related('supervisor', 'empresa_proceso')
+        
+        candidatos_qs = candidatos_qs.order_by('fecha_registro').select_related(
+            'sede_registro',
+            'datoscualificacion' 
+        ).prefetch_related(
+            models.Prefetch('procesos', queryset=proceso_queryset, to_attr='latest_proceso_list')
+        )
+        
+        candidatos_a_exportar = list(candidatos_qs)
+        
+        if not candidatos_a_exportar:
+            return redirect('candidatos_list')
+
+        data = []
+        
+        
+        def format_date(date_field):
+            return date_field.strftime('%d/%m/%Y') if date_field else ''
+        
+        def format_bool(bool_field):
+            if bool_field is True: return 'SÍ'
+            if bool_field is False: return 'NO'
+            return 'N/A' 
+        
+        for c in candidatos_a_exportar:
+            ultimo_proceso = c.latest_proceso_list[0] if c.latest_proceso_list else None
+            cualificacion = getattr(c, 'datoscualificacion', None) 
+
+            row = {
+                'DNI': c.DNI,
+                'Nombres_Completos': c.nombres_completos,
+                'Telefono_Whatsapp': c.telefono_whatsapp,
+                'Email': c.email if c.email else '',
+                'Edad': c.edad,
+                'Distrito_Candidato': c.distrito, 
+                'Estado_Actual_Candidato': c.get_estado_actual_display(), 
+                'Fecha_Registro': format_date(c.fecha_registro),
+                'Sede_Registro': c.sede_registro.nombre if c.sede_registro else 'N/A',
+
+                'Secundaria_Completa': format_bool(cualificacion.secundaria_completa) if cualificacion else '',
+                'Exp_Campanas_Espanolas': format_bool(cualificacion.experiencia_campanas_espanolas) if cualificacion else '', 
+                'Tipo_Exp_Ventas': cualificacion.get_experiencia_ventas_tipo_display() if cualificacion else '', 
+                'Empresa_Exp_Ventas': cualificacion.empresa_vendedor if cualificacion else '',
+                'Tiempo_Experiencia_Vendedor': cualificacion.get_tiempo_experiencia_vendedor_display() if cualificacion else '', 
+                'Conforme_Beneficios': cualificacion.get_conforme_beneficios_display() if cualificacion else '',
+                'Detalle_Beneficios_Otro': cualificacion.detalle_beneficios_otro if cualificacion else '', 
+                'Disponibilidad_Horario': format_bool(cualificacion.disponibilidad_horario) if cualificacion else '',
+                'Discapacidad_Enfermedad_Cronica': cualificacion.discapacidad_enfermedad_cronica if cualificacion else '',
+                'Dificultad_Habla': format_bool(cualificacion.dificultad_habla) if cualificacion else '',
+
+                'Empresa_Cliente': ultimo_proceso.empresa_proceso.nombre if ultimo_proceso and ultimo_proceso.empresa_proceso else '',
+                'Fecha_Convocatoria': format_date(ultimo_proceso.fecha_inicio) if ultimo_proceso else '',
+                'Fecha_Teorico': format_date(ultimo_proceso.fecha_teorico) if ultimo_proceso else '',
+                'Fecha_Practico': format_date(ultimo_proceso.fecha_practico) if ultimo_proceso else '',
+                'Fecha_Contratacion': format_date(ultimo_proceso.fecha_contratacion) if ultimo_proceso else '',
+                'Supervisor_Asignado': ultimo_proceso.supervisor.nombre if ultimo_proceso and ultimo_proceso.supervisor else '',
+                'Estado_Proceso': ultimo_proceso.get_estado_display() if ultimo_proceso else 'N/A', 
+            }
+            
+            data.append(row)
+
+        df = pd.DataFrame(data)
+
+        output = io.BytesIO()
+        writer = pd.ExcelWriter(output, engine='openpyxl') 
+            
+        nombre_hoja = f"Candidatos_Reporte"[:31]
+        df.to_excel(writer, sheet_name=nombre_hoja, index=False)
+
+        worksheet = writer.sheets[nombre_hoja]
+        
+        for col_idx, column in enumerate(df.columns):
+            max_len = min(max(df[column].astype(str).map(len).max(), len(column)) + 2, 40) 
+            worksheet.column_dimensions[chr(65 + col_idx)].width = max_len
+
+        writer.close() 
+
+        output.seek(0)
+
+        filename = f"candidatos_reporte_{date.today().strftime('%Y%m%d')}.xlsx"
+
+        response = HttpResponse(
+            output,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+    
+class CandidatoAsistenciaListView(LoginRequiredMixin, ListView):
+    model = Candidato
+    template_name = 'candidatos_asistencia_list.html' 
+    context_object_name = 'candidatos'
+    paginate_by = 25 
+    ordering = ['-total_registros', '-fecha_registro'] 
+
+    def get_queryset(self):
+        
+        latest_attendance = RegistroAsistencia.objects.filter(
+            candidato=OuterRef('pk')
+        ).order_by('-momento_registro').values(
+            'momento_registro', 'fase_actual', 'movimiento'
+        )[:1]
+        
+        queryset = Candidato.objects.annotate(
+            total_registros=Count('registroasistencia', distinct=True),
+            
+            total_tardanzas=Count(
+                models.Case(models.When(registroasistencia__estado='T', then=1), 
+                            output_field=models.IntegerField()),
+                distinct=True
+            ),
+            
+            total_faltas=Count(
+                models.Case(models.When(registroasistencia__estado='F', then=1), 
+                            output_field=models.IntegerField()),
+                distinct=True
+            ),
+            
+            ultima_fase=models.Subquery(latest_attendance.values('fase_actual'), 
+                                         output_field=models.CharField()),
+                                         
+            ultimo_movimiento=models.Subquery(latest_attendance.values('movimiento'), 
+                                              output_field=models.CharField()),
+                                         
+            ultimo_registro=models.Subquery(latest_attendance.values('momento_registro'), 
+                                            output_field=models.DateTimeField())
+        )
+        
+        search_query = self.request.GET.get('search')
+        estado_filter = self.request.GET.get('estado')
+        
+        if search_query:
+            queryset = queryset.filter(
+                Q(DNI__icontains=search_query) | 
+                Q(nombres_completos__icontains=search_query)
+            )
+
+        if estado_filter:
+            queryset = queryset.filter(estado_actual=estado_filter)
+            
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        movimiento_map = dict(RegistroAsistencia.TIPO_MOVIMIENTO)
+        
+        context['ESTADOS_CANDIDATO'] = Candidato.ESTADOS
+        context['FASES_ASISTENCIA'] = RegistroAsistencia.FASE_ASISTENCIA 
+        context['MOVIMIENTO_MAP'] = movimiento_map
+        context['active_filters'] = self.request.GET.dict() 
+        
+        return context
+
+class RegistroAsistenciaDetailView(LoginRequiredMixin, DetailView):
+    """ Devuelve SOLAMENTE el fragmento HTML del detalle de asistencia para el modal,
+        manejando la autenticación de HTMX. """
+        
+    model = Candidato
+    template_name = 'registro_asistencia_modal_fragment.html' 
+    context_object_name = 'candidato'
+
+    def handle_no_permission(self):
+        if self.request.headers.get('Hx-Request') == 'true':
+            response = HttpResponse(status=401) 
+            response['HX-Redirect'] = self.get_login_url()
+            return response
+        
+        return super().handle_no_permission()
+
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        candidato = self.get_object()
+        
+        all_registros = candidato.registroasistencia_set.all().select_related(
+            'proceso', 'registrado_por','proceso__empresa_proceso'
+        ).order_by('-momento_registro')
+        
+        registros_agrupados = {}
+        for reg in all_registros:
+            date_key = reg.momento_registro.date().isoformat()
+            phase_key = reg.fase_actual
+            group_key = f"{date_key}_{phase_key}"
+            
+            if group_key not in registros_agrupados:
+                registros_agrupados[group_key] = {
+                    'date': reg.momento_registro.date(),
+                    'phase': reg.get_fase_actual_display(),
+                    'registros': [] 
+                }
+            
+            registros_agrupados[group_key]['registros'].append(reg)
+        
+        context['registros_agrupados'] = registros_agrupados.values()
+        
+        return context
+    
+class RegistrarDocumentoView(LoginRequiredMixin, View):  
+    def post(self, request, *args, **kwargs):
+        if not request.POST or not request.FILES:
+             return HttpResponseBadRequest("Faltan datos de formulario o archivos.")
+
+        proceso_id = request.POST.get('proceso_id')
+        tipo_documento = request.POST.get('tipo_documento')
+        observaciones = request.POST.get('observaciones_doc')
+        archivo = request.FILES.get('archivo_doc')
+        
+        if not proceso_id or not tipo_documento or not archivo:
+            return HttpResponseBadRequest("Faltan campos obligatorios (Proceso ID, Tipo o Archivo).")
+
+        try:
+            proceso = get_object_or_404(Proceso, pk=proceso_id)
+            candidato = proceso.candidato 
+            
+            DocumentoCandidato.objects.create(
+                candidato=candidato,
+                proceso=proceso,
+                tipo_documento=tipo_documento,
+                archivo=archivo,
+                observaciones=observaciones,
+                subido_por=request.user
+            )
+
+            response = HttpResponse(status=200)
+            response['HX-Trigger'] = 'documentoSubidoExitosamente'
+            return response
+            
+        except Proceso.DoesNotExist:
+            return HttpResponseBadRequest("Proceso no encontrado.")
+        except IntegrityError:
+            return HttpResponseBadRequest("Error al guardar en la base de datos.")
+        except Exception as e:
+            return HttpResponse(f"Error interno del servidor: {e}", status=500)

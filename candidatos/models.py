@@ -2,6 +2,7 @@ from django.db import models
 from datetime import date
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from django.conf import settings
 from django.contrib.auth.models import User
 
 class Empresa(models.Model):
@@ -90,6 +91,24 @@ class Candidato(models.Model):
 
     def __str__(self):
         return f"{self.nombres_completos} ({self.DNI})"
+    
+    def get_ultimo_movimiento_display(self):
+        MOVIMIENTO_MAP = dict(RegistroAsistencia.TIPO_MOVIMIENTO)
+        return MOVIMIENTO_MAP.get(self.ultimo_movimiento, 'Desconocido')
+    
+    def get_ultimo_movimiento_color_class(self):
+        movimiento = getattr(self, 'ultimo_movimiento', None)
+        
+        if not movimiento:
+            return 'text-gray-500'    
+        if movimiento == 'ENTRADA':
+            return 'text-green-600 bg-green-100 rounded-full px-2' 
+        elif movimiento == 'SALIDA':
+            return 'text-red-600 bg-red-100 rounded-full px-2'   
+        elif movimiento == 'REGISTRO':
+            return 'text-yellow-700 bg-yellow-100 rounded-full px-2' 
+        
+        return 'text-gray-500'
 
 class DatosCualificacion(models.Model):
     candidato = models.OneToOneField(
@@ -294,7 +313,6 @@ class RegistroAsistencia(models.Model):
 
     movimiento = models.CharField(max_length=8, choices=TIPO_MOVIMIENTO, default='REGISTRO')
 
-    # Nuevo: Almacenar la fase del proceso en el momento del registro
     FASE_ASISTENCIA = [
         ('CONVOCADO', 'Convocado'),
         ('TEORIA', 'Capacitación Teórica'),
@@ -306,7 +324,7 @@ class RegistroAsistencia(models.Model):
         ('A', 'Asistió (Puntual)'),
         ('T', 'Tardanza'),
         ('F', 'Faltó'),
-        ('J', 'Justificado') # Agregado 'Justificado' por si acaso
+        ('J', 'Justificado') 
     ]
     estado = models.CharField(max_length=1, choices=ASISTENCIA_ESTADO, default='A')
 
@@ -314,17 +332,26 @@ class RegistroAsistencia(models.Model):
         verbose_name_plural = "Registros de Asistencia"
         ordering = ['-momento_registro']
 
-    # Se ajusta el __str__ para usar el campo directo si existe, sino la relación indirecta
     def __str__(self):
         dni = self.candidato.DNI if self.candidato else self.proceso.candidato.DNI
         return f"{dni} - {self.fase_actual} ({self.get_movimiento_display()}) el {self.momento_registro.strftime('%d/%m/%Y %H:%M')}"
 
-    # Opcional: Sobrescribir save() para asegurar que el campo candidato se llene automáticamente
     def save(self, *args, **kwargs):
         if not self.candidato and self.proceso_id:
-            # Asegura que el campo candidato se rellena con la relación indirecta
             self.candidato = self.proceso.candidato
         super().save(*args, **kwargs)
+
+    def get_movimiento_color_class(self):
+        """ Devuelve la clase CSS de color basada en el tipo de movimiento. """
+        
+        if self.movimiento == 'ENTRADA':
+            return 'text-green-600 bg-green-100' 
+        elif self.movimiento == 'SALIDA':
+            return 'text-red-600 bg-red-100'   
+        elif self.movimiento == 'REGISTRO':
+            return 'text-yellow-700 bg-yellow-100' 
+        
+        return 'text-gray-500 bg-gray-100'
 
 
 class ComentarioProceso(models.Model):
@@ -446,3 +473,63 @@ class RegistroTest(models.Model):
         verbose_name = "Registro de Test/Archivo"
         verbose_name_plural = "Registros de Tests/Archivos"
         ordering = ['-fecha_registro']
+
+
+class DocumentoCandidato(models.Model):
+    TIPO_DOCUMENTO_OPCIONES = [
+        ('CERTIFICADO_LABORAL', 'Certificado de Experiencia Laboral'),
+        ('CUL', 'Certificado Único Laboral (CUL)'),
+        ('ANTECEDENTES', 'Certificado de Antecedentes'),
+        ('CURRICULUM', 'Curriculum Vitae (CV)'),
+        ('OTRO', 'Otro Documento'),
+    ]
+    
+    candidato = models.ForeignKey(
+        'Candidato', 
+        on_delete=models.CASCADE,
+        related_name='documentos_laborales',
+        verbose_name="Candidato Asociado"
+    )
+    proceso = models.ForeignKey(
+        'Proceso', 
+        on_delete=models.SET_NULL, 
+        null=True, blank=True,
+        verbose_name="Proceso Relacionado"
+    )
+    
+    tipo_documento = models.CharField(
+        max_length=50,
+        choices=TIPO_DOCUMENTO_OPCIONES,
+        verbose_name="Tipo de Documento"
+    )
+    
+    archivo = models.FileField(
+        upload_to='candidatos/documentos/',
+        verbose_name="Archivo Adjunto"
+    )
+    
+    observaciones = models.TextField(
+        max_length=500,
+        blank=True,
+        null=True,
+        verbose_name="Observaciones"
+    )
+    
+    fecha_subida = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Fecha de Subida"
+    )
+    subido_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        verbose_name="Usuario que Subió"
+    )
+    
+    class Meta:
+        verbose_name = "Documento del Candidato"
+        verbose_name_plural = "Documentos del Candidato"
+        ordering = ['-fecha_subida']
+
+    def __str__(self):
+        return f"{self.candidato.nombres_completos} - {self.get_tipo_documento_display()}"
