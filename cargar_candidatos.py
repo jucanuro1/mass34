@@ -2,20 +2,17 @@ import re
 from datetime import date
 from django.core.exceptions import ValidationError
 from django.db import transaction
-# Asegúrate de que esta ruta de importación sea correcta
-from candidatos.models import Candidato, Sede 
+from candidatos.models import Candidato, Sede, TipoDocumento 
 
 # ==============================================================================
 # CONFIGURACIÓN DE LA FECHA BASE Y SEDE POR DEFECTO
 # ==============================================================================
 
-# Fecha de registro base, según tu solicitud
 FECHA_REGISTRO_BASE = date(2025, 10, 1)
-
 SEDE_DEFECTO_ID = 1 
+# Asumimos que el DNI es el TipoDocumento con PK=1 (creado en el shell)
+TIPO_DOCUMENTO_DNI_ID = 1 
 
-
-# Cuidado con los números de 9 dígitos que empiezan con 51. La limpieza es clave.
 DATA_RAW = [
     # Candidatos extraídos de tus imágenes de listados
     {'DNI': '75397940', 'nombres_completos': 'Manuel Benites Sernaque', 'telefono_whatsapp': '918123563', 'origen_estado': 'REGISTRADO'},
@@ -27,9 +24,9 @@ DATA_RAW = [
     {'DNI': '75782704', 'nombres_completos': 'Carlos Aaron Custodio Lluen', 'telefono_whatsapp': '952426911', 'origen_estado': 'REGISTRADO'},
     {'DNI': '60986235', 'nombres_completos': 'NAYDELYN CELINDA OLIVERA BERNILLA', 'telefono_whatsapp': '942814251', 'origen_estado': 'REGISTRADO'},
     {'DNI': '61512024', 'nombres_completos': 'ANGIE DEL MILAGROS OLIVERA BERNILLA', 'telefono_whatsapp': '931722099', 'origen_estado': 'REGISTRADO'},
-    {'DNI': '47868874', 'nombres_completos': 'Yoselin patricia soriano olazabal', 'telefono_whatsapp': '988302543', 'origen_estado': 'REGISTRADO'}, # Duplicado, se mantiene
-    {'DNI': '71782572', 'nombres_completos': 'José Maria cabrejos Purizaca', 'telefono_whatsapp': '960394904', 'origen_estado': 'REGISTRADO'}, # Duplicado, se mantiene
-    {'DNI': '75558313', 'nombres_completos': 'Irania yatsury soriano olazabal', 'telefono_whatsapp': '947595251', 'origen_estado': 'REGISTRADO'}, # Duplicado, se mantiene
+    {'DNI': '47868874', 'nombres_completos': 'Yoselin patricia soriano olazabal', 'telefono_whatsapp': '988302543', 'origen_estado': 'REGISTRADO'}, 
+    {'DNI': '71782572', 'nombres_completos': 'José Maria cabrejos Purizaca', 'telefono_whatsapp': '960394904', 'origen_estado': 'REGISTRADO'}, 
+    {'DNI': '75558313', 'nombres_completos': 'Irania yatsury soriano olazabal', 'telefono_whatsapp': '947595251', 'origen_estado': 'REGISTRADO'}, 
     {'DNI': '73485502', 'nombres_completos': 'Malek Adrian Jara Farias', 'telefono_whatsapp': '954471245', 'origen_estado': 'REGISTRADO'},
     {'DNI': '77240865', 'nombres_completos': 'Eddy David Cervera León', 'telefono_whatsapp': '947906405', 'origen_estado': 'REGISTRADO'},
     {'DNI': '74661312', 'nombres_completos': 'Franz Anthony Misael Villalobos Perez', 'telefono_whatsapp': '990513712', 'origen_estado': 'REGISTRADO'},
@@ -64,7 +61,7 @@ DATA_RAW = [
 # ==============================================================================
 
 def clean_dni(dni):
-    """Limpia el DNI y asegura que tenga 8 dígitos."""
+    """Limpia el DNI y asegura que tenga 8 dígitos (para esta carga)."""
     if dni is None: return None
     dni = re.sub(r'\D', '', str(dni).strip()) 
     return dni if len(dni) == 8 else None
@@ -74,7 +71,6 @@ def clean_phone(phone):
     if phone is None: return ''
     phone = re.sub(r'\D', '', str(phone)) 
     
-    # Si tiene código de país (51) o es más largo, toma los últimos 9.
     return phone[-9:] if len(phone) >= 9 else phone
 
 def run_data_upload():
@@ -82,10 +78,14 @@ def run_data_upload():
     print("--- INICIANDO CARGA DE CANDIDATOS (REGISTRADOS 01/10/2025) ---")
     
     try:
-        # Intenta obtener la sede por defecto
+        # Recuperar objetos FK (Sede y TipoDocumento)
         sede_defecto = Sede.objects.get(pk=SEDE_DEFECTO_ID)
+        tipo_documento_dni = TipoDocumento.objects.get(pk=TIPO_DOCUMENTO_DNI_ID)
     except Sede.DoesNotExist:
-        print(f"ERROR: No se encontró la Sede con PK={SEDE_DEFECTO_ID}. ¡Cree una sede antes de ejecutar!")
+        print(f"ERROR: No se encontró la Sede con PK={SEDE_DEFECTO_ID}. ¡Correr el shell para crearla!")
+        return
+    except TipoDocumento.DoesNotExist:
+        print(f"ERROR: No se encontró el TipoDocumento DNI con PK={TIPO_DOCUMENTO_DNI_ID}. ¡Correr el shell para crearlo!")
         return
 
     candidatos_a_crear = []
@@ -101,7 +101,7 @@ def run_data_upload():
         total_registros += 1
 
         if not dni:
-            print(f"Advertencia: DNI inválido para {data['nombres_completos']}")
+            print(f"Advertencia: DNI inválido (no 8 dígitos) para {data['nombres_completos']}")
             continue
 
         if dni not in dnies_validos:
@@ -110,9 +110,10 @@ def run_data_upload():
                 'DNI': dni,
                 'nombres_completos': data['nombres_completos'].strip(),
                 'telefono_whatsapp': telefono,
-                'estado_actual': 'REGISTRADO', # Todos inician/se registran como REGISTRADO
-                'fecha_registro': FECHA_REGISTRO_BASE, # Fecha base única
+                'estado_actual': 'REGISTRADO',
+                'fecha_registro': FECHA_REGISTRO_BASE, 
                 'sede_registro': sede_defecto,
+                'tipo_documento': tipo_documento_dni, # <<-- CAMBIO CLAVE
                 'email': None,
             })
             
@@ -128,27 +129,25 @@ def run_data_upload():
     with transaction.atomic():
         for data in candidatos_a_crear:
             try:
-                # Intentar obtener el candidato
-                candidato = Candidato.objects.filter(DNI=data['DNI']).first()
+                # Intentar obtener el candidato (usando DNI como PK)
+                candidato = Candidato.objects.filter(pk=data['DNI']).first()
                 
                 if candidato:
-                    # El candidato existe, solo se actualiza si es necesario
+                    # Candidato existe (por DNI/PK)
                     update_fields = {}
                     
-                    # Regla: No cambiar el estado si ya existe uno (la carga inicial es REGISTRADO)
-                    # Solo se actualizan datos de contacto
                     if candidato.nombres_completos != data['nombres_completos']:
                         update_fields['nombres_completos'] = data['nombres_completos']
                         
                     if candidato.telefono_whatsapp != data['telefono_whatsapp']:
-                         update_fields['telefono_whatsapp'] = data['telefono_whatsapp']
+                        update_fields['telefono_whatsapp'] = data['telefono_whatsapp']
                         
                     if update_fields:
-                        Candidato.objects.filter(DNI=data['DNI']).update(**update_fields)
+                        Candidato.objects.filter(pk=data['DNI']).update(**update_fields)
                         updated_count += 1
                         
                 else:
-                    # El candidato no existe, se crea con los datos de REGISTRADO 01/10/2025
+                    # El candidato no existe, se crea
                     Candidato.objects.create(
                         DNI=data['DNI'],
                         nombres_completos=data['nombres_completos'],
@@ -156,10 +155,11 @@ def run_data_upload():
                         estado_actual='REGISTRADO',
                         fecha_registro=FECHA_REGISTRO_BASE,
                         sede_registro=data['sede_registro'],
+                        tipo_documento=data['tipo_documento'], # <<-- CAMBIO CLAVE
                         email=None
                     )
                     created_count += 1
-                
+                    
             except ValidationError as e:
                 print(f"ERROR de validación para DNI {data['DNI']}: {e.message_dict}")
                 error_count += 1
@@ -174,3 +174,5 @@ def run_data_upload():
     print(f"Registros con ERRORES: {error_count}")
     print("¡Proceso de carga finalizado con éxito!")
 
+if __name__ == '__main__':
+    run_data_upload()

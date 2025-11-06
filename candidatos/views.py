@@ -29,19 +29,23 @@ from django.views.generic import View, DetailView, ListView
 from .models import (
     Candidato, Proceso, Empresa, Sede, Supervisor, 
     RegistroAsistencia, DatosCualificacion, ComentarioProceso, 
-    RegistroTest, MOTIVOS_DESCARTE,DocumentoCandidato
+    RegistroTest, MOTIVOS_DESCARTE,DocumentoCandidato, TipoDocumento
 )   
 
 
 class RegistroCandidatoView(LoginRequiredMixin, View):
+    
     def get(self, request):
         context = {
             'title': 'Registro Rápido de Candidato',
-            'sedes': Sede.objects.all()
+            'sedes': Sede.objects.all(),
+            'tipos_documento': TipoDocumento.objects.all().order_by('nombre')
         }
         return render(request, 'registro_candidato.html', context)
 
     def post(self, request):
+        tipo_documento_id = request.POST.get('tipo_documento', '').strip()
+        
         dni = request.POST.get('DNI', '').strip()
         nombres_completos = request.POST.get('nombres_completos', '').strip()
         telefono_whatsapp = request.POST.get('telefono_whatsapp', '').strip()
@@ -55,19 +59,26 @@ class RegistroCandidatoView(LoginRequiredMixin, View):
             'telefono_whatsapp': telefono_whatsapp,
             'correo_electronico': correo_electronico,
             'sede_id': sede_id,
-            'sedes': Sede.objects.all()
+            'tipo_documento_id': tipo_documento_id, 
+            'sedes': Sede.objects.all(),
+            'tipos_documento': TipoDocumento.objects.all().order_by('nombre') # Re-cargar
         }
 
-        if not all([dni, nombres_completos, telefono_whatsapp, sede_id]):
-            messages.error(request, 'Los campos DNI, Nombres, Teléfono y **Sede** son obligatorios.')
+        if not all([tipo_documento_id, dni, nombres_completos, telefono_whatsapp, sede_id]):
+            messages.error(request, 'Los campos **Tipo Doc., DNI**, Nombres, Teléfono y **Sede** son obligatorios.')
             return render(request, 'registro_candidato.html', context)
 
-        if not dni.isdigit():
-            messages.error(request, 'El DNI debe contener solo números.')
+        if not dni:
+            messages.error(request, 'El número de documento no puede estar vacío.')
             return render(request, 'registro_candidato.html', context)
+        
+        if not telefono_whatsapp.isdigit():
+             messages.error(request, 'El teléfono debe contener solo números.')
+             return render(request, 'registro_candidato.html', context)
 
         try:
             sede = get_object_or_404(Sede, pk=sede_id)
+            tipo_documento = get_object_or_404(TipoDocumento, pk=tipo_documento_id)
 
             candidato, created = Candidato.objects.get_or_create(
                 DNI=dni,
@@ -76,6 +87,7 @@ class RegistroCandidatoView(LoginRequiredMixin, View):
                     'telefono_whatsapp': telefono_whatsapp,
                     'email': correo_electronico if correo_electronico else None,
                     'sede_registro': sede,
+                    'tipo_documento': tipo_documento,  
                     'estado_actual': 'REGISTRADO'
                 }
             )
@@ -88,6 +100,7 @@ class RegistroCandidatoView(LoginRequiredMixin, View):
                     telefono_whatsapp=telefono_whatsapp,
                     email=correo_electronico if correo_electronico else None,
                     sede_registro=sede,
+                    tipo_documento=tipo_documento, 
                 )
                 messages.warning(request, f'Candidato {candidato.nombres_completos} ya existía. Datos actualizados.')
 
@@ -95,6 +108,9 @@ class RegistroCandidatoView(LoginRequiredMixin, View):
 
         except Sede.DoesNotExist:
             messages.error(request, "La Sede de registro seleccionada no es válida.")
+            return render(request, 'registro_candidato.html', context)
+        except TipoDocumento.DoesNotExist: 
+            messages.error(request, "El Tipo de Documento seleccionado no es válido.")
             return render(request, 'registro_candidato.html', context)
         except IntegrityError:
             messages.error(request, f'Error de base de datos: El DNI {dni} ya está registrado.')
@@ -1002,11 +1018,13 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
 class RegistroPublicoCompletoView(View):
     def get(self, request):
         sedes_disponibles = Sede.objects.all().order_by('nombre') 
+        tipos_documento_disponibles = TipoDocumento.objects.all().order_by('nombre') # ASUME que TipoDocumento está importado
 
         context = {
             'title': 'Registro y Cualificación de Candidato',
             'is_public': True,
             'sedes': sedes_disponibles,
+            'tipos_documento': tipos_documento_disponibles,
             'TIPO_VENTA_CHOICES': DatosCualificacion.TIPO_VENTA_CHOICES,
             'TIEMPO_EXP_CHOICES': DatosCualificacion.TIEMPO_EXP_CHOICES,
         }
@@ -1014,6 +1032,7 @@ class RegistroPublicoCompletoView(View):
 
     @transaction.atomic
     def post(self, request):
+        tipo_documento_id = request.POST.get('tipo_documento')
         dni = request.POST.get('DNI', '').strip()
         nombres_completos = request.POST.get('nombres_completos', '').strip()
         edad = request.POST.get('edad','').strip()
@@ -1036,31 +1055,26 @@ class RegistroPublicoCompletoView(View):
         
         errors = {}
         
-        # VALIDACIÓN DE CAMPOS OBLIGATORIOS (vacíos)
-        campos_obligatorios = [dni, nombres_completos, telefono_whatsapp, distrito, experiencia_ventas_tipo, tiempo_experiencia_vendedor, conforme_beneficios, sede_id_seleccionada]
+        campos_obligatorios = [tipo_documento_id, dni, nombres_completos, telefono_whatsapp, distrito, experiencia_ventas_tipo, tiempo_experiencia_vendedor, conforme_beneficios, sede_id_seleccionada,email]
         
         if not all(campos_obligatorios):
              messages.error(request, 'Por favor, complete todos los campos obligatorios (*).')
              return redirect('registro_publico_completo')
              
-        # VALIDACIÓN DE secundaria_completa (RESUELVE NOT NULL)
         if secundaria_completa_post is None:
              messages.error(request, 'El campo "¿Tienes secundaria completa?" es obligatorio. Por favor, selecciona Sí o No.')
              return redirect('registro_publico_completo')
              
         secundaria_completa = secundaria_completa_post == 'Si'
 
-        # VALIDACIÓN DE FORMATO: DNI (8 DÍGITOS NUMÉRICOS)
         if not (dni and dni.isdigit() and len(dni) == 8):
             messages.error(request, 'El DNI debe tener exactamente 8 dígitos y contener solo números.')
             return redirect('registro_publico_completo')
 
-        # VALIDACIÓN DE FORMATO: TELÉFONO (9 DÍGITOS NUMÉRICOS)
         if not (telefono_whatsapp and telefono_whatsapp.isdigit() and len(telefono_whatsapp) == 9):
             messages.error(request, 'El número de teléfono (WhatsApp) debe tener exactamente 9 dígitos y contener solo números.')
             return redirect('registro_publico_completo')
             
-        # 3. Obtener el objeto Sede
         try:
              sede_seleccionada = Sede.objects.get(pk=sede_id_seleccionada)
         except Sede.DoesNotExist:
@@ -1069,8 +1083,16 @@ class RegistroPublicoCompletoView(View):
         except Exception as e:
              messages.error(request, f'Error al obtener la sede: {e}')
              return redirect('registro_publico_completo')
+        
+        try:
+             tipo_documento_obj = TipoDocumento.objects.get(pk=tipo_documento_id)
+        except TipoDocumento.DoesNotExist:
+             messages.error(request, 'Error: El tipo de documento seleccionado no es válido o no existe.')
+             return redirect('registro_publico_completo')
+        except Exception as e:
+             messages.error(request, f'Error en FK (Sede/TipoDoc): {e}')
+             return redirect('registro_publico_completo')
             
-        # 4. Guardado en Transacción
         try:
             candidato = Candidato.objects.create(
                 DNI=dni,
@@ -1080,6 +1102,7 @@ class RegistroPublicoCompletoView(View):
                 email=email if email else None,
                 distrito=distrito,
                 sede_registro=sede_seleccionada, 
+                tipo_documento=tipo_documento_obj,
                 estado_actual='REGISTRADO' 
             )
             
@@ -1119,7 +1142,6 @@ class RegistroPublicoCompletoView(View):
             messages.error(request, f'Error inesperado al guardar datos: {e}')
             return redirect('registro_publico_completo')
             
-        # 5. Respuesta de Éxito (Redirigir al formulario vacío con el mensaje)
         messages.success(request, '✅ ¡Tu registro y cualificación se completaron con éxito! Puedes registrar a alguien más si lo deseas.')
         return redirect('registro_publico_completo')
     

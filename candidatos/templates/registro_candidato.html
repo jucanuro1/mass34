@@ -36,8 +36,27 @@
                     
                     <div class="space-y-2">
                         <h2 class="text-xl font-semibold text-gray-800 border-b pb-2 border-gray-100">Información Personal</h2>
+                        <div class="sm:col-span-1">
+                            <label for="id_tipo_documento" class="block text-sm font-medium text-gray-700 mb-2">
+                                Tipo Doc. <span class="text-red-600">*</span>
+                            </label>
+                            <div class="relative">
+                                <select name="tipo_documento" id="id_tipo_documento" required
+                                    class="block appearance-none w-full bg-gray-50 border-b-2 border-gray-300 text-gray-800 
+                                            py-3 px-4 pr-8 rounded-t-md shadow-sm focus:outline-none focus:border-red-600 transition duration-200">
+                                    <option value="" {% if not tipo_documento_id %}selected{% endif %} disabled>--- Seleccionar ---</option>
+                                    {% for tipo in tipos_documento %}
+                                        <option value="{{ tipo.pk }}" {% if tipo.pk|stringformat:"s" == tipo_documento_id %}selected{% endif %}>
+                                            {{ tipo.nombre }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                                    <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                                </div>
+                            </div>
+                        </div>
                         
-                        {# INICIO DE CAMPO DINÁMICO (DNI) #}
                         <div>
                             <label for="id_DNI" class="block text-sm font-medium text-gray-700 mb-2">
                                 DNI del Candidato <span class="text-red-600">*</span>
@@ -48,9 +67,6 @@
                                    class="block w-full bg-transparent border-b-2 border-gray-300 text-gray-800 py-2 focus:outline-none focus:border-red-600 
                                           transition duration-200 placeholder-gray-400">
                         </div>
-                        {# FIN DE CAMPO DINÁMICO #}
-
-                        {# INICIO DE CAMPO DINÁMICO (Nombres) #}
                         <div>
                             <label for="id_nombres_completos" class="block text-sm font-medium text-gray-700 mb-2">
                                 Nombres y Apellidos Completos <span class="text-red-600">*</span>
@@ -61,14 +77,12 @@
                                    class="block w-full bg-transparent border-b-2 border-gray-300 text-gray-800 py-2 focus:outline-none focus:border-red-600 
                                           transition duration-200 placeholder-gray-400">
                         </div>
-                        {# FIN DE CAMPO DINÁMICO #}
 
                     </div>
                     
                     <div class="space-y-6 pt-4">
                         <h2 class="text-xl font-semibold text-gray-800 border-b pb-2 border-gray-100">Contacto y Sede</h2>
 
-                        {# INICIO DE CAMPO DINÁMICO (Teléfono/Whatsapp) #}
                         <div>
                             <label for="id_telefono_whatsapp" class="block text-sm font-medium text-gray-700 mb-2">
                                 Número de Teléfono (WhatsApp) <span class="text-red-600">*</span>

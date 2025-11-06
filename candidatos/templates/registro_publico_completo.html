@@ -11,7 +11,6 @@
     <script src="{% static 'js/registro_formulario.js' %}"></script>
     
     <link rel="stylesheet" href="{% static 'css/registro_formulario.css' %}">
-
 </head>
 <body class="font-sans bg-gray-50">
     <div class="min-h-screen flex items-start justify-center p-4 sm:p-8">
@@ -46,20 +45,30 @@
 
             <form method="POST" action="{% url 'registro_publico_completo' %}" class="mt-4 space-y-4">
                 {% csrf_token %}
-
                 <div class="bg-white p-6 sm:p-8 rounded-xl shadow-lg space-y-8">
                     <h2 class="text-xl font-medium text-gray-800 border-b pb-2">1. Información Básica</h2>
+                    <div class="form-group md:col-span-1">
+                        <label for="id_tipo_documento" class="block text-sm font-medium text-gray-700">Tipo de Doc. *</label>
+                        <select name="tipo_documento" id="id_tipo_documento" required
+                                class="mt-1 block w-full border-b border-gray-300 focus:border-pink-700 focus:ring-0 p-1 bg-white text-gray-800 transition duration-150">
+                            <option value="" disabled selected>--- Tipo ---</option>
+                            {% for tipo in tipos_documento %}
+                                <option value="{{ tipo.pk }}">{{ tipo.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
 
-                    <div class="form-group">
-                        <label for="id_DNI" class="block text-sm font-medium text-gray-700">DNI *</label>
+                    <div class="form-group md:col-span-2">
+                        <label for="id_DNI" class="block text-sm font-medium text-gray-700">Número de Documento *</label>
                         <input type="text" name="DNI" id="id_DNI" required
-                            maxlength="8" 
-                            pattern="[0-9]{8}" 
-                            inputmode="numeric" 
-                            oninvalid="this.setCustomValidity('Por favor, ingresa 8 dígitos numéricos para el DNI.')" 
+                            maxlength="30" 
+                            pattern="[0-9A-Za-z]+" 
+                            inputmode="text" 
+                            oninvalid="this.setCustomValidity('Por favor, ingresa el número de documento.')" 
                             oninput="this.setCustomValidity('')"
                             class="mt-1 block w-full border-b border-gray-300 focus:border-pink-700 focus:ring-0 p-1 bg-transparent transition duration-150 text-gray-800 placeholder-gray-400"
                             placeholder="Tu respuesta">
+                        <small class="text-xs text-gray-500 mt-1 block">DNI máx 8 caracteres y Cédula para extrangeros sólo números hasta 12.</small>
                     </div>
 
                     <div class="form-group">

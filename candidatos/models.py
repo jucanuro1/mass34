@@ -32,6 +32,33 @@ class Supervisor(models.Model):
     def __str__(self):
         return self.nombre
 
+class TipoDocumento(models.Model):
+    nombre = models.CharField(
+        max_length=50, 
+        unique=True, 
+        verbose_name="Nombre del Documento (Ej: DNI, Cédula)"
+    )
+    codigo_pais = models.CharField(
+        max_length=5, 
+        unique=True, 
+        verbose_name="Código de País (Ej: PER, COL)"
+    )
+    longitud_requerida = models.IntegerField(
+        null=True, 
+        blank=True, 
+        verbose_name="Longitud Fija (Ej: 8 para DNI)"
+    )
+    solo_numeros = models.BooleanField(
+        default=True, 
+        verbose_name="Requiere solo caracteres numéricos"
+    )
+    
+    def __str__(self):
+        return f"{self.nombre} ({self.codigo_pais})"
+
+    class Meta:
+        verbose_name = "Tipo de Documento de Identidad"
+        verbose_name_plural = "Tipos de Documento de Identidad"
 
 MOTIVOS_DESCARTE = [
     ('NO_CONFIRMA', 'No Confirma Asistencia'),
@@ -42,7 +69,13 @@ MOTIVOS_DESCARTE = [
 ]
 
 class Candidato(models.Model):
-    DNI = models.CharField(max_length=8, unique=True, primary_key=True)
+    DNI = models.CharField(max_length=30, primary_key=True, unique=True, verbose_name="Número de Documento")
+    tipo_documento = models.ForeignKey(
+        'TipoDocumento', 
+        on_delete=models.PROTECT, 
+        verbose_name='Tipo de Identificación', 
+        default=1 
+    )
     nombres_completos = models.CharField(max_length=255)
     edad = models.IntegerField(blank=True, null=True, help_text="Edad del candidato.")
     telefono_whatsapp = models.CharField(max_length=9)
@@ -109,6 +142,8 @@ class Candidato(models.Model):
             return 'text-yellow-700 bg-yellow-100 rounded-full px-2' 
         
         return 'text-gray-500'
+
+
 
 class DatosCualificacion(models.Model):
     candidato = models.OneToOneField(
@@ -473,7 +508,6 @@ class RegistroTest(models.Model):
         verbose_name = "Registro de Test/Archivo"
         verbose_name_plural = "Registros de Tests/Archivos"
         ordering = ['-fecha_registro']
-
 
 class DocumentoCandidato(models.Model):
     TIPO_DOCUMENTO_OPCIONES = [
