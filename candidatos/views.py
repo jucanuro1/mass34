@@ -4,6 +4,7 @@ import time
 from datetime import date, datetime
 
 import pandas as pd
+import re
 
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
@@ -244,9 +245,8 @@ class KanbanDashboardView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
 
         search_query = request.GET.get('search')
-        fecha_inicio_filter = request.GET.get('fecha_inicio') # <-- Sigue siendo el STRING para DB
+        fecha_inicio_filter = request.GET.get('fecha_inicio') 
         
-        # 1. INICIALIZAMOS la nueva variable para la plantilla
         active_date_for_template = None 
         
         latest_proceso_prefetch = Prefetch(
@@ -261,11 +261,8 @@ class KanbanDashboardView(LoginRequiredMixin, View):
         
         if fecha_inicio_filter:
             try:
-                # 2. CONVERSIÓN CRUCIAL: Creamos el objeto date
                 active_date_for_template = datetime.strptime(fecha_inicio_filter, '%Y-%m-%d').date()
 
-                # 3. El FILTRO DE DATOS sigue usando el STRING (fecha_inicio_filter),
-                # lo que garantiza que la funcionalidad existente NO CAMBIE.
                 candidatos = candidatos.filter(
                     procesos__fecha_inicio=fecha_inicio_filter
                 ).distinct()
@@ -273,13 +270,20 @@ class KanbanDashboardView(LoginRequiredMixin, View):
             except ValueError:
                 messages.error(request, "Formato de fecha de filtro inválido. Use AAAA-MM-DD.")
                 fecha_inicio_filter = None
-                active_date_for_template = None # Aseguramos que no se muestre fecha inválida
+                active_date_for_template = None 
         
         if search_query:
-            candidatos = candidatos.filter(
+            normalized_query = re.sub(r'\D', '', search_query).strip()
+            
+            filtro = (
                 Q(DNI__icontains=search_query) | 
                 Q(nombres_completos__icontains=search_query)
             )
+
+            if normalized_query:
+                filtro |= Q(telefono_whatsapp__icontains=normalized_query)
+            
+            candidatos = candidatos.filter(filtro)
 
         convocatoria_dates = Proceso.objects.values('fecha_inicio') \
             .annotate(count=Count('candidato', distinct=True)) \
@@ -342,7 +346,6 @@ class KanbanDashboardView(LoginRequiredMixin, View):
             'title': 'Dashboard Kanban de Candidatos',
 
             'convocatoria_dates': convocatoria_dates,
-            # 4. PASAMOS el objeto de fecha al contexto bajo el nombre 'active_date'
             'active_date': active_date_for_template, 
             'total_candidatos': total_candidatos,
             
@@ -530,37 +533,51 @@ class CandidatoDetailView(LoginRequiredMixin, DetailView):
 
 class CandidatoSearchView(View):
     def get(self, request, *args, **kwargs):
-        query = request.GET.get('q', '')
+        query = request.GET.get('q', '').strip()
         results = []
 
         if query:
             candidatos = Candidato.objects.filter(
-                Q(DNI__startswith=query) | Q(nombres_completos__icontains=query)
-            ).values('DNI', 'nombres_completos')[:10]
+                Q(DNI__startswith=query) | 
+                Q(nombres_completos__icontains=query) |
+                Q(telefono_whatsapp__startswith=query)  
+            ).values('DNI', 'nombres_completos', 'telefono_whatsapp')[:10]
 
             for c in candidatos:
                 results.append({
                     'DNI': c['DNI'],
                     'nombres_completos': c['nombres_completos'],
+                    'telefono_whatsapp': c['telefono_whatsapp'] if c.get('telefono_whatsapp') else 'N/A',
                 })
 
         return JsonResponse(results, safe=False)
 
 class AsistenciaDiariaCheckView(View):
     """
-    Verifica si un candidato específico tiene un registro de asistencia para el día de hoy.
+    Verifica si un candidato específico tiene un registro de asistencia para el día de hoy, 
+    permitiendo la búsqueda por DNI o Teléfono/WhatsApp.
     """
     def get(self, request, *args, **kwargs):
-        dni = request.GET.get('dni')
+        query_value = request.GET.get('dni') or request.GET.get('q')
         hoy = date.today()
         
-        if not dni:
+        if not query_value:
             return JsonResponse({'asistencia_registrada': False, 'candidato_encontrado': False}, status=400)
+            
+        normalized_query = re.sub(r'\D', '', query_value).strip()
+
+        if not normalized_query:
+            return JsonResponse({'asistencia_registrada': False, 'candidato_encontrado': False, 'message': 'Consulta vacía después de la normalización.'}, status=400)
 
         try:
-            candidato = Candidato.objects.get(DNI=dni)
+            candidato = Candidato.objects.filter(
+                Q(DNI=normalized_query) | Q(telefono_whatsapp=normalized_query)
+            ).first() 
             
-            # Buscamos el proceso activo (el último)
+            if not candidato:
+                return JsonResponse({'asistencia_registrada': False, 'candidato_encontrado': False}, status=200)
+
+
             proceso_activo = Proceso.objects.filter(candidato=candidato).order_by('-pk').first()
 
             if proceso_activo:
@@ -572,15 +589,14 @@ class AsistenciaDiariaCheckView(View):
                 return JsonResponse({
                     'asistencia_registrada': asistencia_existe,
                     'candidato_encontrado': True,
-                    'dni': dni,
+                    'dni': candidato.DNI,  
                     'proceso_id': proceso_activo.pk 
                 })
             else:
-                # Si el candidato existe pero no tiene proceso (ej: estado REGISTRADO)
-                return JsonResponse({'asistencia_registrada': False, 'candidato_encontrado': True, 'dni': dni, 'proceso_id': None})
+                return JsonResponse({'asistencia_registrada': False, 'candidato_encontrado': True, 'dni': candidato.DNI, 'proceso_id': None})
 
-        except Candidato.DoesNotExist:
-            return JsonResponse({'asistencia_registrada': False, 'candidato_encontrado': False}, status=200)
+        except Exception as e:
+            return JsonResponse({'error': f'Error interno: {e}'}, status=500)
 
 @csrf_exempt 
 @require_http_methods(["POST"])

@@ -10,7 +10,7 @@ urlpatterns = [
     path('kanban/', views.KanbanDashboardView.as_view(), name='kanban_dashboard'),
     
     # Vistas de Candidato y Proceso
-        path('registro/', views.RegistroCandidatoView.as_view(), name='registro_candidato'),
+    path('registro/', views.RegistroCandidatoView.as_view(), name='registro_candidato'),
     path('detalle/<str:dni>/', views.CandidatoDetailView.as_view(), name='detalle_candidato'),
     path('registro/candidato-completo/', views.RegistroPublicoCompletoView.as_view(), name='registro_publico_completo'),
     

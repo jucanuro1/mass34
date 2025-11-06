@@ -6,7 +6,6 @@ const updateUrl = AppConfig.updateUrl;
 const massiveUpdateUrl = AppConfig.massiveUpdateUrl;
 const API_ASISTENCIA_CHECK_URL = AppConfig.API_ASISTENCIA_CHECK_URL;
 const csrfToken = AppConfig.csrfToken;
-// Asumo que historyApiUrl existe en AppConfig o está definida en otro lugar
 const historyApiUrl = AppConfig.historyApiUrl; 
 
 
@@ -18,7 +17,7 @@ const STATUS_MAP = {
     'column-CONTRATADO': 'CONTRATADO'
 };
     
-let selectedCards = []; // Array maestro para el estado de las tarjetas
+let selectedCards = []; 
 
 // ====================================================================
 // A. GESTIÓN DE SELECCIÓN DE TARJETAS (MODIFICADO)
@@ -31,17 +30,13 @@ function toggleCardSelection(cardElement) {
     if (cardElement.classList.contains('dragging')) return;
 
     if (cardElement.classList.contains('selected')) {
-        // Deseleccionar
         cardElement.classList.remove('selected', 'border-4', 'border-blue-500', 'ring-2', 'ring-blue-500'); 
         selectedCards = selectedCards.filter(card => card.dni !== dni);
     } else {
-        // Seleccionar
         cardElement.classList.add('selected', 'border-4', 'border-blue-500', 'ring-2', 'ring-blue-500');
         selectedCards.push({ dni: dni, proceso_id: procesoId });
     }
     
-    // 🛑 AJUSTE CLAVE: Se elimina la lógica duplicada de mostrar/ocultar el botón
-    // y se llama a la función centralizada que gestiona la visibilidad y el evento de clic.
     updateMassActionButton(); 
     
     console.log(`Tarjetas seleccionadas: ${selectedCards.length}`, selectedCards);
@@ -211,7 +206,6 @@ function triggerMassAction(targetStatus) {
 // C. GESTIÓN CENTRALIZADA DE LA SELECCIÓN Y BOTÓN
 // --------------------------------------------------------------------
 
-// 🛑 AJUSTE CLAVE: getSelectedDnis ahora usa el array maestro global selectedCards
 function getSelectedDnis() {
     return selectedCards.map(card => card.dni); 
 }
@@ -220,7 +214,6 @@ function clearSelection() {
     selectedCards = [];
     document.querySelectorAll('.kanban-card.selected').forEach(card => card.classList.remove('selected', 'border-4', 'border-blue-500', 'ring-2', 'ring-blue-500'));
     
-    // 🛑 AJUSTE: Llama al controlador para asegurar que el botón se oculte.
     updateMassActionButton();
 }
 
@@ -269,7 +262,6 @@ function openMassActionMenu(event) {
     document.addEventListener('click', closeMenuOutside);
 }
 
-// 🛑 FUNCIÓN CENTRALIZADA DE CONTROL DEL BOTÓN
 function updateMassActionButton() {
     const dnisArray = getSelectedDnis(); 
     const selectedCount = dnisArray.length;
@@ -307,11 +299,6 @@ function confirmMassDescarte() {
         alert("Error: No hay candidatos seleccionados.");
         return;
     }
-    /*
-    if (!motivoKey) {
-        alert("Por favor, selecciona un motivo de descarte para confirmar la acción.");
-        return;
-    }*/
     
     const newStatus = 'DESISTE'; 
     const extraData = {
@@ -516,34 +503,24 @@ function closeAssignSupervisorIndividualModal() {
 }
 
 function openUpdateProcessModal(procesoId, nombre, estado, empresa, supervisor, objetivo, actitud) {
-    // Definición de IDs a usar
     const ids = ['update-proceso-id', 'update-candidato-nombre', 'update-empresa-nombre', 'update-supervisor-nombre'];
     const values = [procesoId, nombre, empresa, supervisor];
 
-    // Bucle defensivo para asignar valores
     for (let i = 0; i < ids.length; i++) {
         const element = document.getElementById(ids[i]);
         if (element) {
-            // Usa .value para inputs y .textContent para spans/h3
             if (ids[i].includes('proceso-id')) {
                 element.value = values[i];
             } else {
                 element.textContent = values[i];
             }
         } else {
-            // Muestra una advertencia si el elemento no se encuentra (ayuda a la depuración)
             console.warn(`Elemento HTML con ID ${ids[i]} no encontrado en el DOM.`);
-            // Si el elemento es crítico, puedes salir de la función: return;
         }
     }
 
-    const form = document.getElementById('updateProcessForm');
-    // ... el resto de la lógica de tu función ...
-    
+    const form = document.getElementById('updateProcessForm');    
     document.getElementById('id_estado_proceso_update').value = estado;
-    
-    // [Se mantiene el resto de tu código para el formulario y togglePerformanceFields]
-
     const updateSelect = document.getElementById('id_estado_proceso_update');
     const performanceFields = document.getElementById('performance-fields');
     
@@ -665,21 +642,17 @@ function showCopyFeedback(buttonElement) {
 
 
 document.addEventListener('DOMContentLoaded', () => {
-    
-    // 1. Inicialización de columnas Kanban
     document.querySelectorAll('.kanban-column-body').forEach(column => {
         column.addEventListener('dragover', allowDrop);
         column.addEventListener('drop', drop);
         column.id = `column-${column.dataset.status}`;
     });
     
-    // 2. Inicialización de tarjetas (Solo DragStart)
     document.querySelectorAll('.kanban-card').forEach(card => {
         card.addEventListener('dragstart', drag);
         
     });
     
-    // 3. Alertas
     const messageContainer = document.getElementById('message-container');
     if (messageContainer) {
         setTimeout(() => {
@@ -718,50 +691,73 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // 5. Búsqueda por DNI
+    // 5. Búsqueda por DNI 
     const dniSearchInput = document.getElementById('dni-search');
-    dniSearchInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault(); 
-            
-            const searchValue = dniSearchInput.value.trim();
-            const currentUrl = new URL(window.location.href);
-            
-            const isExactDNI = /^\d{8,10}$/.test(searchValue); 
 
-            if (isExactDNI) {
-                fetch(`${API_ASISTENCIA_CHECK_URL}?dni=${searchValue}`)
-                    .then(response => response.json())
-                    .then(data => {
-                        
-                        if (data.candidato_encontrado && !data.asistencia_registrada && data.proceso_id) {
-                            
-                            openAsistenciaModal(data.dni, data.proceso_id);
-                            
-                            const currentUrl = new URL(window.location.href);
-                            currentUrl.searchParams.set('search', searchValue);
-                            window.history.pushState({}, '', currentUrl);
-
-                        } else {
-                            currentUrl.searchParams.set('search', searchValue);
-                            window.location.href = currentUrl.toString();
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error de red o API:', error);
-                        currentUrl.searchParams.set('search', searchValue);
-                        window.location.href = currentUrl.toString();
-                    });
-            } else {
-                if (searchValue) {
-                    currentUrl.searchParams.set('search', searchValue);
-                } else {
-                    currentUrl.searchParams.delete('search');
-                }
-                window.location.href = currentUrl.toString();
-            }
+    function handleQuickSearch(e) {
+        // Solo actuamos si se presiona la tecla Enter
+        if (e.key !== 'Enter') {
+            return;
         }
-    });
+
+        e.preventDefault(); 
+        
+        const searchValue = dniSearchInput.value.trim();
+        const currentUrl = new URL(window.location.href);
+        
+        // 1. Validaciones
+        // Determina si es un ID (8-10 dígitos) o Teléfono (9-12 dígitos) para la búsqueda rápida.
+        const isExactID = /^\d{8,10}$/.test(searchValue); 
+        const isExactPhone = /^\d{9,12}$/.test(searchValue);
+        
+        // Si la búsqueda no coincide con un formato estricto (ID o Teléfono), vamos a la búsqueda general.
+        if (!isExactID && !isExactPhone) {
+            if (searchValue) {
+                currentUrl.searchParams.set('search', searchValue);
+            } else {
+                currentUrl.searchParams.delete('search');
+            }
+            window.location.href = currentUrl.toString();
+            return; // Salimos de la función
+        }
+
+        // 2. Ejecutar la Búsqueda Rápida (fetch)
+        // Usamos 'q' como parámetro genérico para ser flexibles, asumiendo que el backend
+        // de la API_ASISTENCIA_CHECK_URL ya busca por DNI o telefono_whatsapp en 'q'.
+        // Si tu API sigue siendo estricta y solo acepta 'dni', usa `?dni=${searchValue}`.
+        const apiUrl = `${API_ASISTENCIA_CHECK_URL}?q=${searchValue}`;
+        
+        fetch(apiUrl)
+            .then(response => response.json())
+            .then(data => {
+                
+                if (data.candidato_encontrado && !data.asistencia_registrada && data.proceso_id) {
+                    
+                    // Abrir el modal si el candidato está, la asistencia NO y hay proceso.
+                    openAsistenciaModal(data.dni || searchValue, data.proceso_id);
+                    
+                    // Actualizar la URL sin recargar la página
+                    const updatedUrl = new URL(window.location.href);
+                    updatedUrl.searchParams.set('search', searchValue);
+                    window.history.pushState({}, '', updatedUrl);
+
+                } else {
+                    // Si no hay match de asistencia o proceso, redirigir a la búsqueda general
+                    // para ver los detalles del candidato en el dashboard.
+                    currentUrl.searchParams.set('search', searchValue);
+                    window.location.href = currentUrl.toString();
+                }
+            })
+            .catch(error => {
+                console.error('Error de red o API:', error);
+                // En caso de error, redirigir a la búsqueda general como fallback
+                currentUrl.searchParams.set('search', searchValue);
+                window.location.href = currentUrl.toString();
+            });
+    }
+
+    // Asignar el event listener a la nueva función
+    dniSearchInput.addEventListener('keypress', handleQuickSearch);
 
     const toggleHeader = document.getElementById('toggle-header');
     const collapsibleContent = document.getElementById('collapsible-content');

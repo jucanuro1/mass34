@@ -34,7 +34,7 @@ class RegistroAsistenciaInline(admin.TabularInline):
 class CandidatoAdmin(admin.ModelAdmin):
     list_display = ('tipo_documento','DNI', 'nombres_completos','edad', 'estado_actual', 'telefono_whatsapp','email','fecha_registro','usuario_ultima_modificacion')
     list_filter = ('estado_actual',) 
-    search_fields = ('DNI', 'nombres_completos') 
+    search_fields = ('DNI', 'nombres_completos','telefono_whatsapp') 
     inlines = [ProcesoInline] 
 
 
