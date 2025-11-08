@@ -1,0 +1,65 @@
+{% load static %}
+<div class="flex justify-between items-center p-5 bg-red-600 rounded-t-xl shadow-lg">
+    
+    <h3 class="text-md font-extrabold text-white flex items-center" id="modal-title">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-3 text-red-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        </svg>
+        Gestión de Visibilidad de Convocatorias
+    </h3>
+    
+    <button type="button" class="text-red-200 hover:text-white transition-colors p-1 rounded-full hover:bg-red-700/50" data-modal-close>
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+    </button>
+</div>
+<div class="p-6 max-h-96 overflow-y-auto">
+    {% for month_data in convocations_by_month %}
+    <div class="mb-6">
+        <h4 class="text-sm font-semibold text-gray-600 uppercase mb-2 border-b pb-1">
+            {{ month_data.display }}
+        </h4>
+        <ul class="space-y-2">
+            {% for convocation in month_data.dates %}
+                <li class="flex items-center justify-between p-3 bg-gray-50 rounded-lg shadow-sm">
+                    <div class="flex flex-col">
+                        <span class="font-bold text-gray-800">{{ convocation.fecha_str|date:"d/M/Y" }}</span>
+                        <span class="text-xs text-gray-500">{{ convocation.total_procesos }} procesos asociados</span>
+                    </div>
+
+                    <div class="flex items-center space-x-3">
+                        
+                        <div class="relative inline-block w-32 h-8 align-middle select-none transition duration-200 ease-in toggle-container">
+                            <input type="checkbox" 
+                                name="toggle" 
+                                id="toggle-{{ convocation.fecha_str|slugify }}" 
+                                class="toggle-checkbox absolute block w-7 h-7 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all duration-200 ease-in-out z-10"
+                                {% if convocation.is_active %}checked{% endif %}
+                                data-convocation-date="{{ convocation.fecha_str }}"
+                                data-toggle-active-url="{% url url_activar %}"
+                                data-toggle-inactive-url="{% url url_desactivar %}" />
+                            
+                            <label for="toggle-{{ convocation.fecha_str|slugify }}" 
+                                class="toggle-label block h-8 overflow-hidden rounded-full cursor-pointer transition-all duration-200 ease-in-out"></label>
+                        </div>
+                        
+                        <form id="form-activate-{{ convocation.fecha_str|slugify }}" method="POST" action="{% url url_activar %}" class="hidden">
+                            {% csrf_token %}
+                            <input type="hidden" name="fecha_filtro" value="{{ convocation.fecha_str }}">
+                        </form>
+                        <form id="form-deactivate-{{ convocation.fecha_str|slugify }}" method="POST" action="{% url url_desactivar %}" class="hidden">
+                            {% csrf_token %}
+                            <input type="hidden" name="fecha_filtro" value="{{ convocation.fecha_str }}">
+                        </form>
+                    </div>
+                </li>
+            {% empty %}
+                <li class="p-3 text-center text-gray-500">No hay convocatorias registradas.</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endfor %}
+</div>
+

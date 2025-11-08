@@ -126,3 +126,64 @@ body {
 .btn-icon-red.h-8.w-8:hover {
     background-color: var(--color-primary-red-dark);
 }
+
+.toggle-checkbox {
+    /* Perilla (círculo): 28px x 28px para h-8 (32px) */
+    top: 2px; /* 2px de margen arriba y 2px abajo */
+    left: 4px; /* Movemos 4px a la izquierda para centrar el círculo en el espacio vertical */
+    width: 28px;
+    height: 28px;
+    border: 0;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.toggle-checkbox:checked {
+    /* Desplazamiento: 128px (w-32) - 28px (perilla) - 8px (margen total horizontal) = 92px */
+    transform: translateX(92px);
+}
+
+.toggle-checkbox:not(:checked) + .toggle-label {
+    background-color: #dc2626;
+}
+
+.toggle-checkbox:checked + .toggle-label {
+    background-color: #16a34a;
+}
+
+.toggle-label:before {
+    /* Texto 'INACTIVA' */
+    content: "INACTIVA";
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    color: white;
+    font-size: 10px; /* Reducimos la fuente para que quepa en 32px de alto */
+    font-weight: 600;
+    line-height: 1;
+    opacity: 1;
+    transition: opacity 0.2s ease-in-out;
+}
+
+.toggle-label:after {
+    /* Texto 'ACTIVA' */
+    content: "ACTIVA";
+    position: absolute;
+    top: 50%;
+    left: 8px;
+    transform: translateY(-50%);
+    color: white;
+    font-size: 10px; /* Reducimos la fuente */
+    font-weight: 600;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}
+
+.toggle-checkbox:checked + .toggle-label:before {
+    opacity: 0;
+}
+
+.toggle-checkbox:checked + .toggle-label:after {
+    opacity: 1;
+}

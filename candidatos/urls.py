@@ -30,12 +30,15 @@ urlpatterns = [
     path('proceso/registrar-test-archivo/', views.registrar_test_archivo, name='registrar_test_archivo'),
 
     path('convocatoria/desactivar/', views.DesactivarConvocatoriaView.as_view(), name='desactivar_convocatoria'),
+    path('convocatorias/activar/', views.ActivarConvocatoriaView.as_view(), name='activar_convocatoria'),
+    path('gestion/convocatorias/', views.ListaConvocatoriasView.as_view(), name='gestion_convocatorias'),
 
     # APIs para Búsqueda y Asistencia
     path('asistencia/', views.asistencia_dashboard, name='asistencia_dashboard'),
     path('asistencia/registrar/', views.registrar_asistencia_rapida, name='registrar_asistencia_rapida'),
     path('api/search-candidato/', views.CandidatoSearchView.as_view(), name='candidato_search_api'),
     path('api/asistencia-check/', views.AsistenciaDiariaCheckView.as_view(), name='api_asistencia_check'),
+    path('api/historial/<str:dni>/', views.HistoryDetailView.as_view(), name='api_candidato_historial'),
 
     path('candidatos/', views.CandidatoListView.as_view(), name='candidatos_list'),
     path('candidatos/exportar/', views.CandidatoExportView.as_view(), name='candidatos_export'),

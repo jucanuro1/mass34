@@ -251,7 +251,6 @@ class Proceso(models.Model):
     ]
     estado = models.CharField(max_length=15, choices=ESTADOS_PROCESO, default='INICIADO')
 
-    # Campos para guardar la fecha de llegada a cada etapa (Mantener null=True, blank=True)
     fecha_teorico = models.DateField(
         null=True, blank=True,
         help_text="Fecha en que el candidato ingresó a Capacitación Teórica."
@@ -274,33 +273,27 @@ class Proceso(models.Model):
         help_text="Indica si se queda por 'Actitud' a pesar de fallar otras pruebas (Opción escasa)."
     )
 
-    # Lógica de guardado automático de fechas (Sobrescribe el método save)
     def save(self, *args, **kwargs):
         
         old_estado = None
         if self.pk:
             try:
-                # Recuperar el estado actual del objeto ANTES de que se apliquen los cambios
                 old_proceso = Proceso.objects.get(pk=self.pk)
                 old_estado = old_proceso.estado
             except Proceso.DoesNotExist:
-                pass # Nuevo objeto
+                pass 
 
         current_date = date.today() 
         
-        # Transición a TEORIA: solo si el estado cambia A 'TEORIA' y el campo está vacío
         if self.estado == 'TEORIA' and old_estado != 'TEORIA' and not self.fecha_teorico:
             self.fecha_teorico = current_date
             
-        # Transición a PRACTICA: solo si el estado cambia A 'PRACTICA' y el campo está vacío
         elif self.estado == 'PRACTICA' and old_estado != 'PRACTICA' and not self.fecha_practico:
             self.fecha_practico = current_date
             
-        # Transición a CONTRATADO: solo si el estado cambia A 'CONTRATADO' y el campo está vacío
         elif self.estado == 'CONTRATADO' and old_estado != 'CONTRATADO' and not self.fecha_contratacion:
             self.fecha_contratacion = current_date
         
-        # Llama al método save original para guardar el objeto y las fechas
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -311,31 +304,25 @@ class Proceso(models.Model):
 
 
 class RegistroAsistencia(models.Model):
-    # Relación Principal: La asistencia siempre pertenece a un proceso.
     proceso = models.ForeignKey('Proceso', on_delete=models.CASCADE)
     
-    # 🆕 Campo Adicional SOLICITADO (opcional para mantener la normalización)
-    # Lo vinculamos directamente al candidato para consultas rápidas, si se desea.
     candidato = models.ForeignKey(
         'Candidato', 
         on_delete=models.CASCADE, 
-        null=True, blank=True, # Lo dejamos opcional para manejar migraciones
+        null=True, blank=True, 
         help_text="Candidato asociado (duplicado para optimización de consultas)."
     )
-    
-    # 🆕 CAMBIO CLAVE: Usamos DateTimeField para hora exacta de registro
     momento_registro = models.DateTimeField(default=timezone.now)
     
-    # Nuevo: Para diferenciar entre la hora de entrada y la hora de salida
     TIPO_MOVIMIENTO = [
         ('ENTRADA', 'Entrada'),
         ('SALIDA', 'Salida'),
-        ('REGISTRO', 'Registro Único') # Para Convocado/Teoría si no requieren hora de salida
+        ('REGISTRO', 'Registro Único') 
     ]
 
     estado_asistencia = models.CharField(
             max_length=1, 
-            default='A', # Por defecto 'A' (Asistió)
+            default='A', 
             choices=[('A', 'Asistió'), ('F', 'Faltó'), ('T', 'Tardanza')]
         )
     registrado_por = models.ForeignKey(
@@ -404,7 +391,7 @@ class ComentarioProceso(models.Model):
 
     fase_proceso = models.CharField(
         max_length=150, 
-        choices=Proceso.ESTADOS_PROCESO, # Reutiliza los choices del modelo Proceso
+        choices=Proceso.ESTADOS_PROCESO, 
         default='INICIADO',
         help_text="Fase del proceso en el momento del registro del comentario."
     )

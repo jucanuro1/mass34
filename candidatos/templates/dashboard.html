@@ -116,6 +116,15 @@
                 </span>
             </h2>
             <div class="flex items-center space-x-3">
+                <div class="flex items-center space-x-3">
+                    <button type="button" id="btn-gestionar-convocatorias"
+                        class="inline-flex justify-center items-center p-1.5 text-sm text-gray-400 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                        data-modal-target="convocatorias-modal">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.3-.873-2.873.43-1.46.969a1.532 1.532 0 01-.58 2.377c-1.56.38-1.56 2.6 0 2.98a1.532 1.532 0 01.58 2.377c-1.413.538.17 2.21 1.46.969a1.532 1.532 0 012.286.948c.38 1.56 2.6 1.56 2.98 0a1.532 1.532 0 012.286-.948c1.3.873 2.873-.43 1.46-.969a1.532 1.532 0 01.58-2.377c1.56-.38 1.56-2.6 0-2.98a1.532 1.532 0 01-.58-2.377c1.413-.538-.17-2.21-1.46-.969a1.532 1.532 0 01-2.286-.948zM10 9.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
                 <div class="relative inline-block text-left">
                     <button type="button" id="menu-button" aria-expanded="false" aria-haspopup="true"
                         class="inline-flex justify-center items-center p-1.5 text-sm text-gray-400 bg-white border border-gray-200 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
@@ -133,9 +142,9 @@
                                 {% if filter_date %}
                                     <input type="hidden" name="fecha_filtro" value="{{ filter_date }}">
                                 {% endif %}
-
+                                
                                 <button type="submit" 
-                                        class="text-red-700 block w-full text-left px-4 py-2 text-sm hover:bg-red-50 hover:font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
+                                        class="text-cyan-900 block w-full text-left px-4 py-2 text-sm hover:bg-red-600 hover:text-white hover:font-medium transition-colors disabled:opacity-75 disabled:cursor-not-allowed" 
                                         role="menuitem" 
                                         tabindex="-1" 
                                         id="menu-item-0"
@@ -232,17 +241,16 @@
 <div id="initProcessModal" class="fixed inset-0 bg-gray-900 bg-opacity-80 flex items-center justify-center z-[1000] backdrop-blur-sm hidden">
     
     <div class="bg-white rounded-3xl shadow-2xl max-w-sm w-full mx-4 overflow-hidden transform transition-all duration-300 scale-100 p-8 
-                border-t-4 border-red-700/80 hover:shadow-red-500/20 hover:shadow-xl">
+                 border-t-4 border-red-700/80 hover:shadow-red-500/20 hover:shadow-xl">
         
         <header class="mb-6 text-center">
             <div class="inline-flex items-center justify-center p-3 bg-red-100 rounded-full mb-3 shadow-inner">
-                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
             </div>
             <h3 class="text-lg font-extrabold text-gray-900 leading-snug tracking-tighter">
-                ¡Iniciar Convocatoria Ahora!
-            </h3>
+                ¡Iniciar Proceso de Convocatoria! </h3>
             
             <button type="button" onclick="closeInitProcessModal()" 
                 class="absolute top-4 right-4 p-2 text-gray-400 hover:text-red-700 hover:bg-gray-100 rounded-full transition duration-200"
@@ -262,8 +270,8 @@
             
             <div class="mb-8">
                 <label for="id_fecha_inicio" class="block text-xs font-semibold text-gray-700 mb-2 tracking-wide uppercase">
-                    Fecha de Inicio de Proceso
-                </label>
+                    Fecha de Convocatoria/Inicio de Fase
+                    </label>
                 <div class="relative">
                     <input type="date" name="fecha_inicio" id="id_fecha_inicio" 
                         class="block w-full border-b-2 border-gray-300 rounded-none shadow-none p-2 pr-10 text-sm font-semibold text-red-700
@@ -292,8 +300,7 @@
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 0l-3 3a1 1 0 001.414 1.414L9 9.414V13a1 1 0 102 0V9.414l1.293 1.293a1 1 0 001.414-1.414z" clip-rule="evenodd" />
                     </svg>
-                    <span>Convocar Candidato</span>
-                </button>
+                    <span>Iniciar Proceso</span> </button>
             </div>
         </form>
     </div>
@@ -590,25 +597,43 @@
         </form>
     </div>
 </div>
-<div id="historyModal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden items-center justify-center z-50">
-    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
-        <h3 class="text-xl font-bold text-gray-800 mb-4">Historial de Convocatorias y Procesos</h3>
-        <p class="text-gray-700 mb-4">Candidato: <span id="history-candidato-nombre" class="font-semibold"></span> (<span id="history-candidato-dni" class="font-semibold"></span>)</p>
+<div id="historyModal" 
+      class="fixed inset-0 bg-gray-900 bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+    
+    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 relative"> <div class="p-6 bg-red-600 rounded-t-2xl flex justify-between items-center">
+            <h3 class="text-md font-extrabold text-white flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-3 text-red-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2h2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                Historial de Convocatorias y Procesos
+            </h3>
+            <button type="button" onclick="closeHistoryModal()" 
+                class="absolute top-3 right-3 p-2 text-white hover:text-red-200 rounded-full transition duration-200"
+                title="Cerrar">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+        </div>
+        
+        <div class="p-6">
+            <p class="text-sm text-green-700 font-semibold mb-4 pb-2 border-b border-red-600">
+                Candidato: <span id="history-candidato-nombre" class="font-extrabold text-cyan-800"></span> 
+                (<span id="history-candidato-dni" class="font-bold text-blue-600"></span>)
+            </p>
 
-        <div id="history-content" class="max-h-96 overflow-y-auto space-y-4">
-            <p class="text-center text-gray-500">Cargando historial...</p>
+            <div id="history-content" class="max-h-96 overflow-y-auto space-y-4">
+                <p class="text-center text-gray-500 py-4">Cargando historial...</p>
+            </div>
         </div>
 
-        <div class="flex justify-end mt-6">
-            <button type="button" onclick="closeHistoryModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition duration-150">Cerrar</button>
+        <div class="flex justify-end p-4 border-t border-red-600 bg-gray-50 rounded-b-2xl">
+            <button type="button" onclick="closeHistoryModal()" 
+                            class="px-6 py-2 border border-red-600 rounded-full text-red-600 hover:bg-red-600 hover:text-white transition duration-200 shadow-md">
+                Cerrar
+            </button>
         </div>
     </div>
 </div>
-<button 
-    id="btn-mass-action" 
-    class="fixed bottom-5 right-5 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-xl transition duration-300"
-    style="display: none;" 
->
+<button id="btn-mass-action" class="fixed bottom-5 right-5 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-xl transition duration-300"style="display: none;">
     Acción Masiva 
     <span id="selected-count" class="ml-1 px-2 py-1 bg-white text-blue-600 rounded-full text-xs font-black">
         0
@@ -647,6 +672,18 @@
     <button class="w-full text-left py-1 px-2 hover:bg-gray-100" onclick="triggerMassAction('CAPACITACION_PRACTICA'); closeMassActionMenu();">CAP. PRÁCTICA</button>
     <button class="w-full text-left py-1 px-2 hover:bg-gray-100" onclick="triggerMassAction('CONTRATADO'); closeMassActionMenu();">CONTRATADO</button>
 </div>
+<div id="convocatorias-modal" class="fixed inset-0 z-50 hidden overflow-y-auto bg-gray-900 bg-opacity-50" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-5xl transition-all transform duration-300 scale-95 opacity-0" 
+             id="modal-content-area-convocatorias">
+            
+            <div class="p-5 text-center">
+                <p class="text-gray-500">Cargando gestión de convocatorias...</p>
+            </div>
+            
+        </div>
+    </div>
+</div>
 {% endblock content %}
 
 
@@ -656,7 +693,8 @@
                 updateUrl: "{% url 'update_candidato_status' %}",
                 massiveUpdateUrl: "{% url 'update_candidato_status_multiple' %}",
                 API_ASISTENCIA_CHECK_URL: "{% url 'api_asistencia_check' %}",
-                historyApiUrl: "",
+                historyApiUrl: "{% url 'api_candidato_historial' dni='DNI_PLACEHOLDER' %}",
+                gestionConvocatoriasUrl: "{% url 'gestion_convocatorias' %}",
                 csrfToken: "{{ csrf_token }}"
             };
         </script>

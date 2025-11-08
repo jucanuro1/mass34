@@ -6,8 +6,8 @@ const updateUrl = AppConfig.updateUrl;
 const massiveUpdateUrl = AppConfig.massiveUpdateUrl;
 const API_ASISTENCIA_CHECK_URL = AppConfig.API_ASISTENCIA_CHECK_URL;
 const csrfToken = AppConfig.csrfToken;
-const historyApiUrl = AppConfig.historyApiUrl; 
-
+const historyApiUrl = AppConfig.historyApiUrl;
+const urlGestionConvocatorias = AppConfig.gestionConvocatoriasUrl;
 
 const STATUS_MAP = {
     'column-REGISTRADO': 'REGISTRADO',
@@ -554,46 +554,119 @@ function closeUpdateProcessModal() {
 }
 
 function openHistoryModal(dni, nombre) {
+    if (typeof closeHistoryModal !== 'function') {
+        window.closeHistoryModal = function() {
+            document.getElementById('historyModal').style.display = 'none';
+        };
+    }
+
     document.getElementById('history-candidato-dni').textContent = dni;
     document.getElementById('history-candidato-nombre').textContent = nombre;
     const historyContent = document.getElementById('history-content');
-    historyContent.innerHTML = '<p class="text-center text-gray-500">Cargando historial...</p>';
+    historyContent.innerHTML = '<p class="text-center text-gray-500 py-4">Cargando historial...</p>';
 
+    if (typeof historyApiUrl === 'undefined' || historyApiUrl.includes('{url')) {
+        historyContent.innerHTML = '<p class="text-center text-red-700 font-bold py-4">Error JS: historyApiUrl no está definido correctamente. Revise la plantilla HTML.</p>';
+        document.getElementById('historyModal').style.display = 'flex';
+        return;
+    }
+    
     const url = historyApiUrl.replace('DNI_PLACEHOLDER', dni);
 
     fetch(url)
         .then(response => {
             if (!response.ok) {
-                throw new Error('Network response was not ok');
+                throw new Error(`Respuesta de red no exitosa. Código: ${response.status}`);
             }
             return response.json();
         })
         .then(data => {
-            let html = '';
+            
+            const raw_estado_maestro = data.candidato_info.estado_maestro.toUpperCase();
+            
+            let display_estado = raw_estado_maestro;
+            let estado_color_class = 'text-indigo-700';
+            let bg_color_class = 'bg-indigo-50 border-indigo-200';
+            
+            if (raw_estado_maestro.includes('INICIADO')) {
+                display_estado = 'CONVOCADO / ' + raw_estado_maestro; 
+                estado_color_class = 'text-green-700';
+                bg_color_class = 'bg-green-50 border-green-200';
+            } else if (raw_estado_maestro.includes('RECHAZADO') || raw_estado_maestro.includes('DESCALIFICADO')) {
+                estado_color_class = 'text-red-700';
+                bg_color_class = 'bg-red-50 border-red-200';
+            }
+            let html = `
+                <div class="mb-6 p-4 rounded-xl ${bg_color_class} border-2 shadow-inner flex items-center justify-between">
+                    <p class="text-sm font-semibold ${estado_color_class} flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 ${estado_color_class.replace('text', 'text').replace('-700', '-600')}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.24a2 2 0 010 2.83l-1.348 1.347a1 1 0 01-1.414 0l-.001-.001 3.535 3.536-1.347 1.347a2 2 0 01-2.828 0l-1.347-1.347-3.535 3.536a1 1 0 01-1.414 0l-.001-.001-1.347 1.347a2 2 0 01-2.828 0L2 19.5" />
+                        </svg>
+                        ESTADO MAESTRO
+                    </p>
+                    <p class="text-xl font-extrabold ${estado_color_class} tracking-wider">${display_estado}</p>
+                </div>
+                <h4 class="text-base font-extrabold text-gray-900 border-b-2 border-red-200 pb-2 mb-4 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    CRÓNICA DE PROCESOS (${data.procesos.length})
+                </h4>
+            `;
+
             if (data.procesos && data.procesos.length > 0) {
                 data.procesos.forEach((p, index) => {
+                    const is_active = p.es_activo;
+                    const border_class = is_active ? 'border-red-600 ring-2 ring-red-100 bg-white' : 'border-gray-300 bg-gray-50';
+                    const active_label = is_active ? '✅ PROCESO ACTUAL (ACTIVO)' : 'Proceso Histórico';
+                    const main_text_color = is_active ? 'text-red-700' : 'text-gray-700';
+                    const result_color = p.resultado_final === 'APROBADO' ? 'text-green-600' : 'text-red-600';
+                    const icon = is_active ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>' : '<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>';
+
+
+                    let active_details = '';
+                    if (is_active) {
+                        active_details = `
+                            <div class="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-red-200">
+                                <div class="flex items-center"><span class="font-bold text-gray-700 text-xs">Último Reg. Hora:</span> <span class="text-sm font-semibold ml-2">${p.ultima_momento || 'N/A'}</span></div>
+                                <div class="flex items-center"><span class="font-bold text-gray-700 text-xs">Documentos:</span> <span class="text-sm font-semibold ml-2 text-red-600">${p.documentacion || '0 subidos'}</span></div>
+                                <div class="flex items-center"><span class="font-bold text-gray-700 text-xs">Comentarios:</span> <span class="text-sm font-semibold ml-2">${p.num_comentarios || 0}</span></div>
+                                <div class="flex items-center"><span class="font-bold text-gray-700 text-xs">Tests:</span> <span class="text-sm font-semibold ml-2">${p.num_tests || 0}</span></div>
+                            </div>
+                        `;
+                    }
+
                     html += `
-                        <div class="border p-3 rounded-lg shadow-sm ${index === 0 ? 'border-red-500 bg-red-50' : 'border-gray-300 bg-gray-50'}">
-                            <p class="text-sm font-bold text-gray-800">${index === 0 ? 'ACTIVO (ÚLTIMO)' : 'Proceso Anterior'}</p>
-                            <p class="text-xs text-gray-600 mt-1">
-                                <span class="font-semibold">Convocatoria:</span> ${p.fecha_inicio} (${p.empresa_proceso.nombre} - ${p.sede_proceso.nombre})
-                            </p>
-                            <p class="text-xs text-gray-600">
-                                <span class="font-semibold">Supervisor:</span> ${p.supervisor_nombre || 'Pendiente de Asignar'}
-                            </p>
-                            <p class="text-xs text-gray-600">
-                                <span class="font-semibold">Resultado Final:</span> <span class="font-bold text-red-600">${p.estado}</span>
-                            </p>
+                        <div class="border-l-4 p-4 rounded-lg shadow-lg mb-6 transition duration-200 hover:shadow-xl ${border_class}">
+                            <div class="flex justify-between items-start border-b pb-2 mb-2 ${is_active ? 'border-red-300' : 'border-gray-200'}">
+                                <p class="text-sm font-extrabold flex items-center ${main_text_color}">
+                                    ${icon} ${active_label}
+                                </p>
+                                <span class="text-xs font-bold px-3 py-1 rounded-full tracking-wider shadow-sm 
+                                    ${is_active ? 'bg-red-200 text-red-800 border border-red-300' : 'bg-gray-200 text-gray-600 border border-gray-300'}">
+                                    ${p.estado_proceso.toUpperCase()}
+                                </span>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-xs text-gray-600">
+                                <div><span class="font-semibold text-gray-700">Empresa/Sede:</span> ${p.empresa_proceso} / ${p.sede_proceso}</div>
+                                <div><span class="font-semibold text-gray-700">Fecha Convocatoria:</span> ${p.fecha_inicio}</div>
+                                <div><span class="font-semibold text-gray-700">Supervisor:</span> ${p.supervisor_nombre}</div>
+                                <div><span class="font-semibold text-gray-700">Resultado Final:</span> <span class="font-extrabold ${result_color}">${p.resultado_final.toUpperCase()}</span></div>
+                            </div>
+                            ${active_details}
                         </div>
                     `;
                 });
             } else {
-                html = '<p class="text-center text-gray-500">No se encontró historial de procesos para este candidato.</p>';
+                html += '<p class="text-center text-gray-500 font-semibold py-8 bg-gray-50 rounded-xl border border-gray-200">No se encontró historial de procesos para este candidato.</p>';
             }
             historyContent.innerHTML = html;
         })
         .catch(error => {
-            historyContent.innerHTML = `<p class="text-center text-red-500">Error al cargar el historial: ${error.message}</p>`;
+            historyContent.innerHTML = `<p class="text-center text-red-600 font-extrabold p-6 bg-red-50 border border-red-300 rounded-xl">
+                <span class="text-xl">⚠️</span> ¡Error Fatal! <span class="block text-sm font-normal mt-1">No pudimos cargar el historial: ${error.message}</span>
+            </p>`;
             console.error('Error al cargar historial:', error);
         });
 
@@ -722,9 +795,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 2. Ejecutar la Búsqueda Rápida (fetch)
-        // Usamos 'q' como parámetro genérico para ser flexibles, asumiendo que el backend
-        // de la API_ASISTENCIA_CHECK_URL ya busca por DNI o telefono_whatsapp en 'q'.
-        // Si tu API sigue siendo estricta y solo acepta 'dni', usa `?dni=${searchValue}`.
         const apiUrl = `${API_ASISTENCIA_CHECK_URL}?q=${searchValue}`;
         
         fetch(apiUrl)
@@ -772,7 +842,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // 7. Funcionalidad del Dropdown de Desactivación
-    const menuButton = document.getElementById('menu-button');
+    const menuButton = document.getElementById('');
     const dropdownMenu = document.getElementById('dropdown-menu');
 
     if (menuButton && dropdownMenu) {
@@ -808,5 +878,72 @@ document.addEventListener('DOMContentLoaded', () => {
                 menuButton.setAttribute('aria-expanded', 'false');
             }
         });
+        
     }
+
+    const btnGestionConvocatorias = document.getElementById('btn-gestionar-convocatorias');
+    const modalConvocatorias = document.getElementById('convocatorias-modal');
+    const modalContentAreaConvocatorias = document.getElementById('modal-content-area-convocatorias');
+
+    function initConvocatoriasToggleListeners() {
+        const toggles = modalContentAreaConvocatorias.querySelectorAll('.toggle-checkbox');
+
+        toggles.forEach(toggle => {
+            toggle.addEventListener('change', function() {
+                const dateSlug = this.id.replace('toggle-', '');
+                const isChecked = this.checked;
+                
+                const formId = isChecked ? `form-activate-${dateSlug}` : `form-deactivate-${dateSlug}`;
+                const targetForm = document.getElementById(formId);
+
+                if (targetForm) {
+                    targetForm.submit();
+                } else {
+                    console.error("Formulario de acción no encontrado para:", formId);
+                }
+            });
+        });
+    }
+
+    function closeConvocatoriasModal() {
+        modalConvocatorias.classList.add('hidden');
+        modalContentAreaConvocatorias.classList.remove('scale-100', 'opacity-100');
+        modalContentAreaConvocatorias.classList.add('scale-95', 'opacity-0');
+    }
+
+    btnGestionConvocatorias.addEventListener('click', async () => {
+        modalConvocatorias.classList.remove('hidden');
+        modalContentAreaConvocatorias.innerHTML = '<div class="p-5 text-center"><p class="text-gray-500">Cargando convocatorias...</p></div>';
+
+        try {
+            const response = await fetch(urlGestionConvocatorias);
+            if (!response.ok) throw new Error('Error al cargar la gestión');
+            
+            const htmlFragment = await response.text();
+            
+            modalContentAreaConvocatorias.innerHTML = htmlFragment;
+            
+            setTimeout(() => {
+                modalContentAreaConvocatorias.classList.remove('scale-95', 'opacity-0');
+                modalContentAreaConvocatorias.classList.add('scale-100', 'opacity-100');
+            }, 10);
+            
+            const closeButton = modalContentAreaConvocatorias.querySelector('[data-modal-close]');
+            if (closeButton) {
+                closeButton.addEventListener('click', closeConvocatoriasModal);
+            }
+            
+            initConvocatoriasToggleListeners();
+            
+        } catch (error) {
+            console.error("Error al cargar el modal de convocatorias:", error);
+            modalContentAreaConvocatorias.innerHTML = `<div class="p-5 text-center text-red-600">Error al cargar la lista. ${error.message}</div>`;
+        }
+    });
+
+    modalConvocatorias.addEventListener('click', (e) => {
+        if (e.target === modalConvocatorias) {
+            closeConvocatoriasModal();
+        }
+    });
 });
