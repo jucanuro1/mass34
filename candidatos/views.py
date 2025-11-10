@@ -1413,9 +1413,7 @@ class ListaConvocatoriasView(LoginRequiredMixin, View):
     Muestra todas las convocatorias históricas agrupadas por mes/año.
     Devuelve un fragmento HTML si se solicita para usarlo en un modal.
     """
-    def get(self, request, *args, **kwargs):
-        
-        # Lógica de agrupación (LA MANTENEMOS, es perfecta)
+    def get(self, request, *args, **kwargs):        
         dates_and_status = Proceso.objects \
             .values('fecha_inicio') \
             .annotate(
@@ -1437,20 +1435,21 @@ class ListaConvocatoriasView(LoginRequiredMixin, View):
                 }
                 
             convocations_by_month[month_key]['dates'].append({
+                'fecha_obj': fecha_inicio, 
+                
                 'fecha_str': fecha_inicio.strftime('%Y-%m-%d'),
+                
                 'total_procesos': item['total_procesos'],
                 'is_active': item['is_active']
             })
             
         context = {
             'convocations_by_month': convocations_by_month.values(),
-            # Pasamos las URLs de acción para que el fragmento las use
             'url_activar': 'activar_convocatoria',
             'url_desactivar': 'desactivar_convocatoria',
             'title': 'Gestión de Convocatorias Kanban',
         }
         
-        # 💡 CAMBIO CLAVE: Devolver un fragmento para el modal
         return render(request, 'includes/modal_gestion_convocatorias.html', context)
 
 ESTADOS_FINALES_OCULTOS = ['DESISTE', 'NO_APTO']

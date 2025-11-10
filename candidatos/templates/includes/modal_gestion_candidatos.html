@@ -1,3 +1,4 @@
+{% load static %}
 <div class="max-w-3xl mx-auto w-full"> 
     <div class="p-2"> 
         <div class="space-y-6 max-h-[120vh] overflow-y-auto pr-2">
@@ -86,65 +87,3 @@
         </div>
     </div>
 </div>
-
-
-<style>
-    /* El contenedor del switch */
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 50px; /* Ancho ajustado para tamaño compacto */
-  height: 24px; /* Alto ajustado para tamaño compacto */
-}
-
-/* Ocultar el input por defecto del navegador */
-.switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-/* El control deslizante (slider) */
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: #ccc; /* Gris cuando está apagado/oculto */
-  transition: .4s;
-}
-
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 16px;
-  width: 16px;
-  left: 4px;
-  bottom: 4px;
-  background-color: white;
-  transition: .4s;
-}
-
-input:checked + .slider {
-  background-color: #10B981; /* Verde es Tailwind green-500 */
-}
-
-input:focus + .slider {
-  box-shadow: 0 0 1px #10B981;
-}
-
-input:checked + .slider:before {
-  transform: translateX(26px); /* Desplazamiento */
-}
-
-/* Estilo redondeado */
-.slider.round {
-  border-radius: 24px;
-}
-
-.slider.round:before {
-  border-radius: 50%;
-}
-</style>    
