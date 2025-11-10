@@ -6,6 +6,7 @@ from django.shortcuts import redirect
 
 import pandas as pd
 import re
+from django.db.models.functions import TruncDate
 
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
@@ -20,7 +21,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import IntegrityError, DatabaseError, OperationalError
 from django.db import models
 from django.db import transaction
-from django.db.models import Q, Count, Max, Prefetch, OuterRef, Subquery, When, Case, CharField, DateTimeField
+from django.db.models.functions import Cast
+from django.db.models import Q, Count, Max, Prefetch, OuterRef, Subquery, When, Case, CharField, DateTimeField,Exists,DateField
 
 from django.http import JsonResponse, HttpResponse, HttpResponseForbidden,HttpResponseBadRequest
 from django.shortcuts import render, redirect, get_object_or_404
@@ -34,6 +36,7 @@ from .models import (
     RegistroTest, MOTIVOS_DESCARTE,DocumentoCandidato, TipoDocumento
 )   
 
+REDIRECT_URL = 'kanban_dashboard'
 
 class RegistroCandidatoView(LoginRequiredMixin, View):
     
@@ -252,13 +255,14 @@ class KanbanDashboardView(LoginRequiredMixin, View):
         
         # INICIO DE MODIFICACIÓN CLAVE: Lógica OR para visibilidad
         
-        # Condición A: Candidatos en fase 'REGISTRADO' (Siempre visibles)
-        filtro_registrado = Q(estado_actual='REGISTRADO')
+        # 🟢 Condición A (CORREGIDA): Candidatos en fase 'REGISTRADO' SOLO si están activos.
+        # Si kanban_activo es False, se oculta.
+        filtro_registrado = Q(estado_actual='REGISTRADO', kanban_activo=True)
         
         # Condición B: Candidatos con un Proceso activo en el Kanban (convocatorias en curso)
         filtro_activo = Q(procesos__kanban_activo=True)
         
-        # Filtro principal: Mostrar si está Registrado O tiene un proceso activo
+        # Filtro principal: Mostrar si está Registrado Y Activo O tiene un proceso activo
         candidatos = candidatos.filter(filtro_registrado | filtro_activo).distinct()
         
         # FIN DE MODIFICACIÓN CLAVE
@@ -363,7 +367,7 @@ class KanbanDashboardView(LoginRequiredMixin, View):
         }
         
         return render(request, 'dashboard.html', context)
-    
+
 @method_decorator(csrf_exempt, name='dispatch')
 class UpdateStatusMultipleView(LoginRequiredMixin, View):
     """
@@ -1776,7 +1780,6 @@ class HistoryDetailView(LoginRequiredMixin, View):
             for index, proceso in enumerate(procesos):
                 is_active = (index == 0) 
                 
-                # --- Detalles Generales del Proceso ---
                 proceso_detail = {
                     'proceso_id': proceso.pk,
                     'fecha_inicio': proceso.fecha_inicio.strftime('%d/%m/%Y'),
@@ -1810,7 +1813,6 @@ class HistoryDetailView(LoginRequiredMixin, View):
                 procesos_data.append(proceso_detail)
 
 
-            # --- Respuesta Final ---
             response_data = {
                 'status': 'success',
                 'candidato_info': {
@@ -1828,3 +1830,167 @@ class HistoryDetailView(LoginRequiredMixin, View):
         except Exception as e:
             print(f"Error CRÍTICO en HistoryDetailView: {e}") 
             return JsonResponse({'status': 'error', 'message': f'Error interno: {str(e)}. ¡Revisa el log de la terminal!'}, status=500)
+
+class OcultarCandidatosView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        fecha_filtro_str = request.POST.get('fecha_filtro') 
+        accion_tipo = request.POST.get('accion_tipo', 'DIA') 
+        
+        candidatos_con_proceso_iniciado = Proceso.objects.filter(
+            candidato=OuterRef('pk'), 
+            fecha_inicio__isnull=False
+        )
+        
+        if not fecha_filtro_str:
+            messages.error(request, "Error: No se proporcionó una fecha de registro para ocultar.")
+            return redirect(REDIRECT_URL)
+            
+        try:
+            fecha_obj = datetime.strptime(fecha_filtro_str, '%Y-%m-%d').date()
+            
+            base_qs = Candidato.objects.filter(
+                estado_actual='REGISTRADO',
+                kanban_activo=True
+            ).exclude(
+                Exists(candidatos_con_proceso_iniciado)
+            )
+            
+            if accion_tipo == 'MES':
+                qs = base_qs.filter(
+                    fecha_registro__year=fecha_obj.year,
+                    fecha_registro__month=fecha_obj.month,
+                )
+                filtro_display = fecha_obj.strftime('%B %Y')
+            
+            elif accion_tipo == 'DIA':
+                # CORRECCIÓN: Eliminamos '__date' ya que fecha_registro es DateField o se comporta como tal.
+                qs = base_qs.filter(
+                    fecha_registro=fecha_obj,
+                )
+                filtro_display = fecha_filtro_str
+            
+            else:
+                messages.error(request, "Error: Tipo de acción masiva no válida.")
+                return redirect(REDIRECT_URL)
+            
+            count = qs.update(kanban_activo=False)
+            
+            messages.success(request, 
+                f"🎉 ¡Éxito! Se han ocultado **{count}** candidatos registrados en **{filtro_display}**."
+            )
+            
+        except ValueError:
+            messages.error(request, "Error de Formato de Fecha: La fecha proporcionada no es válida (debe ser YYYY-MM-DD).")
+        except Exception as e:
+            messages.error(request, f"Error CRÍTICO al ocultar candidatos: {e}")
+            
+        return redirect(REDIRECT_URL)
+
+class MostrarCandidatosView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        fecha_filtro_str = request.POST.get('fecha_filtro') 
+        accion_tipo = request.POST.get('accion_tipo', 'DIA')
+        
+        candidatos_con_proceso_iniciado = Proceso.objects.filter(
+            candidato=OuterRef('pk'), 
+            fecha_inicio__isnull=False
+        )
+        
+        if not fecha_filtro_str:
+            messages.error(request, "Error: No se proporcionó una fecha de registro para mostrar.")
+            return redirect(REDIRECT_URL)
+            
+        try:
+            fecha_obj = datetime.strptime(fecha_filtro_str, '%Y-%m-%d').date()
+            
+            base_qs = Candidato.objects.filter(
+                estado_actual='REGISTRADO',
+                kanban_activo=False
+            ).exclude(
+                Exists(candidatos_con_proceso_iniciado)
+            )
+            
+            if accion_tipo == 'MES':
+                qs = base_qs.filter(
+                    fecha_registro__year=fecha_obj.year,
+                    fecha_registro__month=fecha_obj.month,
+                )
+                filtro_display = fecha_obj.strftime('%B %Y')
+            
+            elif accion_tipo == 'DIA':
+                # CORRECCIÓN: Eliminamos '__date' ya que fecha_registro es DateField o se comporta como tal.
+                qs = base_qs.filter(
+                    fecha_registro=fecha_obj,
+                )
+                filtro_display = fecha_filtro_str
+            
+            else:
+                messages.error(request, "Error: Tipo de acción masiva no válida.")
+                return redirect(REDIRECT_URL)
+
+            count = qs.update(kanban_activo=True)
+            
+            messages.success(request, 
+                f"✅ ¡Éxito! Se han reactivado **{count}** candidatos registrados en **{filtro_display}**. Han regresado al Kanban."
+            )
+            
+        except ValueError:
+            messages.error(request, "Error de Formato de Fecha: La fecha proporcionada no es válida (debe ser YYYY-MM-DD).")
+        except Exception as e:
+            messages.error(request, f"Error CRÍTICO al mostrar candidatos: {e}")
+            
+        return redirect(REDIRECT_URL)        
+
+class ListaCandidatosPorFechaView(LoginRequiredMixin, View):
+    def get(self, request, *args, **kwargs):
+        
+        candidatos_con_proceso_iniciado = Proceso.objects.filter(
+            candidato=OuterRef('pk'), 
+            fecha_inicio__isnull=False
+        )
+
+        dates_and_status = Candidato.objects \
+            .filter(
+                estado_actual='REGISTRADO'
+            ).exclude(
+                Exists(candidatos_con_proceso_iniciado)
+            ) \
+            .annotate(
+                # Cambio a Cast(DateField()) para mayor compatibilidad de DB (ej. SQLite)
+                fecha_solo_dia=Cast('fecha_registro', output_field=DateField())
+            ) \
+            .values('fecha_solo_dia', 'kanban_activo') \
+            .annotate(
+                is_active=Max('kanban_activo'), 
+                total_candidatos=Count('pk')
+            ) \
+            .order_by('-fecha_solo_dia')
+            
+        candidatos_by_month = {}
+        for item in dates_and_status:
+            fecha_registro = item['fecha_solo_dia']
+            month_key = fecha_registro.strftime('%Y-%m')
+            
+            month_display = fecha_registro.strftime('%Y') + ' - ' + fecha_registro.strftime('%B').capitalize()
+            
+            if month_key not in candidatos_by_month:
+                candidatos_by_month[month_key] = {
+                    'display': month_display,
+                    'dates': []
+                }
+                
+            candidatos_by_month[month_key]['dates'].append({
+                'fecha_obj': fecha_registro,
+                'fecha_str': fecha_registro.strftime('%Y-%m-%d'),
+                'total_candidatos': item['total_candidatos'],
+                'is_active': item['is_active']
+            })
+            
+        context = {
+            'candidatos_by_month': candidatos_by_month.values(),
+            'url_mostrar': 'mostrar_candidatos',
+            'url_ocultar': 'ocultar_candidatos',
+            'title': 'Lista de candidatos registrados',
+        }
+        
+        return render(request, 'includes/modal_gestion_candidatos.html', context)

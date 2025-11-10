@@ -91,6 +91,10 @@ class Candidato(models.Model):
         auto_now_add=True,
         help_text="Fecha de creación del registro del candidato."
     )
+    kanban_activo = models.BooleanField(
+        default=True,
+        help_text="Controla si el candidato es visible en el tablero Kanban/Dashboard."
+    )
 
     ESTADOS = [
         ('REGISTRADO', 'Registrado (Primer Contacto)'),
@@ -142,8 +146,6 @@ class Candidato(models.Model):
             return 'text-yellow-700 bg-yellow-100 rounded-full px-2' 
         
         return 'text-gray-500'
-
-
 
 class DatosCualificacion(models.Model):
     candidato = models.OneToOneField(

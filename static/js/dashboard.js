@@ -8,6 +8,7 @@ const API_ASISTENCIA_CHECK_URL = AppConfig.API_ASISTENCIA_CHECK_URL;
 const csrfToken = AppConfig.csrfToken;
 const historyApiUrl = AppConfig.historyApiUrl;
 const urlGestionConvocatorias = AppConfig.gestionConvocatoriasUrl;
+const urlListaCandidatosPorFecha = AppConfig.listaCandidatosPorFechaUrl;
 
 const STATUS_MAP = {
     'column-REGISTRADO': 'REGISTRADO',
@@ -714,6 +715,23 @@ function showCopyFeedback(buttonElement) {
 }
 
 
+function openCandModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('hidden');
+    }
+}
+
+/**
+ * Cierra el modal de gestión de Candidatos.
+ */
+function closeCandModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.kanban-column-body').forEach(column => {
         column.addEventListener('dragover', allowDrop);
@@ -828,7 +846,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Asignar el event listener a la nueva función
     dniSearchInput.addEventListener('keypress', handleQuickSearch);
-
+/*
     const toggleHeader = document.getElementById('toggle-header');
     const collapsibleContent = document.getElementById('collapsible-content');
     const toggleIcon = document.getElementById('toggle-icon');
@@ -838,7 +856,7 @@ document.addEventListener('DOMContentLoaded', () => {
             collapsibleContent.classList.toggle('hidden'); 
             toggleIcon.classList.toggle('rotate-180');
         });
-    }
+    }*/
 
 
     // 7. Funcionalidad del Dropdown de Desactivación
@@ -946,4 +964,42 @@ document.addEventListener('DOMContentLoaded', () => {
             closeConvocatoriasModal();
         }
     });
+    
+    const btnGestionarCandidatos = document.getElementById('btn-gestionar-candidatos');
+    const candModalContainer = document.getElementById('candidatos-modal'); 
+    const candModalContent = document.getElementById('candidatos-modal-content'); 
+
+    if (btnGestionarCandidatos) {
+        btnGestionarCandidatos.addEventListener('click', function(e) {
+            e.preventDefault();
+            const modalId = this.getAttribute('data-modal-target');
+            
+            openCandModal(modalId);
+            
+            candModalContent.innerHTML = '<div class="text-center py-10"><svg class="animate-spin h-5 w-5 text-red-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><p class="mt-2 text-sm text-gray-500">Cargando fechas de registro...</p></div>';
+
+            fetch(urlListaCandidatosPorFecha)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok, Status: ' + response.status); 
+                    }
+                    return response.text();
+                })
+                .then(html => {
+                    candModalContent.innerHTML = html;
+                })
+                .catch(error => {
+                    console.error('Error fetching candidatos list:', error);
+                    candModalContent.innerHTML = '<div class="text-center p-4 text-red-600">Error al cargar las fechas. Intenta de nuevo.</div>';
+                });
+        });
+    }
+    
+    if (candModalContainer) {
+        candModalContainer.addEventListener('click', function(e) {
+            if (e.target === candModalContainer) {
+                closeCandModal('candidatos-modal');
+            }
+        });
+    }
 });

@@ -1,0 +1,150 @@
+<div class="max-w-3xl mx-auto w-full"> 
+    <div class="p-2"> 
+        <div class="space-y-6 max-h-[120vh] overflow-y-auto pr-2">
+            
+            {% for month_data in candidatos_by_month %} 
+            
+            {% with first_date=month_data.dates.0.fecha_str|default:"" %} 
+                <div class="border border-gray-200 rounded-xl shadow-lg bg-white">
+                    <div class="px-5 py-3 bg-red-50 font-extrabold text-red-800 border-b border-red-100 rounded-t-xl flex justify-between items-center">
+                        <span>📅 {{ month_data.display }}</span>
+                        
+                        <div class="flex space-x-3 text-xs font-normal ml-2">
+                            
+                            {# Formulario Ocultar MES #}
+                            <form method="POST" action="{% url url_ocultar %}" class="inline-block" onsubmit="return confirm('¿Está seguro de ocultar TODO el mes de {{ month_data.display }} del Kanban?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="fecha_filtro" value="{{ first_date }}"> 
+                                <input type="hidden" name="accion_tipo" value="MES"> 
+                                <button type="submit" 
+                                        class="text-xs font-semibold px-3 py-1 bg-red-600 text-white rounded-full hover:bg-red-700 transition shadow-md">
+                                    Ocultar MES
+                                </button>
+                            </form>
+                            
+                            {# Formulario Mostrar MES #}
+                            <form method="POST" action="{% url url_mostrar %}" class="inline-block" onsubmit="return confirm('¿Está seguro de mostrar TODO el mes de {{ month_data.display }} en el Kanban?');">
+                                {% csrf_token %}
+                                <input type="hidden" name="fecha_filtro" value="{{ first_date }}">
+                                <input type="hidden" name="accion_tipo" value="MES">
+                                <button type="submit" 
+                                        class="text-xs font-semibold px-3 py-1 bg-green-600 text-white rounded-full hover:bg-green-700 transition shadow-md">
+                                    Mostrar MES
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <div class="p-4 space-y-2">
+                        {% for date_item in month_data.dates %}
+                        <div class="flex items-center justify-between p-3 rounded-lg transition duration-150 border 
+                                        {% if date_item.is_active %}bg-green-50/50 border-green-200{% else %}bg-gray-50 border-gray-200{% endif %}">
+                            
+                            <div class="flex flex-col">
+                                <span class="text-sm font-bold text-gray-800 flex items-center">
+                                    <span class="w-2 h-2 rounded-full mr-2 {% if date_item.is_active %}bg-green-600{% else %}bg-gray-500{% endif %}"></span>
+                                    Registrados el: {{ date_item.fecha_obj|date:"d / M / Y" }}
+                                </span>
+                                <span class="text-xs text-gray-600 mt-1 ml-4">
+                                    {{ date_item.total_candidatos }} Candidatos | Estado: 
+                                    <span class="font-bold {% if date_item.is_active %}text-green-700{% else %}text-gray-700{% endif %}">
+                                        {% if date_item.is_active %}Visible{% else %}Oculto{% endif %}
+                                    </span>
+                                </span>
+                            </div>
+
+                            {# ACCIÓN: SWITCH #}
+                            <div class="flex items-center">                                
+                                <form method="POST" 
+                                    action="{% if date_item.is_active %}{% url url_ocultar %}{% else %}{% url url_mostrar %}{% endif %}"
+                                    class="inline-block">
+                                    {% csrf_token %}
+                                    
+                                    {# Usamos fecha_str para enviar la fecha al backend (solución de envío) #}
+                                    <input type="hidden" name="fecha_filtro" value="{{ date_item.fecha_str }}">
+                                    <input type="hidden" name="accion_tipo" value="DIA">
+                                    
+                                    <label class="switch">
+                                        <input type="checkbox" 
+                                                name="kanban_toggle" 
+                                                {% if date_item.is_active %}checked{% endif %} 
+                                                onchange="this.form.submit()"> 
+                                        <span class="slider round"></span>
+                                    </label>
+                                </form>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p class="text-center text-sm text-gray-500 py-3">No hay fechas con candidatos en este mes.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endwith %}
+            {% empty %}
+            <p class="text-center text-base font-semibold text-gray-600 py-8 border-2 border-gray-100 rounded-xl">No hay registros de convocatorias para gestionar.</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+
+<style>
+    /* El contenedor del switch */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 50px; /* Ancho ajustado para tamaño compacto */
+  height: 24px; /* Alto ajustado para tamaño compacto */
+}
+
+/* Ocultar el input por defecto del navegador */
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* El control deslizante (slider) */
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc; /* Gris cuando está apagado/oculto */
+  transition: .4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+}
+
+input:checked + .slider {
+  background-color: #10B981; /* Verde es Tailwind green-500 */
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #10B981;
+}
+
+input:checked + .slider:before {
+  transform: translateX(26px); /* Desplazamiento */
+}
+
+/* Estilo redondeado */
+.slider.round {
+  border-radius: 24px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+</style>    

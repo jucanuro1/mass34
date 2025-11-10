@@ -45,9 +45,12 @@ urlpatterns = [
 
     path('candidatos/asistencia/', views.CandidatoAsistenciaListView.as_view(), name='candidatos_asistencia_list'),
     path('candidatos/asistencia/<int:pk>/detalle/', views.RegistroAsistenciaDetailView.as_view(), name='registro_asistencia_detalle'),
+    path('candidatos/gestion/lista/', views.ListaCandidatosPorFechaView.as_view(), name='lista_candidatos_por_fecha'),
 
     path('documentos/registrar/', views.RegistrarDocumentoView.as_view(), name='registrar_documento_laboral'),
 
     path('api/proceso/<int:proceso_id>/actualizar_fecha/', views.actualizar_fecha_proceso, name='actualizar_fecha_proceso_api'),
-    
+
+    path('candidatos/ocultar/', views.OcultarCandidatosView.as_view(), name='ocultar_candidatos'),
+    path('candidatos/mostrar/', views.MostrarCandidatosView.as_view(), name='mostrar_candidatos'),    
 ]
