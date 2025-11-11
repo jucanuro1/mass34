@@ -2,6 +2,7 @@ import io
 import json
 import time
 from datetime import date, datetime
+import locale
 from django.shortcuts import redirect
 
 import pandas as pd
@@ -29,6 +30,9 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_http_methods
 from django.views.generic import View, DetailView, ListView
+from django.db.models.functions import ExtractYear, ExtractMonth    
+from django.utils.formats import date_format
+import platform
 
 from .models import (
     Candidato, Proceso, Empresa, Sede, Supervisor, 
@@ -1349,32 +1353,39 @@ class DesactivarConvocatoriaView(LoginRequiredMixin, View):
     """
     def post(self, request, *args, **kwargs):
         fecha_filtro_str = request.POST.get('fecha_filtro') 
+        redirect_url = request.META.get('HTTP_REFERER', 'kanban_dashboard')
         
         if not fecha_filtro_str:
             messages.error(request, "Error: No se proporcionó una fecha de convocatoria para desactivar.")
-            return redirect('kanban_dashboard')
-            
+            return redirect(redirect_url) 
+
         try:
             fecha_obj = datetime.strptime(fecha_filtro_str, '%Y-%m-%d').date()
+            accion_tipo = request.POST.get('accion_tipo', 'DIA') 
             
-            count = Proceso.objects.filter(
-                fecha_inicio=fecha_obj,  
-                kanban_activo=True
-            ).update(kanban_activo=False)
+            if accion_tipo == 'MES':
+                count = Proceso.objects.filter(
+                    fecha_inicio__year=fecha_obj.year,
+                    fecha_inicio__month=fecha_obj.month,
+                    kanban_activo=True
+                ).update(kanban_activo=False)
+                display_msg = f"Se han ocultado {count} procesos del MES: {fecha_obj.strftime('%B %Y')}"
+            else: 
+                 count = Proceso.objects.filter(
+                    fecha_inicio=fecha_obj, 
+                    kanban_activo=True
+                 ).update(kanban_activo=False)
+                 display_msg = f"Se han ocultado {count} procesos del DÍA: {fecha_filtro_str}"
             
-            # 3. Mensaje de éxito
-            messages.success(request, 
-                f"🎉 ¡Éxito! Se han desactivado **{count}** procesos para la convocatoria del **{fecha_filtro_str}**. "
-                f"Los candidatos han sido archivados del Kanban."
-            )
+            messages.success(request, f"🎉 ¡Éxito! {display_msg}. Los candidatos han sido archivados del Kanban.")
             
         except ValueError:
             messages.error(request, "Error de Formato de Fecha: La fecha proporcionada no es válida (debe ser YYYY-MM-DD).")
         except Exception as e:
             messages.error(request, f"Error CRÍTICO al desactivar la convocatoria: {e}")
             
-        return redirect('kanban_dashboard')
-    
+        return redirect(redirect_url) 
+
 class ActivarConvocatoriaView(LoginRequiredMixin, View):
     """
     Activa masivamente los procesos de una fecha de convocatoria para 
@@ -1382,7 +1393,7 @@ class ActivarConvocatoriaView(LoginRequiredMixin, View):
     """
     def post(self, request, *args, **kwargs):
         fecha_filtro_str = request.POST.get('fecha_filtro') 
-        
+        redirect_url = request.META.get('HTTP_REFERER', 'kanban_dashboard')
         
         if not fecha_filtro_str:
             messages.error(request, "Error: No se proporcionó una fecha de convocatoria para activar.")
@@ -1390,64 +1401,118 @@ class ActivarConvocatoriaView(LoginRequiredMixin, View):
             
         try:
             fecha_obj = datetime.strptime(fecha_filtro_str, '%Y-%m-%d').date()
+            accion_tipo = request.POST.get('accion_tipo', 'DIA') 
+
+            if accion_tipo == 'MES':
+                count = Proceso.objects.filter(
+                    fecha_inicio__year=fecha_obj.year,
+                    fecha_inicio__month=fecha_obj.month,
+                    kanban_activo=False
+                ).update(kanban_activo=True)
+                display_msg = f"Se han reactivado {count} procesos del MES: {fecha_obj.strftime('%B %Y')}"
+            else: # DIA
+                count = Proceso.objects.filter(
+                    fecha_inicio=fecha_obj, 
+                    kanban_activo=False
+                ).update(kanban_activo=True)
+                display_msg = f"Se han reactivado {count} procesos del DÍA: {fecha_filtro_str}"
             
-            count = Proceso.objects.filter(
-                fecha_inicio=fecha_obj, 
-                kanban_activo=False
-            ).update(kanban_activo=True)
-            
-            messages.success(request, 
-                f"✅ ¡Éxito! Se han reactivado **{count}** procesos para la convocatoria del **{fecha_filtro_str}**. "
-                f"Los candidatos han regresado al Kanban."
-            )
+            messages.success(request, f"✅ ¡Éxito! {display_msg}. Los candidatos han regresado al Kanban.")
             
         except ValueError:
             messages.error(request, "Error de Formato de Fecha: La fecha proporcionada no es válida (debe ser YYYY-MM-DD).")
         except Exception as e:
             messages.error(request, f"Error CRÍTICO al activar la convocatoria: {e}")
             
-        return redirect('kanban_dashboard')
-    
+        return redirect(redirect_url)
+
 class ListaConvocatoriasView(LoginRequiredMixin, View):
     """
-    Muestra todas las convocatorias históricas agrupadas por mes/año.
-    Devuelve un fragmento HTML si se solicita para usarlo en un modal.
+    Muestra las convocatorias agrupadas por mes/año, permitiendo el filtrado por mes.
+    Asegura que los nombres de los meses estén en español usando django.utils.formats.
     """
-    def get(self, request, *args, **kwargs):        
-        dates_and_status = Proceso.objects \
-            .values('fecha_inicio') \
-            .annotate(
-                is_active=Max('kanban_activo'), 
-                total_procesos=Count('pk')
-            ) \
-            .order_by('-fecha_inicio')
+    def get(self, request, *args, **kwargs):
+        
+        month_year_str = request.GET.get('mes')
+        
+        if month_year_str:
+            try:
+                filter_date = datetime.strptime(month_year_str, '%Y-%m').date()
+                year_filter = filter_date.year
+                month_filter = filter_date.month
+            except ValueError:
+                filter_date = date.today()
+                year_filter = filter_date.year
+                month_filter = filter_date.month
+                month_year_str = filter_date.strftime('%Y-%m')
+        else:
+            filter_date = date.today()
+            year_filter = filter_date.year
+            month_filter = filter_date.month
+            month_year_str = filter_date.strftime('%Y-%m') 
+
+        try:
+            dates_and_status = Proceso.objects \
+                .filter(
+                    fecha_inicio__isnull=False,  
+                    fecha_inicio__year=year_filter,
+                    fecha_inicio__month=month_filter
+                ) \
+                .values('fecha_inicio') \
+                .annotate(
+                    is_active=Max('kanban_activo'), 
+                    total_procesos=Count('pk')
+                ) \
+                .order_by('fecha_inicio')
+                
+        except Exception as e:
+            print(f"Error en la consulta de Proceso Principal: {e}") 
+            dates_and_status = []
             
         convocations_by_month = {}
-        for item in dates_and_status:
-            fecha_inicio = item['fecha_inicio']
-            month_key = fecha_inicio.strftime('%Y-%m')
-            month_display = fecha_inicio.strftime('%B %Y') 
+        
+        month_display_name = date_format(date(year_filter, month_filter, 1), "F \d\e Y").capitalize()
+
+        if dates_and_status:
+            for item in dates_and_status:
+                fecha_inicio = item['fecha_inicio']
+                month_key = fecha_inicio.strftime('%Y-%m')
+                
+                if month_key not in convocations_by_month:
+                    convocations_by_month[month_key] = {'display': month_display_name, 'dates': []}
+                    
+                convocations_by_month[month_key]['dates'].append({
+                    'fecha_obj': fecha_inicio, 
+                    'fecha_str': fecha_inicio.strftime('%Y-%m-%d'),
+                    'total_procesos': item['total_procesos'],
+                    'is_active': item['is_active']
+                })
+        
+        available_months = Proceso.objects \
+            .filter(fecha_inicio__isnull=False) \
+            .annotate(year=ExtractYear('fecha_inicio'), month=ExtractMonth('fecha_inicio')) \
+            .values('year', 'month') \
+            .distinct() \
+            .order_by('-year', '-month')
             
-            if month_key not in convocations_by_month:
-                convocations_by_month[month_key] = {
-                    'display': month_display.capitalize(),
-                    'dates': []
-                }
-                
-            convocations_by_month[month_key]['dates'].append({
-                'fecha_obj': fecha_inicio, 
-                
-                'fecha_str': fecha_inicio.strftime('%Y-%m-%d'),
-                
-                'total_procesos': item['total_procesos'],
-                'is_active': item['is_active']
+        month_options = []
+        for am in available_months:
+            temp_date = date(am['year'], am['month'], 1)
+            display_name = date_format(temp_date, "F \d\e Y").capitalize()
+            
+            month_options.append({
+                'value': temp_date.strftime('%Y-%m'),
+                'display': display_name,
+                'selected': temp_date.strftime('%Y-%m') == month_year_str,
             })
             
         context = {
-            'convocations_by_month': convocations_by_month.values(),
+            'convocations_by_month': list(convocations_by_month.values()),
             'url_activar': 'activar_convocatoria',
             'url_desactivar': 'desactivar_convocatoria',
-            'title': 'Gestión de Convocatorias Kanban',
+            'month_options': month_options, 
+            'current_filter': month_year_str,
+            'current_month_data': list(convocations_by_month.values())[0] if convocations_by_month else {'display': month_display_name},
         }
         
         return render(request, 'includes/modal_gestion_convocatorias.html', context)
@@ -1883,7 +1948,8 @@ class OcultarCandidatosView(LoginRequiredMixin, View):
         except Exception as e:
             messages.error(request, f"Error CRÍTICO al ocultar candidatos: {e}")
             
-        return redirect(REDIRECT_URL)
+        #return redirect(REDIRECT_URL)
+        return HttpResponse(status=204)
 
 class MostrarCandidatosView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
@@ -1938,11 +2004,47 @@ class MostrarCandidatosView(LoginRequiredMixin, View):
         except Exception as e:
             messages.error(request, f"Error CRÍTICO al mostrar candidatos: {e}")
             
-        return redirect(REDIRECT_URL)        
+        #return redirect(REDIRECT_URL)
+        return HttpResponse(status=204)      
 
+def set_locale_es():
+    try:
+        if platform.system() == "Windows":
+            locale.setlocale(locale.LC_TIME, 'Spanish_Spain.1252')
+        else:
+            locale.setlocale(locale.LC_TIME, 'es_ES.utf8')
+    except locale.Error:
+        try:
+            locale.setlocale(locale.LC_TIME, 'es')
+        except locale.Error:
+            pass
+
+MESES_ESPANOL = {
+    1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril', 
+    5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto', 
+    9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+}
 class ListaCandidatosPorFechaView(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
         
+        month_year_str = request.GET.get('mes')
+        
+        if month_year_str:
+            try:
+                filter_date = datetime.strptime(month_year_str, '%Y-%m').date()
+                year_filter = filter_date.year
+                month_filter = filter_date.month
+            except ValueError:
+                now = date.today()
+                year_filter = now.year
+                month_filter = now.month
+                month_year_str = now.strftime('%Y-%m')
+        else:
+            now = date.today()
+            year_filter = now.year
+            month_filter = now.month
+            month_year_str = now.strftime('%Y-%m')
+
         candidatos_con_proceso_iniciado = Proceso.objects.filter(
             candidato=OuterRef('pk'), 
             fecha_inicio__isnull=False
@@ -1950,12 +2052,14 @@ class ListaCandidatosPorFechaView(LoginRequiredMixin, View):
 
         dates_and_status = Candidato.objects \
             .filter(
-                estado_actual='REGISTRADO'
-            ).exclude(
+                estado_actual='REGISTRADO',
+                fecha_registro__year=year_filter,
+                fecha_registro__month=month_filter,
+            ) \
+            .exclude(
                 Exists(candidatos_con_proceso_iniciado)
             ) \
             .annotate(
-                # Cambio a Cast(DateField()) para mayor compatibilidad de DB (ej. SQLite)
                 fecha_solo_dia=Cast('fecha_registro', output_field=DateField())
             ) \
             .values('fecha_solo_dia', 'kanban_activo') \
@@ -1966,15 +2070,19 @@ class ListaCandidatosPorFechaView(LoginRequiredMixin, View):
             .order_by('-fecha_solo_dia')
             
         candidatos_by_month = {}
+        # 🟢 Obtenemos el nombre del mes de filtro en español
+        current_month_name = MESES_ESPANOL.get(month_filter, month_year_str) 
+        month_display_name = f"{current_month_name} {year_filter}"
+        
         for item in dates_and_status:
             fecha_registro = item['fecha_solo_dia']
+            if not fecha_registro: continue
+                
             month_key = fecha_registro.strftime('%Y-%m')
-            
-            month_display = fecha_registro.strftime('%Y') + ' - ' + fecha_registro.strftime('%B').capitalize()
             
             if month_key not in candidatos_by_month:
                 candidatos_by_month[month_key] = {
-                    'display': month_display,
+                    'display': month_display_name,
                     'dates': []
                 }
                 
@@ -1985,11 +2093,34 @@ class ListaCandidatosPorFechaView(LoginRequiredMixin, View):
                 'is_active': item['is_active']
             })
             
+        available_months = Candidato.objects \
+            .filter(estado_actual='REGISTRADO') \
+            .exclude(Exists(candidatos_con_proceso_iniciado)) \
+            .annotate(year=ExtractYear('fecha_registro'), month=ExtractMonth('fecha_registro')) \
+            .values('year', 'month') \
+            .distinct() \
+            .order_by('-year', '-month')
+            
+        month_options = []
+        for am in available_months:
+            temp_date = date(am['year'], am['month'], 1)
+            
+            month_name = MESES_ESPANOL.get(am['month'], temp_date.strftime('%B'))
+            display_name = f"{month_name} de {am['year']}"
+            
+            month_options.append({
+                'value': temp_date.strftime('%Y-%m'),
+                'display': display_name,
+                'selected': temp_date.strftime('%Y-%m') == month_year_str,
+            })
+            
         context = {
             'candidatos_by_month': candidatos_by_month.values(),
             'url_mostrar': 'mostrar_candidatos',
             'url_ocultar': 'ocultar_candidatos',
-            'title': 'Lista de candidatos registrados',
+            'title': f'Gestión de Candidatos Registrados ({month_display_name})',
+            'month_options': month_options, 
+            'current_filter': month_year_str,
         }
         
         return render(request, 'includes/modal_gestion_candidatos.html', context)

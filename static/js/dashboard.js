@@ -903,19 +903,108 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalConvocatorias = document.getElementById('convocatorias-modal');
     const modalContentAreaConvocatorias = document.getElementById('modal-content-area-convocatorias');
 
+    let currentMonthFilter = null;
+
+
+    async function loadConvocatoriasModalContent(monthFilter = null, isInitialLoad = true) {
+        currentMonthFilter = monthFilter;
+
+        if (isInitialLoad) { 
+            modalContentAreaConvocatorias.innerHTML = '<div class="p-5 text-center"><p class="text-gray-500">Cargando convocatorias...</p></div>';
+        }
+
+        let url = urlGestionConvocatorias;
+        if (monthFilter) {
+            url += `?mes=${monthFilter}`;
+        }
+
+        try {
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+                throw new Error(`Error al cargar la gestión. Estado: ${response.status}`);
+            }
+            
+            const htmlFragment = await response.text();
+            
+            modalContentAreaConvocatorias.innerHTML = htmlFragment;
+            
+            if (isInitialLoad) {
+                setTimeout(() => {
+                    modalContentAreaConvocatorias.classList.remove('scale-95', 'opacity-0');
+                    modalContentAreaConvocatorias.classList.add('scale-100', 'opacity-100');
+                }, 10);
+            }
+            
+            initModalConvocatoriasListeners(); 
+            
+        } catch (error) {
+            console.error("Error al cargar el modal de convocatorias:", error);
+            modalContentAreaConvocatorias.innerHTML = `<div class="p-5 text-center text-red-600">Error al cargar la lista: ${error.message}</div>`;
+        }
+    }
+
+    async function sendFormViaAjax(form) {
+        const actionUrl = form.action;
+        const formData = new FormData(form);
+        
+        const originalContent = modalContentAreaConvocatorias.innerHTML;
+        modalContentAreaConvocatorias.innerHTML = `<div class="p-5 text-center text-xl text-red-600 font-bold">Aplicando acción... Por favor espere.</div>`;
+        
+        try {
+            const response = await fetch(actionUrl, {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error en la acción. Estado: ${response.status}`);
+            }
+
+            await loadConvocatoriasModalContent(currentMonthFilter, false); 
+            
+        } catch (error) {
+            console.error("Error al ejecutar la acción del formulario:", error);
+            modalContentAreaConvocatorias.innerHTML = originalContent; 
+            alert(`Ocurrió un error al aplicar la acción: ${error.message}`);
+            initModalConvocatoriasListeners(); // Re-inicializa listeners si falló.
+        }
+    }
+
+
+    function initModalConvocatoriasListeners() {
+        const closeButton = modalContentAreaConvocatorias.querySelector('[data-modal-close]');
+        if (closeButton) {
+            closeButton.addEventListener('click', closeConvocatoriasModal);
+        }
+        
+        const monthSelect = modalContentAreaConvocatorias.querySelector('#month-select');
+        if (monthSelect) {
+            currentMonthFilter = monthSelect.value;
+            
+            monthSelect.addEventListener('change', function() {
+                loadConvocatoriasModalContent(this.value, false); 
+            });
+        }
+
+        initConvocatoriasToggleListeners();
+        initConvocatoriasMesListeners();
+    }
+
+
     function initConvocatoriasToggleListeners() {
         const toggles = modalContentAreaConvocatorias.querySelectorAll('.toggle-checkbox');
 
         toggles.forEach(toggle => {
             toggle.addEventListener('change', function() {
-                const dateSlug = this.id.replace('toggle-', '');
+                const dateSlug = this.getAttribute('data-fecha-str'); 
                 const isChecked = this.checked;
                 
                 const formId = isChecked ? `form-activate-${dateSlug}` : `form-deactivate-${dateSlug}`;
                 const targetForm = document.getElementById(formId);
 
                 if (targetForm) {
-                    targetForm.submit();
+                    sendFormViaAjax(targetForm);
                 } else {
                     console.error("Formulario de acción no encontrado para:", formId);
                 }
@@ -923,40 +1012,37 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function initConvocatoriasMesListeners() {
+        const mesForms = modalContentAreaConvocatorias.querySelectorAll('.form-action-mes');
+        
+        mesForms.forEach(form => {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault(); 
+                
+                const confirmMsg = this.getAttribute('data-confirm-msg');
+                
+                if (confirm(confirmMsg)) { 
+                    
+                    sendFormViaAjax(this);
+                }
+            });
+        });
+    }
+
+
     function closeConvocatoriasModal() {
         modalConvocatorias.classList.add('hidden');
         modalContentAreaConvocatorias.classList.remove('scale-100', 'opacity-100');
         modalContentAreaConvocatorias.classList.add('scale-95', 'opacity-0');
+
+        setTimeout(() => {
+            window.location.reload();
+        }, 150); 
     }
 
-    btnGestionConvocatorias.addEventListener('click', async () => {
+    btnGestionConvocatorias.addEventListener('click', () => {
         modalConvocatorias.classList.remove('hidden');
-        modalContentAreaConvocatorias.innerHTML = '<div class="p-5 text-center"><p class="text-gray-500">Cargando convocatorias...</p></div>';
-
-        try {
-            const response = await fetch(urlGestionConvocatorias);
-            if (!response.ok) throw new Error('Error al cargar la gestión');
-            
-            const htmlFragment = await response.text();
-            
-            modalContentAreaConvocatorias.innerHTML = htmlFragment;
-            
-            setTimeout(() => {
-                modalContentAreaConvocatorias.classList.remove('scale-95', 'opacity-0');
-                modalContentAreaConvocatorias.classList.add('scale-100', 'opacity-100');
-            }, 10);
-            
-            const closeButton = modalContentAreaConvocatorias.querySelector('[data-modal-close]');
-            if (closeButton) {
-                closeButton.addEventListener('click', closeConvocatoriasModal);
-            }
-            
-            initConvocatoriasToggleListeners();
-            
-        } catch (error) {
-            console.error("Error al cargar el modal de convocatorias:", error);
-            modalContentAreaConvocatorias.innerHTML = `<div class="p-5 text-center text-red-600">Error al cargar la lista. ${error.message}</div>`;
-        }
+        loadConvocatoriasModalContent(null, true); 
     });
 
     modalConvocatorias.addEventListener('click', (e) => {
@@ -969,6 +1055,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const candModalContainer = document.getElementById('candidatos-modal'); 
     const candModalContent = document.getElementById('candidatos-modal-content'); 
 
+    function loadCandidatesModalContent(url) {
+        candModalContent.innerHTML = '<div class="text-center py-10"><svg class="animate-spin h-5 w-5 text-red-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><p class="mt-2 text-sm text-gray-500">Cargando fechas de registro...</p></div>';
+
+        fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok, Status: ' + response.status); 
+                }
+                return response.text();
+            })
+            .then(html => {
+                candModalContent.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error fetching candidatos list:', error);
+                candModalContent.innerHTML = '<div class="text-center p-4 text-red-600">Error al cargar las fechas. Intenta de nuevo.</div>';
+            });
+    }
+
     if (btnGestionarCandidatos) {
         btnGestionarCandidatos.addEventListener('click', function(e) {
             e.preventDefault();
@@ -976,30 +1081,59 @@ document.addEventListener('DOMContentLoaded', () => {
             
             openCandModal(modalId);
             
-            candModalContent.innerHTML = '<div class="text-center py-10"><svg class="animate-spin h-5 w-5 text-red-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><p class="mt-2 text-sm text-gray-500">Cargando fechas de registro...</p></div>';
-
-            fetch(urlListaCandidatosPorFecha)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok, Status: ' + response.status); 
-                    }
-                    return response.text();
-                })
-                .then(html => {
-                    candModalContent.innerHTML = html;
-                })
-                .catch(error => {
-                    console.error('Error fetching candidatos list:', error);
-                    candModalContent.innerHTML = '<div class="text-center p-4 text-red-600">Error al cargar las fechas. Intenta de nuevo.</div>';
-                });
+            loadCandidatesModalContent(urlListaCandidatosPorFecha);
         });
     }
     
     if (candModalContainer) {
-        candModalContainer.addEventListener('click', function(e) {
-            if (e.target === candModalContainer) {
-                closeCandModal('candidatos-modal');
+        
+        // Delegación de Eventos para el Filtro de Mes
+        candModalContainer.addEventListener('change', function(e) {
+            if (e.target.id === 'month-select') {
+                const selectedMonth = e.target.value;
+                const newUrl = urlListaCandidatosPorFecha + (selectedMonth ? '?mes=' + selectedMonth : '');
+                loadCandidatesModalContent(newUrl);
             }
         });
+
+        candModalContainer.addEventListener('submit', function(e) {
+            
+            if (e.target.matches('form.form-gestion-candidato')) { 
+                e.preventDefault(); 
+                
+                const form = e.target;
+                const url = form.action;
+                const formData = new FormData(form);
+
+                const monthSelect = candModalContainer.querySelector('#month-select');
+                const currentMonthFilter = monthSelect ? monthSelect.value : '';
+                
+                fetch(url, {
+                    method: 'POST',
+                    body: formData,
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Error en el servidor al procesar la acción.');
+                    }
+                    
+                    let reloadUrl = urlListaCandidatosPorFecha;
+                    if (currentMonthFilter) {
+                        reloadUrl += '?mes=' + currentMonthFilter;
+                    }
+                    loadCandidatesModalContent(reloadUrl);
+                })
+                .catch(error => {
+                    console.error('Error durante la activación/ocultación:', error);
+                    alert('Hubo un error al realizar la operación.');
+                });
+            }
+        });
+        
+        candModalContainer.addEventListener('click', function(e) {
+                if (e.target.matches('[data-modal-close]') || e.target.closest('[data-modal-close]')) {
+                    window.location.reload(); 
+                }
+            });
     }
 });

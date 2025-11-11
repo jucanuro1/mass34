@@ -1,95 +1,168 @@
 {% load static %}
-<div class="flex justify-between items-center p-5 bg-red-600 rounded-t-xl shadow-lg">
+<div class="mx-auto w-full bg-white rounded-xl shadow-2xl"> 
     
-    <h3 class="text-md font-extrabold text-white flex items-center" id="modal-title">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 mr-3 text-red-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-        </svg>
-        Gestión de Visibilidad de Convocatorias
-    </h3>
+    {# --- ENCABEZADO FIJO DEL MODAL --- #}
+    <div class="flex justify-between items-center p-5 bg-red-600 rounded-t-xl shadow-lg">
+        <h3 class="text-xl font-extrabold text-white flex items-center" id="modal-title">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 mr-3 text-red-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            Gestión de Visibilidad de Convocatorias
+        </h3>
+        <button type="button" class="text-red-200 hover:text-white transition-colors p-1 rounded-full hover:bg-red-700/50" data-modal-close>
+            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+        </button>
+    </div>
     
-    <button type="button" class="text-red-200 hover:text-white transition-colors p-1 rounded-full hover:bg-red-700/50" data-modal-close>
-        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path>
-        </svg>
-    </button>
-</div>
-
-<div class="p-6 max-h-[70vh] overflow-y-auto">
-    <div class="space-y-6 pr-2">
-        {% for month_data in convocations_by_month %}
+    <div class="p-6">
         
-        {% with first_date=month_data.dates.0.fecha_str|default:"" %} 
-            <div class="border border-gray-200 rounded-xl shadow-lg bg-white">
-                
-                <div class="px-5 py-3 bg-red-50 font-extrabold text-red-800 border-b border-red-100 rounded-t-xl flex justify-between items-center">
-                    <span>📅 {{ month_data.display }}</span>
-                    <div class="flex space-x-3 text-xs font-normal ml-2">
-                        <form method="POST" action="{% url url_desactivar %}" class="inline-block" onsubmit="return confirm('¿Está seguro de ocultar TODO el mes de {{ month_data.display }} del Kanban?');">
-                            {% csrf_token %}
-                            <input type="hidden" name="fecha_filtro" value="{{ first_date }}"> 
-                            <input type="hidden" name="accion_tipo" value="MES"> 
-                            <button type="submit" class="text-xs font-semibold px-3 py-1 bg-red-600 text-white rounded-full hover:bg-red-700 transition shadow-md">
-                                Ocultar MES
-                            </button>
-                        </form>
-                        <form method="POST" action="{% url url_activar %}" class="inline-block" onsubmit="return confirm('¿Está seguro de mostrar TODO el mes de {{ month_data.display }} en el Kanban?');">
-                            {% csrf_token %}
-                            <input type="hidden" name="fecha_filtro" value="{{ first_date }}">
-                            <input type="hidden" name="accion_tipo" value="MES">
-                            <button type="submit" class="text-xs font-semibold px-3 py-1 bg-green-600 text-white rounded-full hover:bg-green-700 transition shadow-md">
-                                Mostrar MES
-                            </button>
-                        </form>
-                    </div>
-                </div>
-                
-                <div class="p-4 space-y-2">
-                    {% for convocation in month_data.dates %}
-                    <li class="flex items-center justify-between p-3 rounded-lg transition duration-150 border 
-                                {% if convocation.is_active %}bg-green-50/50 border-green-200{% else %}bg-gray-50 border-gray-200{% endif %}">
+        {% with current_month_data=convocations_by_month|first %}
+            <div class="px-6 pt-2 pb-4 mb-5 border-b-2 border-red-300 bg-white sticky top-0 z-10"> 
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                    
+                    <h4 class="text-xl font-extrabold text-gray-800 flex items-center mb-3 sm:mb-0">
+                        <svg class="w-6 h-6 mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        Convocatorias Activas: 
+                        <strong class="ml-2 px-3 py-1 bg-red-100 text-red-700 rounded-full shadow-sm text-lg">
+                            {% if current_month_data %}{{ current_month_data.display }}{% else %}TODAS LAS FECHAS{% endif %}
+                        </strong>
+                    </h4>
+                    
+                    <div class="flex items-center">
+                        <label for="month-select" class="text-sm font-semibold text-gray-700 mr-3 whitespace-nowrap">Cambiar Mes:</label>
                         
-                        <div class="flex flex-col">
-                            <span class="text-sm font-bold text-gray-800 flex items-center">
-                                <span class="w-2 h-2 rounded-full mr-2 {% if convocation.is_active %}bg-green-600{% else %}bg-gray-500{% endif %}"></span>
-                                Convocatoria del: {{ convocation.fecha_obj|date:"d / M / Y" }}
-                            </span>
-                            
-                            <span class="text-xs text-gray-600 mt-1 ml-4">
-                                {{ convocation.total_procesos }}  Candidatos | Estado: 
-                                <span class="font-bold {% if convocation.is_active %}text-green-700{% else %}text-gray-700{% endif %}">
-                                    {% if convocation.is_active %}Visible{% else %}Oculto{% endif %}
-                                </span>
-                            </span>
-                        </div>
-
-                        <div class="flex items-center">
-                            <form method="POST" 
-                                action="{% if convocation.is_active %}{% url url_desactivar %}{% else %}{% url url_activar %}{% endif %}"
-                                class="inline-block form-switch-gestion">
-                                {% csrf_token %}
-                                <input type="hidden" name="fecha_filtro" value="{{ convocation.fecha_str }}">
-                                <input type="hidden" name="accion_tipo" value="DIA">
+                        <div class="relative w-48"> 
+                            <select id="month-select" 
+                                        name="month" 
+                                        {# onchange="window.location.href = '?mes=' + this.value" ELIMINADO #}
+                                        class="appearance-none block w-full py-2 px-4 border-2 border-red-400 bg-white text-gray-800 font-bold rounded-xl shadow-lg cursor-pointer
+                                            focus:outline-none focus:ring-4 focus:ring-red-200 focus:border-red-600 transition duration-200 text-sm">
                                 
-                                <label class="switch">
-                                    <input type="checkbox" 
-                                            name="kanban_toggle" 
-                                            {% if convocation.is_active %}checked{% endif %} 
-                                            onchange="this.form.submit()"> 
-                                    <span class="slider round"></span>
-                                </label>
-                            </form>
+                                <option value="" {% if not current_filter %}selected{% endif %}>--- Ver Todos ---</option> 
+
+                                {% for month in month_options %}
+                                    <option value="{{ month.value }}" {% if month.selected %}selected{% endif %}>
+                                        {{ month.display }}
+                                    </option>
+                                {% empty %}
+                                    <option value="{{ current_filter }}" selected>Mes Actual</option>
+                                {% endfor %}
+                                
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-red-600">
+                                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
                         </div>
-                    </li>
-                    {% empty %}
-                    <p class="text-center text-sm text-gray-500 py-3">No hay fechas con convocatorias en este mes.</p>
-                    {% endfor %}
+                    </div>
+                    
                 </div>
             </div>
-        {% endwith %}
-        {% empty %}
-        <p class="text-center text-base font-semibold text-gray-600 py-8 border-2 border-gray-100 rounded-xl">No hay registros de convocatorias para gestionar.</p>
-        {% endfor %}
+            {% endwith %}
+        
+        <div class="space-y-8 max-h-[65vh] overflow-y-auto pr-3">
+            {% for month_data in convocations_by_month %}
+            
+            {% with first_date=month_data.dates.0.fecha_str|default:"" %} 
+                <div class="border border-gray-300 rounded-xl shadow-lg bg-white">
+                    
+                    <div class="px-5 py-3 bg-red-100/50 font-extrabold text-red-800 border-b border-red-200 rounded-t-xl flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                        <h5 class="text-sm font-bold">{{ month_data.display }}</h5>
+                        <div class="flex space-x-3 text-xs font-normal mt-2 sm:mt-0">
+                            
+                            {# --- CAMBIO CLAVE 2A: Agregar clase y data-confirm-msg para AJAX y eliminar onsubmit nativo --- #}
+                            <form method="POST" action="{% url url_desactivar %}" 
+                                  class="inline-block form-action-mes" 
+                                  data-confirm-msg="¿Está seguro de ocultar TODO el mes de {{ month_data.display }} del Kanban?">
+                                {% csrf_token %}
+                                <input type="hidden" name="fecha_filtro" value="{{ first_date }}"> 
+                                <input type="hidden" name="accion_tipo" value="MES"> 
+                                <button type="submit" class="text-xs font-semibold px-3 py-1 bg-red-600 text-white rounded-full hover:bg-red-700 transition shadow-md">
+                                    Ocultar MES
+                                </button>
+                            </form>
+                            
+                            {# --- CAMBIO CLAVE 2B: Agregar clase y data-confirm-msg para AJAX y eliminar onsubmit nativo --- #}
+                            <form method="POST" action="{% url url_activar %}" 
+                                  class="inline-block form-action-mes"
+                                  data-confirm-msg="¿Está seguro de mostrar TODO el mes de {{ month_data.display }} en el Kanban?">
+                                {% csrf_token %}
+                                <input type="hidden" name="fecha_filtro" value="{{ first_date }}">
+                                <input type="hidden" name="accion_tipo" value="MES">
+                                <button type="submit" class="text-xs font-semibold px-3 py-1 bg-green-600 text-white rounded-full hover:bg-green-700 transition shadow-md">
+                                    Mostrar MES
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <ul class="p-4 space-y-3 list-none">
+                        {% for convocation in month_data.dates %}
+                        <li class="flex items-center justify-between p-4 rounded-xl transition duration-150 border 
+                                        {% if convocation.is_active %}bg-white hover:shadow-lg border-green-300{% else %}bg-gray-100 hover:shadow-md border-gray-200{% endif %}">
+                            
+                            <div class="flex flex-col">
+                                <span class="text-base font-semibold text-gray-800 flex items-center">
+                                    <span class="w-2.5 h-2.5 rounded-full mr-2 
+                                                {% if convocation.is_active %}bg-green-600 animate-pulse{% else %}bg-gray-500{% endif %}"></span>
+                                    Convocatoria del: <strong class="ml-1">{{ convocation.fecha_obj|date:"d / M / Y" }}</strong>
+                                </span>
+                                
+                                <span class="text-xs text-gray-500 mt-1 ml-4">
+                                    {{ convocation.total_procesos }} Candidatos | Estado: 
+                                    <span class="font-bold 
+                                                {% if convocation.is_active %}text-green-700{% else %}text-gray-700{% endif %}">
+                                        {% if convocation.is_active %}Visble{% else %}Oculto{% endif %}
+                                    </span>
+                                </span>
+                            </div>
+
+                            <div class="flex items-center"> 
+                                {# Formularios ocultos para que el JavaScript los use #}
+                                <form method="POST" action="{% url url_activar %}" id="form-activate-{{ convocation.fecha_str }}" class="hidden">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="fecha_filtro" value="{{ convocation.fecha_str }}">
+                                    <input type="hidden" name="accion_tipo" value="DIA">
+                                </form>
+                                <form method="POST" action="{% url url_desactivar %}" id="form-deactivate-{{ convocation.fecha_str }}" class="hidden">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="fecha_filtro" value="{{ convocation.fecha_str }}">
+                                    <input type="hidden" name="accion_tipo" value="DIA">
+                                </form>
+
+                                {# El Toggle de Tailwind CSS #}
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    {# --- CAMBIO CLAVE 3: Agregar data-fecha-str para que el JS lo identifique --- #}
+                                    <input type="checkbox" 
+                                            data-fecha-str="{{ convocation.fecha_str }}"
+                                            id="toggle-{{ convocation.fecha_str }}" 
+                                            class="sr-only peer toggle-checkbox" 
+                                            {% if convocation.is_active %}checked{% endif %}>
+                                    
+                                    <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-red-400 rounded-full peer 
+                                                peer-checked:after:translate-x-full peer-checked:after:border-white 
+                                                after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 
+                                                after:border after:rounded-full after:h-5 after:w-5 after:transition-all 
+                                                peer-checked:bg-green-600"></div>
+                                </label>
+
+                            </div>
+                        </li>
+                        {% empty %}
+                        <p class="text-center text-sm text-gray-500 py-3">No hay fechas con convocatorias en este mes.</p>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endwith %}
+            {% empty %}
+            <p class="text-center text-base font-semibold text-gray-600 py-8 border-2 border-gray-100 rounded-xl">No hay registros de convocatorias para gestionar en el mes seleccionado.</p>
+            {% endfor %}
+        </div>
     </div>
 </div>

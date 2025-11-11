@@ -8,8 +8,33 @@
             {% with first_date=month_data.dates.0.fecha_str|default:"" %} 
                 <div class="border border-gray-200 rounded-xl shadow-lg bg-white">
                     <div class="px-5 py-3 bg-red-50 font-extrabold text-red-800 border-b border-red-100 rounded-t-xl flex justify-between items-center">
-                        <span>📅 {{ month_data.display }}</span>
-                        
+                        <div class="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-600 mr-2 hidden sm:inline" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd" />
+                            </svg>
+                            <label for="month-select" class="text-sm font-semibold text-gray-700 mr-2 hidden sm:inline">Filtrar por:</label>
+                            
+                            <select id="month-select" 
+                                    name="month" 
+                                    class="block w-48 py-1.5 px-3 
+                                        border border-gray-300 
+                                        bg-white text-gray-800 
+                                        rounded-full shadow-md 
+                                        hover:border-blue-500 hover:shadow-lg
+                                        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 
+                                        sm:text-sm transition duration-200 cursor-pointer"
+                                    onchange="window.location.href = '?mes=' + this.value">
+                                
+                                {% for month in month_options %}
+                                    <option value="{{ month.value }}" {% if month.selected %}selected{% endif %}>
+                                        {{ month.display }}
+                                    </option>
+                                {% empty %}
+                                    <option value="{{ current_filter }}" selected>Mes Actual</option>
+                                {% endfor %}
+                                
+                            </select>
+                        </div>            
                         <div class="flex space-x-3 text-xs font-normal ml-2">
                             
                             {# Formulario Ocultar MES #}
@@ -39,7 +64,7 @@
                     <div class="p-4 space-y-2">
                         {% for date_item in month_data.dates %}
                         <div class="flex items-center justify-between p-3 rounded-lg transition duration-150 border 
-                                        {% if date_item.is_active %}bg-green-50/50 border-green-200{% else %}bg-gray-50 border-gray-200{% endif %}">
+                                     {% if date_item.is_active %}bg-green-50/50 border-green-200{% else %}bg-gray-50 border-gray-200{% endif %}">
                             
                             <div class="flex flex-col">
                                 <span class="text-sm font-bold text-gray-800 flex items-center">
@@ -55,13 +80,12 @@
                             </div>
 
                             {# ACCIÓN: SWITCH #}
-                            <div class="flex items-center">                                
+                            <div class="flex items-center">                               
                                 <form method="POST" 
                                     action="{% if date_item.is_active %}{% url url_ocultar %}{% else %}{% url url_mostrar %}{% endif %}"
                                     class="inline-block">
                                     {% csrf_token %}
                                     
-                                    {# Usamos fecha_str para enviar la fecha al backend (solución de envío) #}
                                     <input type="hidden" name="fecha_filtro" value="{{ date_item.fecha_str }}">
                                     <input type="hidden" name="accion_tipo" value="DIA">
                                     
@@ -82,7 +106,7 @@
                 </div>
             {% endwith %}
             {% empty %}
-            <p class="text-center text-base font-semibold text-gray-600 py-8 border-2 border-gray-100 rounded-xl">No hay registros de convocatorias para gestionar.</p>
+            <p class="text-center text-base font-semibold text-gray-600 py-8 border-2 border-gray-100 rounded-xl">No hay registros de candidatos para gestionar.</p>
             {% endfor %}
         </div>
     </div>
