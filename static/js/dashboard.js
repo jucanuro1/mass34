@@ -10,6 +10,8 @@ const historyApiUrl = AppConfig.historyApiUrl;
 const urlGestionConvocatorias = AppConfig.gestionConvocatoriasUrl;
 const urlListaCandidatosPorFecha = AppConfig.listaCandidatosPorFechaUrl;
 
+const STATUS_KEY_REGISTRADO = 'REGISTRADO';
+
 const STATUS_MAP = {
     'column-REGISTRADO': 'REGISTRADO',
     'column-CONVOCADO': 'CONVOCADO',
@@ -273,17 +275,16 @@ function updateMassActionButton() {
     if (!button || !countSpan) return;
 
     if (selectedCount > 0) {
-        button.classList.remove('hidden'); // Usa classList para Tailwind
-        button.style.display = 'flex'; // Mantener el display:flex para el layout si se usa style
+        button.classList.remove('hidden'); 
+        button.style.display = 'flex'; 
         countSpan.innerText = selectedCount; 
-        button.onclick = openMassActionMenu; // Asigna el evento de clic
+        button.onclick = openMassActionMenu; 
         
     } else {
         button.classList.add('hidden');
         button.style.display = 'none'; 
         button.onclick = null; 
         
-        // Cierra el menú si se deselecciona el último elemento
         const menu = document.getElementById('mass-action-menu');
         if (menu && !menu.classList.contains('hidden')) {
             closeMassActionMenu();
@@ -732,6 +733,55 @@ function closeCandModal(modalId) {
     }
 }
 
+function handleSelectAll(event) {
+    const selectAllCheckbox = event.target;
+    const columnId = `column-${STATUS_KEY_REGISTRADO}`;
+    
+    const kanbanCards = document.querySelectorAll(`#${columnId} .kanban-card`);
+    
+    if (!selectAllCheckbox.checked) {
+        selectedCards = []; 
+        
+        kanbanCards.forEach(card => {
+            card.classList.remove('selected', 'border-4', 'border-blue-500', 'ring-2', 'ring-blue-500');
+        });
+        
+    } else {
+        selectedCards = []; 
+        
+        kanbanCards.forEach(card => {
+            const dni = card.getAttribute('data-dni');
+            const procesoId = card.getAttribute('data-proceso-id');
+
+            if (procesoId === 'None') { 
+                
+                card.classList.add('selected', 'border-4', 'border-blue-500', 'ring-2', 'ring-blue-500');
+                
+                selectedCards.push({ dni: dni, proceso_id: procesoId });
+            } else {
+                card.classList.remove('selected', 'border-4', 'border-blue-500', 'ring-2', 'ring-blue-500');
+            }
+        });
+    }
+
+    updateMassActionButton();
+    
+    console.log(`Tarjetas seleccionadas (Bulk): ${selectedCards.length}`, selectedCards);
+}
+
+function initializeBulkSelectHeader() {
+    const selectAll = document.getElementById(`selectAll-${STATUS_KEY_REGISTRADO}`);
+    
+    if (selectAll) {
+        selectAll.addEventListener('change', handleSelectAll);
+        console.log('Evento "Seleccionar Todo" vinculado.');
+    } else {
+        console.log(`Checkbox selectAll-${STATUS_KEY_REGISTRADO} no encontrado.`);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', initializeBulkSelectHeader);
+
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.kanban-column-body').forEach(column => {
         column.addEventListener('dragover', allowDrop);
@@ -990,7 +1040,6 @@ document.addEventListener('DOMContentLoaded', () => {
         initConvocatoriasToggleListeners();
         initConvocatoriasMesListeners();
     }
-
 
     function initConvocatoriasToggleListeners() {
         const toggles = modalContentAreaConvocatorias.querySelectorAll('.toggle-checkbox');
