@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Mensajería Masiva{% endblock %}
+
+{% block content %}
+
+<div class="p-4 sm:p-6 bg-gray-50 min-h-[90vh]">
+    <h1 class="text-3xl lg:text-xl mb-8 pb-3 flex items-center border-b border-red-600">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-megaphone mr-3 text-red-600">
+            <path d="m3 11 18-5v2L3 13z"/>
+            <path d="M12 21H3c-1.1 0-2-.9-2-2v-4c0-1.1.9-2 2-2h18l-1.4-2.8c-.3-.6-.9-1-1.6-1H3c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h18"/>
+            <path d="m11 11 1.4 2.8c.3.6.9 1 1.6 1h6"/>
+        </svg>
+        <span class="font-black text-gary-900">Plataforma de</span>    <span class ="font-black text-red-600 ml-2"> Mensajería Masiva </span>
+        <span class="text-sm font-light text-gray-500 ml-4 hidden sm:inline">| Campañas y Notificaciones Automatizadas</span>
+    </h1>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        
+        <div class="bg-white p-6 rounded-xl shadow-2xl shadow-red-500/10 border-t-2 border-zinc-300 transition duration-500 hover:shadow-red-500/20">
+            <label for="select-proceso" class="block text-xs font-black text-gray-600 mb-3 uppercase tracking-wider">1. Definir Campaña/Proceso</label>
+            <select id="select-proceso" name="proceso" class="block w-full px-4 py-3 text-xs font-medium border border-gray-300 rounded-lg bg-white appearance-none transition-colors focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                <option value="">— Seleccione Tipo de Proceso —</option>
+                {% for proceso in procesos_opciones %}
+                    <option value="{{ proceso.value }}">{{ proceso.display|capfirst }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="bg-white p-6 rounded-xl shadow-lg border-t-2 border-gray-600">
+            <label for="select-fecha" class="block text-xs font-black text-gray-600 mb-3 uppercase tracking-wider">2. Seleccionar Fecha Clave</label>
+            <select id="select-fecha" name="fecha" disabled 
+                    class="block w-full px-4 py-3 text-xs font-medium border border-gray-200 rounded-lg bg-gray-100 text-gray-500 disabled:opacity-75 transition-colors focus:ring-2 focus:ring-red-500 focus:border-red-500 cursor-not-allowed">
+                <option value="">— Fecha Deshabilitada —</option>
+            </select>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-xl flex items-center justify-between transform hover:scale-[1.03] transition duration-300 border-l-2 border-green-500">
+            <div>
+                <p class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Candidatos Disponibles</p>
+                <p id="total-disponibles" class="text-4xl font-extrabold text-green-600 mt-2">0</p>
+            </div>
+            <div id="loading-spinner" class="hidden">
+                <svg class="animate-spin h-10 w-10 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            </div>
+            <svg class="w-10 h-10 text-green-400 opacity-75" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-users"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        
+        <div class="bg-white p-6 rounded-xl shadow-xl flex items-center justify-between transform hover:scale-[1.03] transition duration-300 border-l-2 border-red-600">
+            <div>
+                <p class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Candidatos a Enviar</p>
+                <p id="total-seleccionados-resumen" class="text-4xl font-extrabold text-red-600 mt-2">0</p>
+            </div>
+            <svg class="w-10 h-10 text-red-600 opacity-75" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-inbox-check"><path d="M4 22h16c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2Z"/><path d="m11 8 2 2 4-4"/><path d="M2 15h20"/></svg>
+        </div>
+    </div>
+    
+    <form id="form-envio-masivo" method="POST" action="">
+        {% csrf_token %}
+        <input type="hidden" name="proceso_tipo" id="hidden-proceso-tipo">
+        <input type="hidden" name="fecha_seleccionada" id="hidden-fecha-seleccionada">
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <div class="lg:col-span-7 bg-white p-6 rounded-xl shadow-2xl border-t-2 border-red-600">
+                <h2 class="text-md font-bold text-gray-800 mb-5 pb-2 border-b border-red-600 flex items-center">
+                    <svg class="w-6 h-6 mr-2 text-red-600" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-contact-2"><path d="M16 18a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2"/><circle cx="12" cy="7" r="4"/><rect width="18" height="18" x="3" y="3" rx="2"/></svg>
+                    3. Filtrado y Selección de Audiencia
+                </h2>
+
+                <div class="flex space-x-4 h-[500px]">
+                    <div class="flex-1 border border-gray-300 rounded-lg p-3 flex flex-col bg-gray-50/50 shadow-inner">
+                        <h4 class="font-bold text-gray-700 mb-2 flex justify-between items-center">
+                            <span class="text-sm">Lista General (<span id="count-disponibles">0</span>)</span>
+                            <span class="text-xs font-medium text-gray-500">Click para seleccionar</span>
+                        </h4>
+                        <input type="text" id="filtro-disponibles" placeholder="🔎 Buscar por nombre o DNI..." class="p-2 border rounded-lg mb-2 focus:ring-red-500 focus:border-red-500 text-sm shadow-sm">
+                        <select multiple size="10" id="select-disponibles" class="flex-grow w-full border border-gray-200 rounded-lg p-1 focus:ring-red-500 focus:border-red-500 text-sm font-mono overflow-auto"></select>
+                    </div>
+
+                    <div class="flex flex-col justify-center space-y-3 pt-6">
+                        <button type="button" id="btn-mover-todos" title="Mover Todos" class="p-3 bg-red-600 hover:bg-red-700 rounded-full transition-all active:scale-90 text-white shadow-lg shadow-red-300/50">
+                            <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevrons-right"><path d="m6 17 5-5-5-5"/><path d="m13 17 5-5-5-5"/></svg>
+                        </button>
+                        <button type="button" id="btn-mover-seleccion" title="Mover Selección" class="p-3 bg-red-500 hover:bg-red-600 rounded-full transition-all active:scale-90 text-white shadow-md">
+                            <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right"><path d="m9 18 6-6-6-6"/></svg>
+                        </button>
+                        <div class="border-b border-gray-200 w-full"></div>
+                        <button type="button" id="btn-remover-seleccion" title="Remover Selección" class="p-3 bg-gray-300 hover:bg-gray-400 rounded-full transition-all active:scale-90 text-gray-800 shadow-md">
+                            <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-left"><path d="m15 18-6-6 6-6"/></svg>
+                        </button>
+                        <button type="button" id="btn-remover-todos" title="Remover Todos" class="p-3 bg-gray-300 hover:bg-gray-400 rounded-full transition-all active:scale-90 text-gray-800 shadow-md">
+                            <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevrons-left"><path d="m15 17-5-5 5-5"/><path d="m8 17-5-5 5-5"/></svg>
+                        </button>
+                    </div>
+
+                    <div class="flex-1 border border-green-500 bg-green-50 rounded-lg p-3 flex flex-col shadow-xl shadow-red-100/50">
+                        <h4 class="font-bold text-gray-700 pb-1 flex justify-between items-center">
+                            <span class="text-sm">Audiencia Elegida (<span id="count-elegidos">0</span>)</span>
+                            <span class="text-xs font-medium text-green-500">Listos para el envío</span>
+                        </h4>
+                        <input type="text" id="filtro-elegidos" placeholder="🔎 Filtrar elegidos..." class="p-2 border rounded-lg mb-2 focus:ring-red-500 focus:border-green-500 text-sm shadow-sm">
+                        <select multiple size="10" id="select-elegidos" name="contactos_seleccionados" class="flex-grow w-full border border-green-300 rounded-lg p-1 focus:ring-green-500 focus:border-green-500 text-sm font-mono overflow-auto"></select>
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-4 text-center">Para selección múltiple: mantenga presionada la tecla <code class="bg-gray-200 px-1 rounded font-mono text-gray-800">Control</code> (Win) o <code class="bg-gray-200 px-1 rounded font-mono text-gray-800">Comando</code> (Mac).</p>
+            </div>
+
+            <div class="lg:col-span-5 bg-white p-6 rounded-xl shadow-2xl border-t-2 border-red-600 flex flex-col">
+                <h2 class="text-md font-bold text-gray-800 mb-5 pb-2 border-b border-red-600 flex items-center">
+                    <svg class="w-6 h-6 mr-2 text-red-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-message-square"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    4. Redacción Final y Despliegue
+                </h2>
+                <label for="mensaje-whatsapp" class="block text-xs font-bold text-gray-600 mb-2">Contenido del Mensaje de WhatsApp:</label>
+                <div class="lg:col-span-5 bg-white p-6 rounded-xl shadow-2xl border border-green-600 flex flex-col">
+                    <div class="mb-5 pb-2 border-b border-red-600">
+                        <p class="text-xs font-medium text-gray-500 flex items-center">
+                            <svg class="w-4 h-4 mr-1 text-red-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-ruler"><path d="M7 21h10"/><path d="M12 17v4"/><path d="M12 3v4"/><path d="M10 7h4"/><path d="M17 17v4"/><path d="M7 17v4"/><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>
+                            Optimice su mensaje: Máximo 3,000 caracteres.
+                        </p>
+                    </div>
+                    <div class="flex flex-col flex-grow">
+                        <textarea id="mensaje-whatsapp" name="mensaje" rows="10" 
+                            class="w-full p-4 text-sm font-sans resize-none text-gray-900 
+                                bg-white border-b border-red-600 
+                                placeholder-gray-500
+                                transition-all duration-300 ease-in-out flex-grow 
+                                focus:outline-none focus:border-green-600 focus:ring-0" 
+                            placeholder="Escribe el mensaje aquí (Add your comment...)"
+                        ></textarea>
+                        <div class="flex it ems-center justify-between pt-3 pb-1">
+                            <div class="flex space-x-3 text-gray-400">
+                                <button type="button" title="Adjuntar Archivo" class="hover:text-violet-600 transition-colors">
+                                    <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-paperclip"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="progreso-container" class="hidden mt-6 p-4 bg-yellow-50 border-l-4 border-yellow-500 text-yellow-800 rounded-lg shadow-md" role="alert">
+                        <p class="font-bold text-sm flex items-center mb-1">
+                            <svg class="w-5 h-5 mr-2 animate-pulse" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-watch"><circle cx="12" cy="12" cy="6"/><polyline points="12 10 12 12 14 12"/></svg>
+                            Ejecutando Tarea Asíncrona:
+                        </p>
+                        <div id="progreso-texto" class="text-xs font-mono">Esperando confirmación del servidor...</div>
+                    </div>
+                </div>
+                <div id="progreso-container" class="hidden mt-6 p-4 bg-yellow-50 border-l-4 border-yellow-500 text-yellow-800 rounded-lg shadow-md" role="alert">
+                    <p class="font-bold text-sm flex items-center mb-1">
+                        <svg class="w-5 h-5 mr-2 animate-pulse" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-watch"><circle cx="12" cy="12" r="6"/><polyline points="12 10 12 12 14 12"/></svg>
+                        Ejecutando Tarea Asíncrona (Celery):
+                    </p>
+                    <div id="progreso-texto" class="text-xs font-mono">Esperando confirmación del servidor...</div>
+                </div>
+                <button type="submit" id="btn-enviar" disabled
+                    class="mt-6 bg-green-600 rounded-full flex justify-center text-lg font-normal py-2 px-4 text-white">
+                    
+                    <svg class="w-8 h-8 mr-3 fill-white" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.35 4.96l-1.42 5.23 5.38-1.4 4.87.82.02.04.05.08.06.09c1.67.24 3.3.09 4.88-.38 5.46-1.52 8.79-6.42 8.79-12.01 0-5.46-4.45-9.91-9.91-9.91zm0 18.06c-1.55 0-3.08-.43-4.41-1.25l-.32-.19-3.32.86.88-3.25-.21-.33c-.76-1.19-1.2-2.53-1.2-3.92 0-4.52 3.73-8.25 8.25-8.25 4.52 0 8.25 3.73 8.25 8.25 0 4.52-3.73 8.25-8.25 8.25zm5.07-6.93c-.27-.13-.74-.36-.87-.4-.14-.04-.24-.04-.34.13-.1.18-.38.4-.48.49-.12.1-.23.1-.43.05-.21-.05-.88-.33-1.66-1.03-.62-.56-1.04-1.25-1.16-1.44-.12-.2-.01-.3-.01-.42 0-.13-.03-.27-.03-.42-.01-.15-.02-.28-.02-.42 0-.3-.42-.76-.58-.93-.15-.17-.3-.12-.42-.12-.13 0-.25 0-.36.05-.12.06-.28.05-.42.06-.15.01-.36.01-.55.03-.2.02-.38.01-.52-.06-.13-.07-.38-.17-.52-.35-.15-.17-.43-.44-.43-.84 0-.42.3-.64.4-.76.1-.13.23-.3.3-.42.07-.12.14-.23.23-.4.09-.17.18-.32.27-.47.1-.16.1-.27.02-.45-.09-.2-.2-.47-.28-.62-.07-.16-.14-.27-.22-.38-.08-.12-.17-.28-.3-.39-.12-.1-.23-.15-.35-.15-.08 0-.17-.01-.27-.01-.1-.01-.28-.01-.43.01-.16.02-.42.01-.64.04-.21.03-.35.06-.55.23-.2.17-.82.8-1 1.79-.18.99-.02 2.06.9 3.01 1.01 1.09 1.94 1.48 2.92 1.83.25.09.4.15.54.2.14.05.28.08.43.08.15 0 .27-.02.43-.02.2-.02 1.05-.08 1.95-.87.16-.15.28-.27.38-.38.1-.11.19-.22.28-.31z"/>
+                    </svg>
+                    
+                    Enviar WhatsApp
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const urlMensajeriaApi = "{% url 'mensajeria_api' %}";
+    document.addEventListener('DOMContentLoaded', () => {
+        const selectElegidos = document.getElementById('select-elegidos');
+        const totalResumen = document.getElementById('total-seleccionados-resumen');
+
+        const updateSelectedCount = () => {
+            if (selectElegidos && totalResumen) {
+                totalResumen.textContent = selectElegidos.options.length;
+            }
+        };
+
+        if (selectElegidos) {
+            new MutationObserver(updateSelectedCount).observe(selectElegidos, { childList: true });
+            updateSelectedCount();
+        }
+    });
+</script>
+<script src="{% static 'js/mensajeria_masiva.js' %}"></script>
+{% endblock %}

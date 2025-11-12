@@ -29,7 +29,7 @@ from django.http import JsonResponse, HttpResponse, HttpResponseForbidden,HttpRe
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_http_methods
-from django.views.generic import View, DetailView, ListView
+from django.views.generic import View, DetailView, ListView,TemplateView
 from django.db.models.functions import ExtractYear, ExtractMonth    
 from django.utils.formats import date_format
 import platform
@@ -2124,3 +2124,96 @@ class ListaCandidatosPorFechaView(LoginRequiredMixin, View):
         }
         
         return render(request, 'includes/modal_gestion_candidatos.html', context)
+    
+PROCESO_ESTADO_MAP = {
+    'REGISTRADOS': 'REGISTRADO', 
+    'CONVOCADOS': 'INICIADO',     
+    'TEORIA': 'TEORIA',           
+    'PRACTICA': 'PRACTICA',       
+    'CONTRATADOS': 'CONTRATADO',  
+}
+
+class MensajeriaDashboardView(LoginRequiredMixin, TemplateView):
+    """Renderiza la interfaz principal del módulo de mensajería."""
+    template_name = 'dashboard_mensajeria.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        context['procesos_opciones'] = [
+            {'value': key, 'display': value} 
+            for key, value in PROCESO_ESTADO_MAP.items()
+        ]
+        
+        context['empresas'] = Empresa.objects.all() 
+        
+        return context
+    
+
+class MensajeriaAPIView(LoginRequiredMixin, View):
+    """API para obtener fechas y contactos por proceso/fecha."""
+    
+    def get(self, request, *args, **kwargs):
+        accion = request.GET.get('accion')
+        proceso_tipo = request.GET.get('proceso')
+        
+        if proceso_tipo not in PROCESO_ESTADO_MAP:
+            return JsonResponse({'status': 'error', 'message': 'Tipo de proceso no válido.'}, status=400)
+        
+        estado = PROCESO_ESTADO_MAP[proceso_tipo]
+        
+        if accion == 'get_fechas':
+            fechas_disponibles = self._get_fechas_disponibles(proceso_tipo, estado)
+            return JsonResponse({'status': 'success', 'fechas': fechas_disponibles})
+        
+        elif accion == 'get_contactos':
+            fecha_str = request.GET.get('fecha')
+            contactos = self._get_contactos_por_filtro(proceso_tipo, estado, fecha_str)
+            return JsonResponse({'status': 'success', 'contactos': contactos})
+        
+        return JsonResponse({'status': 'error', 'message': 'Acción no especificada.'}, status=400)
+
+    def _get_fechas_disponibles(self, proceso_tipo, estado):
+        """Obtiene las fechas únicas de Candidatos (REGISTRADOS) o Proceso (otros)."""
+        
+        if proceso_tipo == 'REGISTRADOS':
+            fechas = Candidato.objects.filter(
+                estado_actual=estado, 
+                kanban_activo=True, 
+                telefono_whatsapp__isnull=False 
+            ).order_by('-fecha_registro').values_list('fecha_registro', flat=True).distinct()
+        else:
+            fechas = Proceso.objects.filter(
+                estado=estado, 
+                candidato__telefono_whatsapp__isnull=False # Candidato debe tener teléfono
+            ).order_by('-fecha_inicio').values_list('fecha_inicio', flat=True).distinct()
+            
+        return [f.strftime('%Y-%m-%d') for f in fechas]
+    
+    def _get_contactos_por_filtro(self, proceso_tipo, estado, fecha_str):
+        """Obtiene la lista de contactos (nombre, DNI, teléfono) para el filtro."""
+        
+        # Parsear fecha de YYYY-MM-DD a objeto date
+        try:
+            fecha_obj = date.fromisoformat(fecha_str)
+        except ValueError:
+            return []
+            
+        if proceso_tipo == 'REGISTRADOS':
+            qs = Candidato.objects.filter(
+                estado_actual=estado,
+                fecha_registro=fecha_obj,
+                kanban_activo=True,
+                telefono_whatsapp__isnull=False
+            )
+        else:
+            # Filtramos por Proceso y luego accedemos al Candidato
+            qs = Candidato.objects.filter(
+                procesos__estado=estado,
+                procesos__fecha_inicio=fecha_obj,
+                telefono_whatsapp__isnull=False
+            ).distinct()
+            
+        contactos_list = list(qs.values('DNI', 'nombres_completos', 'telefono_whatsapp'))
+        
+        return contactos_list

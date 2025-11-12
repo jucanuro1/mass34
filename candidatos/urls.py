@@ -52,5 +52,9 @@ urlpatterns = [
     path('api/proceso/<int:proceso_id>/actualizar_fecha/', views.actualizar_fecha_proceso, name='actualizar_fecha_proceso_api'),
 
     path('candidatos/ocultar/', views.OcultarCandidatosView.as_view(), name='ocultar_candidatos'),
-    path('candidatos/mostrar/', views.MostrarCandidatosView.as_view(), name='mostrar_candidatos'),    
+    path('candidatos/mostrar/', views.MostrarCandidatosView.as_view(), name='mostrar_candidatos'),
+
+    path('mensajeria/', views.MensajeriaDashboardView.as_view(), name='mensajeria_dashboard'),
+    path('api/mensajeria/', views.MensajeriaAPIView.as_view(), name='mensajeria_api'), 
+    # path('mensajeria/enviar/', views.MensajeriaEnvioView.as_view(), name='mensajeria_envio'), # Pendiente de crear la vista POST de envío   
 ]
