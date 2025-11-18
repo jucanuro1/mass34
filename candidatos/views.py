@@ -1647,10 +1647,16 @@ class CandidatoAsistenciaListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         hoy = timezone.localdate()
 
-        proceso_filter_q = ~Q(procesos__estado__in=['CONTRATADO', 'NO_APTO', 'ABANDONO'])
+        # Claves de estado definitivas para el seguimiento
+        VALID_ATTENDANCE_STATES = ['INICIADO', 'TEORIA', 'PRACTICA']
+        DEFAULT_STATE_SUPERVISOR = 'PRACTICA' # Solo se usa para la dependencia del supervisor
         
+        proceso_filter_q = Q(procesos__estado__in=VALID_ATTENDANCE_STATES)
+        
+        # --- Lógica de Anotaciones ---
         latest_attendance = RegistroAsistencia.objects.filter(
-            candidato=OuterRef('pk')
+            candidato=OuterRef('pk'),
+            proceso__estado__in=VALID_ATTENDANCE_STATES
         ).order_by('-momento_registro').values(
             'momento_registro', 'fase_actual', 'movimiento', 'estado'
         )[:1]
@@ -1661,76 +1667,88 @@ class CandidatoAsistenciaListView(LoginRequiredMixin, ListView):
         ).exclude(estado=None).order_by('-momento_registro').values('estado')[:1]
         
         queryset = Candidato.objects.annotate(
-            total_registros=Count(
-                'procesos__registroasistencia', 
-                filter=proceso_filter_q,
-                distinct=True 
-            ),
+            total_registros=Count('registroasistencia', filter=proceso_filter_q, distinct=True),
+            total_tardanzas=Count('registroasistencia', filter=Q(registroasistencia__estado='T') & proceso_filter_q),
+            total_faltas=Count('registroasistencia', filter=Q(registroasistencia__estado='F') & proceso_filter_q),
+            total_asistencias_puntuales=Count('registroasistencia', filter=Q(registroasistencia__estado='A') & proceso_filter_q),
             
-            total_tardanzas=Count(
-                'procesos__registroasistencia',
-                filter=Q(procesos__registroasistencia__estado='T') & proceso_filter_q
-            ),
-            
-            total_faltas=Count(
-                'procesos__registroasistencia',
-                filter=Q(procesos__registroasistencia__estado='F') & proceso_filter_q
-            ),
-            
-            total_asistencias_puntuales=Count(
-                'procesos__registroasistencia',
-                filter=Q(procesos__registroasistencia__estado='A') & proceso_filter_q
-            ),
-            
-            ultima_fase=Subquery(latest_attendance.values('fase_actual')[:1], 
-                                 output_field=models.CharField()),
-            
-            ultimo_movimiento=Subquery(latest_attendance.values('movimiento')[:1], 
-                                       output_field=models.CharField()),
-            
-            ultimo_registro_momento=Subquery(latest_attendance.values('momento_registro')[:1], 
-                                             output_field=models.DateTimeField()),
-            
+            ultima_fase=Subquery(latest_attendance.values('fase_actual')[:1], output_field=models.CharField()),
+            ultimo_movimiento=Subquery(latest_attendance.values('movimiento')[:1], output_field=models.CharField()),
+            ultimo_registro_momento=Subquery(latest_attendance.values('momento_registro')[:1], output_field=models.DateTimeField()),
             asistencia_hoy=Subquery(asistencia_hoy, output_field=models.CharField())
+        ).filter(
+            # FILTRO MANDATORIO: Muestra el total de candidatos en estados rastreables.
+            procesos__estado__in=VALID_ATTENDANCE_STATES
         )
         
         search_query = self.request.GET.get('search')
         estado_filter = self.request.GET.get('estado')
         supervisor_filter = self.request.GET.get('supervisor')
         
+        # 1. LÓGICA ESPECIAL: SUPERVISOR (Total por defecto)
+        if supervisor_filter: 
+            # Si se selecciona supervisor, se filtra y se fuerza el estado
+            queryset = queryset.filter(
+                procesos__estado=DEFAULT_STATE_SUPERVISOR,
+                procesos__supervisor__pk=supervisor_filter
+            )
+        
+        # 2. LÓGICA DEL FILTRO DE ESTADO (Total por defecto)
+        elif estado_filter:
+            # Si se selecciona un estado manual, se aplica
+            queryset = queryset.filter(procesos__estado=estado_filter)
+            
+        # 🔴 Si no hay filtros, se mantiene el queryset con el filtro MANDATORIO (mostrando el TOTAL).
+        
+        # 3. BÚSQUEDA
         if search_query:
             queryset = queryset.filter(
                 Q(DNI__icontains=search_query) | 
                 Q(nombres_completos__icontains=search_query)
             )
-
-        if estado_filter:
-            queryset = queryset.filter(estado_actual=estado_filter)
-
-        if supervisor_filter:
-            queryset = queryset.filter(procesos__supervisor__pk=supervisor_filter)
+            
+        queryset = queryset.distinct() 
             
         return queryset.order_by(*self.ordering)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
-        context['SUPERVISORES'] = Supervisor.objects.all().order_by('nombre')
-            
-        hoy = timezone.localdate()
         
+        VALID_ATTENDANCE_STATES = ['INICIADO', 'TEORIA', 'PRACTICA']
+        DEFAULT_STATE_SUPERVISOR = 'PRACTICA'
+        
+        estado_is_in_get = 'estado' in self.request.GET
+        supervisor_is_in_get = 'supervisor' in self.request.GET
+        is_initial_load = not estado_is_in_get and not supervisor_is_in_get
+
+        active_filters = self.request.GET.dict().copy()
+        
+        # Solo seteamos 'PRACTICA' en el selector de estado si el filtro de supervisor está activo
+        # Esto asegura que en la carga inicial, active_filters['estado'] esté vacío, mostrando '-- Todos --'.
+        if 'supervisor' in active_filters and active_filters.get('supervisor'):
+            active_filters['estado'] = DEFAULT_STATE_SUPERVISOR
+            
+        context['active_filters'] = active_filters 
+        
+        context['SUPERVISORES'] = Supervisor.objects.all().order_by('nombre')
+        
+        # Uso de Proceso.ESTADOS_PROCESO para llenar el selector
+        context['ESTADOS_CANDIDATO'] = [
+            (key, label) for key, label in Proceso.ESTADOS_PROCESO 
+            if key in VALID_ATTENDANCE_STATES
+        ] 
+        
+        hoy = timezone.localdate()
         conteo_global = RegistroAsistencia.objects.filter(
             momento_registro__date=hoy
         ).exclude(estado=None).values('estado').annotate(count=Count('estado', distinct=True)) 
         
         conteo_dict = {item['estado']: item['count'] for item in conteo_global}
         
-        context['ESTADOS_CANDIDATO'] = Candidato.ESTADOS 
         context['FASES_ASISTENCIA'] = RegistroAsistencia.FASE_ASISTENCIA 
         context['MOVIMIENTO_MAP'] = dict(RegistroAsistencia.TIPO_MOVIMIENTO) 
-        context['active_filters'] = self.request.GET.dict() 
         
-        context['total_candidatos'] = Candidato.objects.count()
+        context['total_candidatos'] = Candidato.objects.filter(procesos__estado__in=VALID_ATTENDANCE_STATES).count()
         context['conteo_asistencias'] = conteo_dict
         context['current_year'] = date.today().year
 
@@ -2514,3 +2532,35 @@ def registrar_asistencia_htmx(request, candidato_pk):
         return JsonResponse({'success': False, 'error': 'Formato JSON inválido.'}, status=400)
     except Exception as e:
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+class CandidatoPracticaSupervisorListView(ListView):
+    model = Candidato
+    template_name = 'candidatos/candidatos_practica_supervisor_list.html' 
+    context_object_name = 'candidatos'
+    paginate_by = 25
+    
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        proceso_filter_q = ~Q(procesos__estado__in=['CONTRATADO', 'NO_APTO', 'ABANDONO'])
+        queryset = queryset.filter(
+            proceso_filter_q, 
+            procesos__estado='PRACTICA',
+            procesos__supervisor__isnull=False 
+        ).distinct() 
+
+        search_query = self.request.GET.get('search')
+        if search_query:
+            queryset = queryset.filter(
+                Q(dni__icontains=search_query) | Q(nombre__icontains=search_query)
+            )
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        context['active_filters'] = self.request.GET.copy()
+        
+
+        return context

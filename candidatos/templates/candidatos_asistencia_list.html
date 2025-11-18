@@ -293,7 +293,6 @@
                             
                             let newRow = null;
                             
-                            // Iteramos para encontrar el <tr> real (nodeType 1), ignorando texto o comentarios
                             for (let i = 0; i < tempDiv.childNodes.length; i++) {
                                 if (tempDiv.childNodes[i].nodeType === 1) { 
                                     newRow = tempDiv.childNodes[i];
@@ -302,12 +301,9 @@
                             }
                             
                             if (newRow && newRow.nodeType === 1 && newRow.tagName === 'TR') { 
-                                // Se ejecuta si es un nodo TR válido
                                 filaElement.replaceWith(newRow);
                                 attachListenersToRow(newRow); 
                             } else {
-                                // Si falla la inyección (ej: newRow.id es "", o no es un TR válido)
-                                // console.error('Error: El fragmento HTML de fila devuelto no es un elemento TR válido o está vacío.'); // ¡ELIMINAMOS ESTA LÍNEA!
                                 location.reload(); 
                             }
                         }
@@ -328,7 +324,6 @@
                 }
             }
             
-            // FUNCIÓN CORREGIDA para el modal de detalle
             function verDetalle(candidatoPk) {
                 const modal = document.getElementById('attendance-modal');
                 const modalBody = document.getElementById('modal-body-content');
