@@ -4,55 +4,89 @@
 {% block title %}Mensajería Masiva{% endblock %}
 
 {% block content %}
+<style>
+    /* Animación sutil */
+    @keyframes pulse-subtle {
+        0%, 100% { opacity: 1; }
+        50% { opacity: .5; }
+    }
+    .animate-pulse-subtle {
+        animation: pulse-subtle 3s ease-in-out infinite;
+    }
 
-<div class="p-4 sm:p-6 bg-gray-50 min-h-[90vh]">
-    <h1 class="text-3xl lg:text-xl mb-8 pb-3 flex items-center border-b border-red-600">
-        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-megaphone mr-3 text-red-600">
-            <path d="m3 11 18-5v2L3 13z"/>
-            <path d="M12 21H3c-1.1 0-2-.9-2-2v-4c0-1.1.9-2 2-2h18l-1.4-2.8c-.3-.6-.9-1-1.6-1H3c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h18"/>
-            <path d="m11 11 1.4 2.8c.3.6.9 1 1.6 1h6"/>
+    .color-corp-red { color: #E53935; } /* Rojo Intenso */
+    .bg-color-corp-red { background-color: #E53935; }
+    .border-color-corp-red { border-color: #E53935; }
+    .color-action-whatsapp { color: #10B981; } /* Verde Esmeralda (WhatsApp) */
+    .bg-color-action-whatsapp { background-color: #10B981; }
+    .border-color-action-whatsapp { border-color: #10B981; }
+    .focus-border-corp-red { border-color: #10B981; }
+    .focus-ring-corp-red { --tw-ring-color: #FCA5A5; } /* Red 300 */
+</style>
+<div class="p-6 lg:p-6 bg-white min-h-screen w-full font-sans">
+    
+    <h1 class="text-xl font-light text-gray-900 mb-10 pb-2 border-b border-gray-200 flex items-center">
+    
+        <svg class="lucide lucide-send-horizontal mr-3 color-corp-red w-6 h-6 fill-red-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
+            <path d="M380.9 97.1c-41.9-42-97.7-65.1-157-65.1-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480 117.7 449.1c32.4 17.7 68.9 27 106.1 27l.1 0c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3 18.6-68.1-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1s56.2 81.2 56.1 130.5c0 101.8-84.9 184.6-186.6 184.6zM325.1 300.5c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8s-14.3 18-17.6 21.8c-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7 .9-6.9-.5-9.7s-12.5-30.1-17.1-41.2c-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2s-9.7 1.4-14.8 6.9c-5.1 5.6-19.4 19-19.4 46.3s19.9 53.7 22.6 57.4c2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4s4.6-24.1 3.2-26.4c-1.3-2.5-5-3.9-10.5-6.6z"/>
         </svg>
-        <span class="font-black text-gary-900">Plataforma de</span>    <span class ="font-black text-red-600 ml-2"> Mensajería Masiva </span>
-        <span class="text-sm font-light text-gray-500 ml-4 hidden sm:inline">| Campañas y Notificaciones Automatizadas</span>
+        
+        <span class="font-normal">Plataforma de</span>
+        <span class="font-semibold color-corp-red ml-2">Mensajería Masiva</span>
+        <span class="text-sm font-light text-gray-500 ml-6 hidden md:inline">| Campañas y Despliegue</span>
+        
+        <button id="btn-abrir-historial" title="Ver Historial de Envíos"
+                class="ml-auto p-2 text-gray-500 hover:text-green-600 border border-gray-300 hover:border-green-600 rounded-full bg-white shadow-md transition-all duration-300 active:scale-90">
+            
+            <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-clipboard-list">
+                <rect width="8" height="4" x="8" y="2" rx="1" ry="1"/>
+                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                <path d="M8 10h8"/>
+                <path d="M8 14h8"/>
+                <path d="M8 18h8"/>
+            </svg>
+        </button>
     </h1>
 
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        
-        <div class="bg-white p-6 rounded-xl shadow-2xl shadow-red-500/10 border-t-2 border-zinc-300 transition duration-500 hover:shadow-red-500/20">
-            <label for="select-proceso" class="block text-xs font-black text-gray-600 mb-3 uppercase tracking-wider">1. Definir Campaña/Proceso</label>
-            <select id="select-proceso" name="proceso" class="block w-full px-4 py-3 text-xs font-medium border border-gray-300 rounded-lg bg-white appearance-none transition-colors focus:ring-2 focus:ring-red-500 focus:border-red-500">
-                <option value="">— Seleccione Tipo de Proceso —</option>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    
+        <div class="bg-gray-50 p-6 rounded-lg border-l-4 border-color-corp-red shadow-md transition duration-300 hover:shadow-lg hover:border-red-400">
+            <label for="select-proceso" class="block text-xs font-semibold text-gray-700 mb-3 uppercase tracking-wider">PASO 1: Tipo de Campaña</label>
+            <select id="select-proceso" name="proceso" 
+                    class="block w-full px-3 py-2 text-sm font-medium border border-gray-300 rounded-md bg-white appearance-none transition-colors 
+                        focus:ring-2 focus-ring-corp-red focus-border-corp-red">
+                <option value="">— Seleccione Proceso —</option>
                 {% for proceso in procesos_opciones %}
                     <option value="{{ proceso.value }}">{{ proceso.display|capfirst }}</option>
                 {% endfor %}
             </select>
         </div>
         
-        <div class="bg-white p-6 rounded-xl shadow-lg border-t-2 border-gray-600">
-            <label for="select-fecha" class="block text-xs font-black text-gray-600 mb-3 uppercase tracking-wider">2. Seleccionar Fecha Clave</label>
+        <div class="bg-gray-100 p-6 rounded-lg border-l-4 border-gray-300 opacity-70 cursor-not-allowed shadow-inner">
+            <label for="select-fecha" class="block text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wider">PASO 2:  Seleccionar Fecha</label>
             <select id="select-fecha" name="fecha" disabled 
-                    class="block w-full px-4 py-3 text-xs font-medium border border-gray-200 rounded-lg bg-gray-100 text-gray-500 disabled:opacity-75 transition-colors focus:ring-2 focus:ring-red-500 focus:border-red-500 cursor-not-allowed">
+                    class="block w-full px-3 py-2 text-sm font-medium border border-gray-200 rounded-md bg-white text-gray-400 focus:ring-0">
                 <option value="">— Fecha Deshabilitada —</option>
             </select>
         </div>
 
-        <div class="bg-white p-6 rounded-xl shadow-xl flex items-center justify-between transform hover:scale-[1.03] transition duration-300 border-l-2 border-green-500">
+        <div class="bg-white p-6 rounded-lg shadow-lg border-b-2 border-color-corp-red flex items-center justify-between">
             <div>
-                <p class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Candidatos Disponibles</p>
-                <p id="total-disponibles" class="text-4xl font-extrabold text-green-600 mt-2">0</p>
+                <p class="text-xs font-medium text-gray-600 uppercase tracking-wider">Candidatos Disponibles</p>
+                <p id="total-disponibles" class="text-4xl font-bold text-red-700 mt-1 animate-pulse-subtle">0</p>
             </div>
             <div id="loading-spinner" class="hidden">
-                <svg class="animate-spin h-10 w-10 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <svg class="animate-spin h-8 w-8 color-corp-red" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
             </div>
-            <svg class="w-10 h-10 text-green-400 opacity-75" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-users"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <svg class="w-10 h-10 text-red-600 opacity-70" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         </div>
         
-        <div class="bg-white p-6 rounded-xl shadow-xl flex items-center justify-between transform hover:scale-[1.03] transition duration-300 border-l-2 border-red-600">
+        <div class="bg-white p-6 rounded-lg shadow-lg border-b-2 border-color-action-whatsapp flex items-center justify-between">
             <div>
-                <p class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Candidatos a Enviar</p>
-                <p id="total-seleccionados-resumen" class="text-4xl font-extrabold text-red-600 mt-2">0</p>
+                <p class="text-xs font-medium text-gray-600 uppercase tracking-wider">Audiencia Seleccionada</p>
+                <p id="total-seleccionados-resumen" class="text-4xl font-bold text-emerald-700 mt-1">0</p>
             </div>
-            <svg class="w-10 h-10 text-red-600 opacity-75" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-inbox-check"><path d="M4 22h16c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2Z"/><path d="m11 8 2 2 4-4"/><path d="M2 15h20"/></svg>
+            <svg class="w-10 h-10 color-action-whatsapp opacity-70" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12A10 10 0 1 1 12 2v10z"/><path d="M12 2a10 10 0 0 0 10 10"/></svg>
         </div>
     </div>
     
@@ -63,115 +97,361 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
             
-            <div class="lg:col-span-7 bg-white p-6 rounded-xl shadow-2xl border-t-2 border-red-600">
-                <h2 class="text-md font-bold text-gray-800 mb-5 pb-2 border-b border-red-600 flex items-center">
-                    <svg class="w-6 h-6 mr-2 text-red-600" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-contact-2"><path d="M16 18a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2"/><circle cx="12" cy="7" r="4"/><rect width="18" height="18" x="3" y="3" rx="2"/></svg>
-                    3. Filtrado y Selección de Audiencia
+            <div class="lg:col-span-7 bg-white p-8 rounded-lg border border-gray-200 shadow-xl">
+                <h2 class="text-md font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-100 flex items-center">
+                    <svg class="w-5 h-5 mr-3 color-corp-red" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                    PASO 3: Filtrado y Selección de Audiencia
                 </h2>
 
                 <div class="flex space-x-4 h-[500px]">
-                    <div class="flex-1 border border-gray-300 rounded-lg p-3 flex flex-col bg-gray-50/50 shadow-inner">
-                        <h4 class="font-bold text-gray-700 mb-2 flex justify-between items-center">
-                            <span class="text-sm">Lista General (<span id="count-disponibles">0</span>)</span>
-                            <span class="text-xs font-medium text-gray-500">Click para seleccionar</span>
+                    
+                    <div class="flex-1 border border-gray-300 rounded-lg flex flex-col p-3 bg-gray-50">
+                        <h4 class="font-medium text-gray-700 mb-2 flex justify-between items-center text-sm">
+                            Lista General (<span id="count-disponibles" class="font-bold">0</span>)
+                            <span class="text-xs font-light text-gray-500">Click para seleccionar</span>
                         </h4>
-                        <input type="text" id="filtro-disponibles" placeholder="🔎 Buscar por nombre o DNI..." class="p-2 border rounded-lg mb-2 focus:ring-red-500 focus:border-red-500 text-sm shadow-sm">
-                        <select multiple size="10" id="select-disponibles" class="flex-grow w-full border border-gray-200 rounded-lg p-1 focus:ring-red-500 focus:border-red-500 text-sm font-mono overflow-auto"></select>
+                        <input type="text" id="filtro-disponibles" placeholder="🔎 Buscar..." class="p-2 border border-gray-200 rounded-md mb-3 focus:ring-2 focus-ring-corp-red focus-border-corp-red text-sm">
+                        <select multiple size="10" id="select-disponibles" class="flex-grow w-full border border-gray-200 rounded-md p-1 focus:ring-0 text-xs font-mono overflow-auto outline-none"></select>
                     </div>
 
-                    <div class="flex flex-col justify-center space-y-3 pt-6">
-                        <button type="button" id="btn-mover-todos" title="Mover Todos" class="p-3 bg-red-600 hover:bg-red-700 rounded-full transition-all active:scale-90 text-white shadow-lg shadow-red-300/50">
-                            <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevrons-right"><path d="m6 17 5-5-5-5"/><path d="m13 17 5-5-5-5"/></svg>
+                    <div class="flex flex-col justify-center space-y-3">
+                        <button type="button" id="btn-mover-todos" title="Mover Todos" class="p-3 bg-color-corp-red hover:bg-red-700 rounded-lg transition-all active:scale-95 text-white shadow-md">
+                            <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 17 5-5-5-5"/><path d="m13 17 5-5-5-5"/></svg>
                         </button>
-                        <button type="button" id="btn-mover-seleccion" title="Mover Selección" class="p-3 bg-red-500 hover:bg-red-600 rounded-full transition-all active:scale-90 text-white shadow-md">
-                            <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right"><path d="m9 18 6-6-6-6"/></svg>
+                        <button type="button" id="btn-mover-seleccion" title="Mover Selección" class="p-3 bg-red-500 hover:bg-red-600 rounded-lg transition-all active:scale-95 text-white shadow-md">
+                            <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
                         </button>
-                        <div class="border-b border-gray-200 w-full"></div>
-                        <button type="button" id="btn-remover-seleccion" title="Remover Selección" class="p-3 bg-gray-300 hover:bg-gray-400 rounded-full transition-all active:scale-90 text-gray-800 shadow-md">
-                            <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-left"><path d="m15 18-6-6 6-6"/></svg>
+                        <div class="border-b border-gray-200 w-full my-1"></div>
+                        <button type="button" id="btn-remover-seleccion" title="Remover Selección" class="p-3 bg-gray-200 hover:bg-gray-300 rounded-lg transition-all active:scale-95 text-gray-700 shadow-md">
+                            <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                         </button>
-                        <button type="button" id="btn-remover-todos" title="Remover Todos" class="p-3 bg-gray-300 hover:bg-gray-400 rounded-full transition-all active:scale-90 text-gray-800 shadow-md">
-                            <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevrons-left"><path d="m15 17-5-5 5-5"/><path d="m8 17-5-5 5-5"/></svg>
+                        <button type="button" id="btn-remover-todos" title="Remover Todos" class="p-3 bg-gray-200 hover:bg-gray-300 rounded-lg transition-all active:scale-95 text-gray-700 shadow-md">
+                            <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 17-5-5 5-5"/><path d="m8 17-5-5 5-5"/></svg>
                         </button>
                     </div>
 
-                    <div class="flex-1 border border-green-500 bg-green-50 rounded-lg p-3 flex flex-col shadow-xl shadow-red-100/50">
-                        <h4 class="font-bold text-gray-700 pb-1 flex justify-between items-center">
-                            <span class="text-sm">Audiencia Elegida (<span id="count-elegidos">0</span>)</span>
-                            <span class="text-xs font-medium text-green-500">Listos para el envío</span>
+                    <div class="flex-1 border border-color-action-whatsapp rounded-lg flex flex-col p-3 bg-emerald-50/50">
+                        <h4 class="font-medium text-gray-700 mb-2 flex justify-between items-center text-sm">
+                            Audiencia Elegida (<span id="count-elegidos" class="font-bold">0</span>)
+                            <span class="text-xs font-light color-action-whatsapp">Lista final para el envío</span>
                         </h4>
-                        <input type="text" id="filtro-elegidos" placeholder="🔎 Filtrar elegidos..." class="p-2 border rounded-lg mb-2 focus:ring-red-500 focus:border-green-500 text-sm shadow-sm">
-                        <select multiple size="10" id="select-elegidos" name="contactos_seleccionados" class="flex-grow w-full border border-green-300 rounded-lg p-1 focus:ring-green-500 focus:border-green-500 text-sm font-mono overflow-auto"></select>
+                        <input type="text" id="filtro-elegidos" placeholder="🔎 Filtrar elegidos..." class="p-2 border border-emerald-300 rounded-md mb-3 focus:ring-2 focus:ring-emerald-300 focus-border-action-whatsapp text-sm">
+                        <select multiple size="10" id="select-elegidos" name="contactos_seleccionados" class="flex-grow w-full border border-emerald-300 rounded-md p-1 focus:ring-0 text-xs font-mono overflow-auto outline-none"></select>
                     </div>
                 </div>
-                <p class="text-xs text-gray-500 mt-4 text-center">Para selección múltiple: mantenga presionada la tecla <code class="bg-gray-200 px-1 rounded font-mono text-gray-800">Control</code> (Win) o <code class="bg-gray-200 px-1 rounded font-mono text-gray-800">Comando</code> (Mac).</p>
+                <p class="text-xs text-gray-500 mt-4 text-center">Tip: Use <code class="bg-gray-100 px-1 rounded font-mono text-gray-800">Ctrl</code> (Win) o <code class="bg-gray-100 px-1 rounded font-mono text-gray-800">Cmd</code> (Mac) para seleccionar múltiples contactos.</p>
             </div>
 
-            <div class="lg:col-span-5 bg-white p-6 rounded-xl shadow-2xl border-t-2 border-red-600 flex flex-col">
-                <h2 class="text-md font-bold text-gray-800 mb-5 pb-2 border-b border-red-600 flex items-center">
-                    <svg class="w-6 h-6 mr-2 text-red-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-message-square"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                    4. Redacción Final y Despliegue
+            <div class="lg:col-span-5 bg-white p-8 rounded-lg border border-gray-200 shadow-xl flex flex-col">
+                <h2 class="text-md font-semibold text-gray-900 mb-6 pb-2 border-b border-gray-100 flex items-center">
+                    <svg class="w-5 h-5 mr-3 color-corp-red" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    PASO 4: Redacción Final
                 </h2>
-                <label for="mensaje-whatsapp" class="block text-xs font-bold text-gray-600 mb-2">Contenido del Mensaje de WhatsApp:</label>
-                <div class="lg:col-span-5 bg-white p-6 rounded-xl shadow-2xl border border-green-600 flex flex-col">
-                    <div class="mb-5 pb-2 border-b border-red-600">
-                        <p class="text-xs font-medium text-gray-500 flex items-center">
-                            <svg class="w-4 h-4 mr-1 text-red-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-ruler"><path d="M7 21h10"/><path d="M12 17v4"/><path d="M12 3v4"/><path d="M10 7h4"/><path d="M17 17v4"/><path d="M7 17v4"/><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>
-                            Optimice su mensaje: Máximo 3,000 caracteres.
-                        </p>
-                    </div>
-                    <div class="flex flex-col flex-grow">
-                        <textarea id="mensaje-whatsapp" name="mensaje" rows="10" 
-                            class="w-full p-4 text-sm font-sans resize-none text-gray-900 
-                                bg-white border-b border-red-600 
-                                placeholder-gray-500
-                                transition-all duration-300 ease-in-out flex-grow 
-                                focus:outline-none focus:border-green-600 focus:ring-0" 
-                            placeholder="Escribe el mensaje aquí (Add your comment...)"
-                        ></textarea>
-                        <div class="flex it ems-center justify-between pt-3 pb-1">
-                            <div class="flex space-x-3 text-gray-400">
-                                <button type="button" title="Adjuntar Archivo" class="hover:text-violet-600 transition-colors">
-                                    <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-paperclip"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                                </button>
-                            </div>
+                
+                <div class="flex flex-col flex-grow">
+                    <label for="mensaje-whatsapp" class="block text-xs font-medium text-gray-700 mb-2 uppercase tracking-wide">Contenido del Mensaje de WhatsApp:</label>
+                    
+                    <textarea id="mensaje-whatsapp" name="mensaje" rows="10" 
+                        class="w-full p-4 text-sm font-sans resize-none text-gray-800 flex-grow 
+                                bg-gray-50 border border-gray-300 rounded-md 
+                                placeholder-gray-400
+                                transition-all duration-300 focus:outline-none focus-border-corp-red focus:ring-1 focus-ring-corp-red" 
+                        placeholder="Escriba su mensaje masivo aquí (máx. 3,000 caracteres)..."
+                    ></textarea>
+                    
+                    <div class="flex items-center justify-between pt-3 pb-1">
+                        <div class="flex space-x-3 text-gray-400">
+                            <button type="button" title="Adjuntar Archivo" class="hover:color-corp-red transition-colors">
+                                <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                            </button>
                         </div>
-                    </div>
-                    <div id="progreso-container" class="hidden mt-6 p-4 bg-yellow-50 border-l-4 border-yellow-500 text-yellow-800 rounded-lg shadow-md" role="alert">
-                        <p class="font-bold text-sm flex items-center mb-1">
-                            <svg class="w-5 h-5 mr-2 animate-pulse" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-watch"><circle cx="12" cy="12" cy="6"/><polyline points="12 10 12 12 14 12"/></svg>
-                            Ejecutando Tarea Asíncrona:
-                        </p>
-                        <div id="progreso-texto" class="text-xs font-mono">Esperando confirmación del servidor...</div>
+                        <p class="text-xs text-gray-500">Máximo 3,000 caracteres.</p>
                     </div>
                 </div>
-                <div id="progreso-container" class="hidden mt-6 p-4 bg-yellow-50 border-l-4 border-yellow-500 text-yellow-800 rounded-lg shadow-md" role="alert">
-                    <p class="font-bold text-sm flex items-center mb-1">
-                        <svg class="w-5 h-5 mr-2 animate-pulse" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-watch"><circle cx="12" cy="12" r="6"/><polyline points="12 10 12 12 14 12"/></svg>
-                        Ejecutando Tarea Asíncrona (Celery):
+
+                <div id="progreso-container" class="hidden mt-6 p-4 bg-red-50 border-l-4 border-color-corp-red text-red-800 rounded-md shadow-md" role="alert">
+                    <p class="font-medium text-sm flex items-center mb-1">
+                        <svg class="w-5 h-5 mr-2 animate-spin-slow" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="m16.2 7.8 2.8-2.8"/><path d="M18 12h4"/><path d="m16.2 16.2 2.8 2.8"/><path d="M12 18v4"/><path d="m7.8 16.2-2.8 2.8"/><path d="M6 12H2"/><path d="m7.8 7.8-2.8-2.8"/></svg>
+                        Ejecutando Tarea Asíncrona:
                     </p>
                     <div id="progreso-texto" class="text-xs font-mono">Esperando confirmación del servidor...</div>
                 </div>
-                <button type="submit" id="btn-enviar" disabled
-                    class="mt-6 bg-green-600 rounded-full flex justify-center text-lg font-normal py-2 px-4 text-white">
-                    
-                    <svg class="w-8 h-8 mr-3 fill-white" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.35 4.96l-1.42 5.23 5.38-1.4 4.87.82.02.04.05.08.06.09c1.67.24 3.3.09 4.88-.38 5.46-1.52 8.79-6.42 8.79-12.01 0-5.46-4.45-9.91-9.91-9.91zm0 18.06c-1.55 0-3.08-.43-4.41-1.25l-.32-.19-3.32.86.88-3.25-.21-.33c-.76-1.19-1.2-2.53-1.2-3.92 0-4.52 3.73-8.25 8.25-8.25 4.52 0 8.25 3.73 8.25 8.25 0 4.52-3.73 8.25-8.25 8.25zm5.07-6.93c-.27-.13-.74-.36-.87-.4-.14-.04-.24-.04-.34.13-.1.18-.38.4-.48.49-.12.1-.23.1-.43.05-.21-.05-.88-.33-1.66-1.03-.62-.56-1.04-1.25-1.16-1.44-.12-.2-.01-.3-.01-.42 0-.13-.03-.27-.03-.42-.01-.15-.02-.28-.02-.42 0-.3-.42-.76-.58-.93-.15-.17-.3-.12-.42-.12-.13 0-.25 0-.36.05-.12.06-.28.05-.42.06-.15.01-.36.01-.55.03-.2.02-.38.01-.52-.06-.13-.07-.38-.17-.52-.35-.15-.17-.43-.44-.43-.84 0-.42.3-.64.4-.76.1-.13.23-.3.3-.42.07-.12.14-.23.23-.4.09-.17.18-.32.27-.47.1-.16.1-.27.02-.45-.09-.2-.2-.47-.28-.62-.07-.16-.14-.27-.22-.38-.08-.12-.17-.28-.3-.39-.12-.1-.23-.15-.35-.15-.08 0-.17-.01-.27-.01-.1-.01-.28-.01-.43.01-.16.02-.42.01-.64.04-.21.03-.35.06-.55.23-.2.17-.82.8-1 1.79-.18.99-.02 2.06.9 3.01 1.01 1.09 1.94 1.48 2.92 1.83.25.09.4.15.54.2.14.05.28.08.43.08.15 0 .27-.02.43-.02.2-.02 1.05-.08 1.95-.87.16-.15.28-.27.38-.38.1-.11.19-.22.28-.31z"/>
-                    </svg>
-                    
-                    Enviar WhatsApp
-                </button>
+
+                <div class="mt-8 mb-2 flex justify-center">
+                    <button type="submit" id="btn-enviar" disabled
+                        class="rounded-full flex items-center justify-center text-base font-semibold py-3 px-8 w-full lg:w-3/4 
+                                bg-color-action-whatsapp text-white border border-color-action-whatsapp shadow-lg shadow-emerald-300/50 
+                                hover:bg-emerald-600 hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg class="w-6 h-6 mr-2 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path d="M476.9 161.1C435 119.1 379.2 96 319.9 96C197.5 96 97.9 195.6 97.9 318C97.9 357.1 108.1 395.3 127.5 429L96 544L213.7 513.1C246.1 530.8 282.6 540.1 319.8 540.1L319.9 540.1C442.2 540.1 544 440.5 544 318.1C544 258.8 518.8 203.1 476.9 161.1zM319.9 502.7C286.7 502.7 254.2 493.8 225.9 477L219.2 473L149.4 491.3L168 423.2L163.6 416.2C145.1 386.8 135.4 352.9 135.4 318C135.4 216.3 218.2 133.5 320 133.5C369.3 133.5 415.6 152.7 450.4 187.6C485.2 222.5 506.6 268.8 506.5 318.1C506.5 419.9 421.6 502.7 319.9 502.7zM421.1 364.5C415.6 361.7 388.3 348.3 383.2 346.5C378.1 344.6 374.4 343.7 370.7 349.3C367 354.9 356.4 367.3 353.1 371.1C349.9 374.8 346.6 375.3 341.1 372.5C308.5 356.2 287.1 343.4 265.6 306.5C259.9 296.7 271.3 297.4 281.9 276.2C283.7 272.5 282.8 269.3 281.4 266.5C280 263.7 268.9 236.4 264.3 225.3C259.8 214.5 255.2 216 251.8 215.8C248.6 215.6 244.9 215.6 241.2 215.6C237.5 215.6 231.5 217 226.4 222.5C221.3 228.1 207 241.5 207 268.8C207 296.1 226.9 322.5 229.6 326.2C232.4 329.9 268.7 385.9 324.4 410C359.6 425.2 373.4 426.5 391 423.9C401.7 422.3 423.8 410.5 428.4 397.5C433 384.5 433 373.4 431.6 371.1C430.3 368.6 426.6 367.2 421.1 364.5z"/></svg>
+                        Enviar WhatsApp
+                    </button>
+                </div>
             </div>
         </div>
     </form>
 </div>
+<div id="modal-historial" class="fixed inset-0 bg-gray-900 bg-opacity-80 z-50 hidden transition-opacity duration-300 items-center justify-center">
+    <div class="bg-white rounded-xl shadow-3xl w-full max-w-6xl max-h-[95vh] overflow-y-auto transform scale-100 transition-transform duration-500">
+        
+        <div class="sticky top-0 bg-white p-6 border-b border-red-600 flex justify-between items-center z-10">
+            <h3 class="text-xl font-extrabold text-gray-900 flex items-center">
+                <svg class="w-8 h-8 mr-3 text-red-600" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-text">
+                    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+                    <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+                    <path d="M10 9H8"/>
+                    <path d="M16 13H8"/>
+                    <path d="M16 17H8"/>
+                </svg>
+                Registro de Envíos Masivos
+            </h3>
+            <button id="btn-cerrar-historial" class="text-gray-400 hover:text-red-600 p-2 rounded-lg transition-colors">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
 
+        <div class="p-8 bg-gray-100 border-b">
+            <h4 class="text-base font-bold mb-4 text-gray-700 uppercase tracking-wider flex items-center">
+                <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sliders"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/><line x1="18" x2="22" y1="16" y2="16"/></svg>
+                Filtros de Auditoría
+            </h4>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <select id="select-proceso" name="proceso" 
+                    class="block w-full px-3 py-2 text-sm font-medium border border-gray-300 rounded-md bg-white appearance-none transition-colors 
+                    focus:ring-2 focus-ring-corp-red focus-border-corp-red">
+                    <option value="">— Seleccione Proceso —</option>
+                        {% for proceso in procesos_opciones %}
+                    <option value="{{ proceso.value }}">{{ proceso.display|capfirst }}</option>
+                    {% endfor %}
+                </select>
+                <select id="select-fecha" name="fecha" disabled
+                        class="block w-full px-3 py-2 text-sm font-medium border border-gray-300 rounded-md bg-gray-100 appearance-none transition-colors 
+                            focus:ring-2 focus-ring-corp-red focus-border-corp-red">
+                    <option value="">— Seleccione Fecha —</option>
+                </select>
+                <select id="filtro-mes-envio-historial" class="p-3 border border-gray-300 rounded-xl text-sm font-medium focus:ring-red-500 focus:border-red-500 transition-colors bg-white">
+                    <option value="">TODOS los Meses de Envío</option>
+                </select>
+                <button id="btn-limpiar-filtros" class="p-3 bg-gray-300 hover:bg-red-600 hover:text-white text-gray-800 font-semibold rounded-xl text-sm transition-colors shadow-md active:scale-98">
+                    Restablecer Filtros
+                </button>
+            </div>
+        </div>
+
+        <div class="p-8">
+            <div class="overflow-x-auto border border-gray-200 rounded-xl">
+                <table id="tabla-historial" class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50 border-b-2 border-red-100">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-extrabold text-red-600 uppercase tracking-wider">ID de Tarea</th>
+                            <th class="px-6 py-3 text-left text-xs font-extrabold text-red-600 uppercase tracking-wider">Proceso & Origen</th>
+                            <th class="px-6 py-3 text-left text-xs font-extrabold text-red-600 uppercase tracking-wider">Volumen Total</th>
+                            <th class="px-6 py-3 text-left text-xs font-extrabold text-red-600 uppercase tracking-wider">Tasa de Éxito</th>
+                            <th class="px-6 py-3 text-left text-xs font-extrabold text-red-600 uppercase tracking-wider">Fecha de Envío</th>
+                            <th class="px-6 py-3 text-left text-xs font-extrabold text-red-600 uppercase tracking-wider">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historial-body" class="bg-white divide-y divide-gray-100">
+                        <tr>
+                            <td colspan="6" class="p-10 text-center text-gray-500 font-medium bg-gray-50 rounded-b-xl">
+                                Cargando historial...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
     const urlMensajeriaApi = "{% url 'mensajeria_api' %}";
+    const urlIniciarEnvio = "{% url 'iniciar_envio_masivo' %}"; 
+    const urlHistorialApi = "{% url 'api_historial_envios' %}";
+    
+    let historialData = [];
+    const historialBody = document.getElementById('historial-body');
+    const historialLoadingSpinner = document.getElementById('historial-loading-spinner'); 
+    const modalHistorial = document.getElementById('modal-historial');
+    const btnAbrirHistorial = document.getElementById('btn-abrir-historial');
+    const btnCerrarHistorial = document.getElementById('btn-cerrar-historial');
+    const filtroProceso = document.getElementById('filtro-proceso-historial');
+    const filtroFechaOrigen = document.getElementById('filtro-fecha-origen-historial');
+    const filtroMesEnvio = document.getElementById('filtro-mes-envio-historial');
+    const btnLimpiarFiltros = document.getElementById('btn-limpiar-filtros');
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.startsWith(name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    const csrftoken = getCookie('csrftoken');
+
+    function populateFiltros() {
+        const procesos = new Set();
+        const fechasOrigen = new Set();
+        const mesesEnvio = new Set();
+
+        historialData.forEach(envio => {
+            procesos.add(envio.proceso);
+            fechasOrigen.add(envio.fechaOrigen);
+            const partesFecha = envio.fechaEnvio.split(' ')[0].split('/');
+            if (partesFecha.length === 3) {
+                 mesesEnvio.add(`${partesFecha[1]}/${partesFecha[2]}`); 
+            }
+        });
+
+        const fillSelect = (selectElement, set, label) => {
+            const currentValue = selectElement.value;
+            selectElement.innerHTML = `<option value="">TODOS los ${label}</option>`;
+            Array.from(set).sort().forEach(item => {
+                selectElement.add(new Option(item, item));
+            });
+            selectElement.value = currentValue; 
+        };
+
+        fillSelect(filtroProceso, procesos, 'Procesos');
+        fillSelect(filtroFechaOrigen, fechasOrigen, 'Fechas Origen');
+        fillSelect(filtroMesEnvio, mesesEnvio, 'Meses de Envío');
+    }
+
+    function renderHistorial() {
+        if (!historialBody) return;
+
+        const procesoFiltro = filtroProceso.value;
+        const fechaOrigenFiltro = filtroFechaOrigen.value;
+        const mesEnvioFiltro = filtroMesEnvio.value;
+
+        let filteredData = historialData.filter(envio => {
+            const matchesProceso = !procesoFiltro || envio.proceso === procesoFiltro;
+            const matchesFechaOrigen = !fechaOrigenFiltro || envio.fechaOrigen === fechaOrigenFiltro;
+            const mesEnvioEnDato = envio.fechaEnvio.split(' ')[0].split('/').slice(1).join('/');
+            const matchesMesEnvio = !mesEnvioFiltro || mesEnvioEnDato.includes(mesEnvioFiltro);
+            return matchesProceso && matchesFechaOrigen && matchesMesEnvio;
+        });
+
+        filteredData.sort((a, b) => b.id - a.id);
+        
+        historialBody.innerHTML = '';
+        const numColumns = 6; 
+
+        if (filteredData.length === 0) {
+            historialBody.innerHTML = `
+                <tr id="historial-vacio">
+                    <td colspan="${numColumns}" class="p-10 text-center text-gray-500 font-medium bg-gray-50 rounded-b-xl">
+                        No hay registros que coincidan con los filtros aplicados.
+                    </td>
+                </tr>`;
+            return;
+        }
+
+        filteredData.forEach(envio => {
+            const tasaExitoNum = (envio.enviados / envio.total) * 100;
+            const tasaExito = isNaN(tasaExitoNum) ? '0.0%' : `${tasaExitoNum.toFixed(1)}%`;
+            const tasaClass = tasaExitoNum > 90 ? 'text-green-600 font-extrabold' : 
+                                tasaExitoNum > 70 ? 'text-yellow-600 font-semibold' : 
+                                'text-red-600 font-semibold'; 
+
+            let estadoClass;
+            let estadoDisplay;
+            if (envio.estado === 'COMPLETADO') {
+                estadoClass = 'bg-green-100 text-green-800';
+                estadoDisplay = 'Completado';
+            } else if (envio.estado === 'EN_PROCESO') {
+                estadoClass = 'bg-blue-100 text-blue-800 animate-pulse';
+                estadoDisplay = 'En Proceso';
+            } else if (envio.estado === 'PENDIENTE') {
+                estadoClass = 'bg-yellow-100 text-yellow-800';
+                estadoDisplay = 'Pendiente';
+            } else {
+                estadoClass = 'bg-gray-100 text-gray-800';
+                estadoDisplay = envio.estado;
+            }
+            
+            const row = `
+                <tr class="hover:bg-red-50 transition-colors">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">${envio.id}</td>
+                    <td class="px-6 py-4 text-sm text-gray-700">${envio.proceso} | <span class="text-gray-500">${envio.fechaOrigen}</span></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">${envio.enviados} / ${envio.total}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm ${tasaClass}">${tasaExito}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${envio.fechaEnvio}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${estadoClass}">
+                            ${estadoDisplay}
+                        </span>
+                    </td>
+                </tr>
+            `;
+            historialBody.insertAdjacentHTML('beforeend', row);
+        });
+    }
+
+    async function loadHistorial() {
+        historialBody.innerHTML = ''; 
+        historialBody.innerHTML = `<tr><td colspan="6" class="p-10 text-center text-gray-500 font-medium">
+            <svg class="animate-spin h-5 w-5 mr-3 inline text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            Cargando historial de envíos...
+            </td></tr>`;
+
+        try {
+            const response = await fetch(urlHistorialApi); 
+            const result = await response.json();
+            
+            if (response.ok && result.historialData) {
+                historialData = result.historialData; 
+                populateFiltros(); 
+                renderHistorial(); 
+                console.error("Error al cargar historial:", result);
+                historialBody.innerHTML = `
+                    <tr><td colspan="6" class="p-10 text-center text-red-500 font-medium bg-red-50 rounded-b-xl">
+                    Error al obtener datos del historial: ${result.message || 'Error desconocido'}.</td></tr>
+                `;
+            }
+        } catch (error) {
+            console.error('Error de conexión:', error);
+            historialBody.innerHTML = `
+                <tr><td colspan="6" class="p-10 text-center text-red-500 font-medium bg-red-50 rounded-b-xl">Error de conexión con el servidor.</td></tr>
+            `;
+        }
+    }
+
+    btnAbrirHistorial.addEventListener('click', () => {
+        loadHistorial(); 
+        modalHistorial.classList.remove('hidden');
+        modalHistorial.style.display = 'flex';
+    });
+    btnCerrarHistorial.addEventListener('click', () => {
+        modalHistorial.classList.add('hidden');
+        modalHistorial.style.display = 'none';
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !modalHistorial.classList.contains('hidden')) {
+            modalHistorial.classList.add('hidden');
+            modalHistorial.style.display = 'none';
+        }
+    });
+    filtroProceso.addEventListener('change', renderHistorial);
+    filtroFechaOrigen.addEventListener('change', renderHistorial);
+    filtroMesEnvio.addEventListener('change', renderHistorial);
+    btnLimpiarFiltros.addEventListener('click', () => {
+        filtroProceso.value = '';
+        filtroFechaOrigen.value = '';
+        filtroMesEnvio.value = '';
+        renderHistorial();
+    });
+
     document.addEventListener('DOMContentLoaded', () => {
+        const filtroProceso = document.getElementById('select-proceso');
         const selectElegidos = document.getElementById('select-elegidos');
         const totalResumen = document.getElementById('total-seleccionados-resumen');
 
@@ -185,6 +465,66 @@
             new MutationObserver(updateSelectedCount).observe(selectElegidos, { childList: true });
             updateSelectedCount();
         }
+        selectProceso.addEventListener('change', async function() {
+        const proceso = this.value;
+        
+        // Limpiar y deshabilitar el select de fecha mientras se carga
+        selectFecha.innerHTML = '<option value="">— Cargando Fechas... —</option>';
+        selectFecha.disabled = true;
+
+        if (proceso) {
+            const apiUrl = `/api/mensajeria/?accion=get_fechas&proceso=${proceso}`;
+            
+            try {
+                // Asume que makeApiCall maneja fetch y devuelve los datos JSON
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    // Limpiar el select de fecha para nuevos datos
+                    selectFecha.innerHTML = '<option value="">— Seleccione Fecha —</option>';
+                    
+                    if (data.fechas && data.fechas.length > 0) {
+                        data.fechas.forEach(fecha => {
+                            const option = document.createElement('option');
+                            option.value = fecha;
+                            // Puedes formatear la fecha para mostrarla mejor al usuario
+                            option.textContent = formatearFechaDisplay(fecha); 
+                            selectFecha.appendChild(option);
+                        });
+                        selectFecha.disabled = false;
+                        selectFecha.classList.remove('bg-gray-100');
+                        selectFecha.classList.add('bg-white');
+                    } else {
+                        selectFecha.innerHTML = '<option value="">— No hay fechas disponibles —</option>';
+                    }
+                    
+                } else {
+                    console.error('Error al obtener fechas:', data.message);
+                    selectFecha.innerHTML = '<option value="">— Error al cargar fechas —</option>';
+                }
+
+            } catch (error) {
+                console.error('Error de red al obtener fechas:', error);
+                selectFecha.innerHTML = '<option value="">— Error de red —</option>';
+            }
+        } else {
+            // Si no se selecciona un proceso, limpiar y deshabilitar fechas
+            selectFecha.innerHTML = '<option value="">— Seleccione Fecha —</option>';
+        }
+    });
+
+    // Función auxiliar para mostrar la fecha más legible (opcional)
+    function formatearFechaDisplay(fechaISO) {
+        try {
+            const parts = fechaISO.split('-');
+            if (parts.length === 3) {
+                return `${parts[2]}/${parts[1]}/${parts[0]}`; // DD/MM/YYYY
+            }
+        } catch (e) {
+            return fechaISO;
+        }
+    }
     });
 </script>
 <script src="{% static 'js/mensajeria_masiva.js' %}"></script>

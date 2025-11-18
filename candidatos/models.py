@@ -4,6 +4,7 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.core.exceptions import ObjectDoesNotExist
 
 class Empresa(models.Model):
     nombre = models.CharField(max_length=100, unique=True)
@@ -556,3 +557,172 @@ class DocumentoCandidato(models.Model):
 
     def __str__(self):
         return f"{self.candidato.nombres_completos} - {self.get_tipo_documento_display()}"
+    
+class MensajePlantilla(models.Model):
+    """
+    1. Almacena el texto base de los mensajes que se pueden reutilizar en las campañas.
+    """
+    titulo = models.CharField(
+        max_length=100, 
+        unique=True, 
+        verbose_name="Título Único de la Plantilla",
+        help_text="Nombre que identifica la plantilla, ej: 'CONVOCATORIA_LUNES_9AM'"
+    )
+    contenido_texto = models.TextField(
+        verbose_name="Contenido del Mensaje",
+        help_text="Texto con las variables de personalización (ej: {nombres_completos})."
+    )
+    variables_usadas = models.CharField(
+        max_length=255, 
+        blank=True, 
+        help_text="Variables de Candidato usadas en el texto (separadas por coma), ej: DNI, telefono_whatsapp, sede_registro."
+    )
+    
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    creado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.SET_NULL, 
+        null=True,
+        related_name='plantillas_creadas'
+    )
+
+    def __str__(self):
+        return self.titulo
+    
+    class Meta:
+        verbose_name = "Plantilla de Mensaje"
+        verbose_name_plural = "Plantillas de Mensajes"
+        ordering = ['titulo']
+
+class TareaEnvioMasivo(models.Model):
+    """
+    2. Registro central de una campaña de envío masivo (el Historial que se muestra en el modal).
+    """
+    
+    PROCESO_CHOICES = [
+        ('GLOBAL', 'Envío Global/Múltiples Estados'),
+        ('REGISTRADO', 'Registrado (Primer Contacto)'), 
+        ('CONVOCADO', 'Convocado (Segundo Contacto)'),
+        ('CAPACITACION_TEORICA', 'En Capacitación Teórica'),
+    ]
+    proceso_tipo = models.CharField(
+        max_length=50, 
+        choices=PROCESO_CHOICES, 
+        default='GLOBAL',
+        verbose_name="Filtro de Proceso Usado",
+        help_text="Estado/Filtro usado para seleccionar a los candidatos (Corresponde a tu campo 'Proceso' en el modal)."
+    )
+    
+    fecha_origen = models.DateField(
+        verbose_name="Fecha de Origen de los Datos",
+        help_text="Fecha de registro o modificación que se usó como filtro (Corresponde a tu campo 'Fecha Origen' en el modal)."
+    )
+    
+    fecha_inicio = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Fecha de Inicio del Envío"
+    )
+    usuario_que_envia = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        verbose_name="Usuario del Sistema"
+    )
+
+    mensaje_plantilla = models.ForeignKey(
+        MensajePlantilla,
+        on_delete=models.PROTECT,
+        verbose_name="Plantilla Enviada"
+    )
+
+    total_contactos = models.PositiveIntegerField(default=0, help_text="Número total de contactos que deberían recibir el mensaje.")
+    
+    ESTADOS_TAREA = [
+        ('PENDIENTE', 'Pendiente (En cola de Celery)'),
+        ('EN_PROCESO', 'En Proceso'),
+        ('COMPLETADO', 'Completado'),
+        ('FALLIDO', 'Fallido (Error en el worker)')
+    ]
+    estado = models.CharField(max_length=15, choices=ESTADOS_TAREA, default='PENDIENTE')
+    
+    task_id = models.CharField(
+        max_length=255, 
+        blank=True, 
+        null=True, 
+        unique=True,
+        help_text="ID de la tarea en Celery para seguimiento asíncrono."
+    )
+    
+    total_entregados = models.PositiveIntegerField(default=0)
+    total_fallidos = models.PositiveIntegerField(default=0)
+    
+    def __str__(self):
+        return f"Tarea #{self.pk} - {self.get_proceso_tipo_display()} ({self.get_estado_display()})"
+    
+    class Meta:
+        verbose_name = "Tarea de Envío Masivo"
+        verbose_name_plural = "Tareas de Envío Masivo"
+        ordering = ['-fecha_inicio']
+
+class DetalleEnvio(models.Model):
+    """
+    3. El registro individual de cada mensaje enviado. Es la auditoría fina.
+    """
+    tarea_envio = models.ForeignKey(
+        TareaEnvioMasivo,
+        on_delete=models.CASCADE,
+        related_name='detalles_envio',
+        verbose_name="Campaña/Tarea Asociada"
+    )
+    
+    contacto = models.ForeignKey(
+        'Candidato', 
+        on_delete=models.SET_NULL,
+        null=True,
+        verbose_name="Candidato/Contacto"
+    )
+    
+    telefono = models.CharField(max_length=20, help_text="Teléfono final usado (campo telefono_whatsapp del Candidato).")
+    
+    contenido_final = models.TextField(
+        help_text="Contenido del mensaje después de la personalización de variables."
+    )
+    
+    ESTADOS_META = [
+        ('ENVIADO', 'Enviado (a la cola de Meta)'),
+        ('ENTREGADO', 'Entregado (al dispositivo del usuario)'),
+        ('LEIDO', 'Leído (por el usuario)'),
+        ('FALLIDO', 'Fallido (error en el envío/número inválido)')
+    ]
+    estado_meta = models.CharField(
+        max_length=15,
+        choices=ESTADOS_META,
+        default='ENVIADO',
+        verbose_name="Estado de WhatsApp"
+    )
+    
+    id_mensaje_meta = models.CharField(
+        max_length=255, 
+        blank=True, 
+        null=True, 
+        unique=True,
+        help_text="ID único devuelto por la API de Meta/WhatsApp (Webhook ID)."
+    )
+    
+    fecha_envio = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        try:
+            dni_display = self.contacto.DNI
+        except ObjectDoesNotExist:
+            dni_guardado = getattr(self, 'contacto_id', '???') 
+            dni_display = f'DNI Eliminado ({dni_guardado})'
+        
+        return f"Detalle {self.pk}: {dni_display} - {self.get_estado_meta_display()}"
+        
+    
+    class Meta:
+        verbose_name = "Detalle de Envío Individual"
+        verbose_name_plural = "Detalles de Envíos Individuales"
+        unique_together = ('tarea_envio', 'contacto')
+        ordering = ['-fecha_envio']

@@ -6,24 +6,19 @@ from django.urls import reverse_lazy
 urlpatterns = [
     path('', auth_views.LoginView.as_view(template_name='login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(next_page=reverse_lazy('login')), name='logout'),    
-    # Dashboard Principal
     path('kanban/', views.KanbanDashboardView.as_view(), name='kanban_dashboard'),
     
-    # Vistas de Candidato y Proceso
     path('registro/', views.RegistroCandidatoView.as_view(), name='registro_candidato'),
     path('detalle/<str:dni>/', views.CandidatoDetailView.as_view(), name='detalle_candidato'),
     path('registro/candidato-completo/', views.RegistroPublicoCompletoView.as_view(), name='registro_publico_completo'),
     
-    # Vistas de Proceso 
     path('iniciar-proceso/<str:dni>/', views.IniciarProcesoView.as_view(), name='iniciar_proceso'),
     path('proceso/actualizar/<int:proceso_id>/', views.ActualizarProcesoView.as_view(), name='actualizar_proceso'),
     path('proceso/asignar_supervisor/<int:proceso_id>/', views.AsignarSupervisorIndividualView.as_view(), name='asignar_supervisor_individual'), 
 
-    # APIs para Drag & Drop y Acciones Rápidas
     path('candidato/update-status/', views.UpdateStatusView.as_view(), name='update_candidato_status'),
     path('candidato/update-status-multiple/', views.UpdateStatusMultipleView.as_view(), name='update_candidato_status_multiple'), 
     
-    # Exportación
     path('exportar/candidatos/<str:estado>/', views.ExportarCandidatosExcelView.as_view(), name='exportar_candidatos_excel'),
 
     path('proceso/registrar-observacion/', views.registrar_observacion, name='registrar_observacion'),
@@ -33,7 +28,6 @@ urlpatterns = [
     path('convocatorias/activar/', views.ActivarConvocatoriaView.as_view(), name='activar_convocatoria'),
     path('gestion/convocatorias/', views.ListaConvocatoriasView.as_view(), name='gestion_convocatorias'),
 
-    # APIs para Búsqueda y Asistencia
     path('asistencia/', views.asistencia_dashboard, name='asistencia_dashboard'),
     path('asistencia/registrar/', views.registrar_asistencia_rapida, name='registrar_asistencia_rapida'),
     path('api/search-candidato/', views.CandidatoSearchView.as_view(), name='candidato_search_api'),
@@ -46,6 +40,7 @@ urlpatterns = [
     path('candidatos/asistencia/', views.CandidatoAsistenciaListView.as_view(), name='candidatos_asistencia_list'),
     path('candidatos/asistencia/<int:pk>/detalle/', views.RegistroAsistenciaDetailView.as_view(), name='registro_asistencia_detalle'),
     path('candidatos/gestion/lista/', views.ListaCandidatosPorFechaView.as_view(), name='lista_candidatos_por_fecha'),
+    path('candidatos/asistencia/registrar/<int:candidato_pk>/', views.registrar_asistencia_htmx, name='registrar_asistencia_htmx'),
 
     path('documentos/registrar/', views.RegistrarDocumentoView.as_view(), name='registrar_documento_laboral'),
 
@@ -56,5 +51,6 @@ urlpatterns = [
 
     path('mensajeria/', views.MensajeriaDashboardView.as_view(), name='mensajeria_dashboard'),
     path('api/mensajeria/', views.MensajeriaAPIView.as_view(), name='mensajeria_api'), 
-    # path('mensajeria/enviar/', views.MensajeriaEnvioView.as_view(), name='mensajeria_envio'), # Pendiente de crear la vista POST de envío   
+    path('api/historial/data/', views.HistorialEnviosJsonView.as_view(), name='api_historial_envios'),
+    path('iniciar_envio/', views.IniciarEnvioMasivoView.as_view(), name='iniciar_envio_masivo'),  
 ]

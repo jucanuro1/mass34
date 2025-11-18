@@ -65,6 +65,7 @@ LANGUAGE_CODE = 'es-es'
 TIME_ZONE = 'America/Lima' # Usa tu zona horaria
 USE_I18N = True
 USE_TZ = True
+HORA_LIMITE_ASISTENCIA = "7:00"
 
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles') 

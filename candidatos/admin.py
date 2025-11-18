@@ -2,7 +2,7 @@ from django.contrib import admin
 from .models import (
     Empresa, Sede, Supervisor, Candidato, Proceso, RegistroAsistencia, 
     DatosCualificacion, ComentarioProceso, RegistroTest, DocumentoCandidato,
-    TipoDocumento
+    TipoDocumento, MensajePlantilla, TareaEnvioMasivo, DetalleEnvio
 )
 from django.utils.html import format_html
 
@@ -282,3 +282,106 @@ class DocumentoCandidatoAdmin(admin.ModelAdmin):
         if obj.archivo:
             return format_html('<a href="{}">Descargar</a>', obj.archivo.url)
         return "N/A"
+    
+class DetalleEnvioInline(admin.TabularInline):
+    """Muestra los mensajes individuales dentro de la Tarea."""
+    model = DetalleEnvio
+    extra = 0 # No agregar formularios vacíos por defecto
+    fields = ('contacto', 'telefono', 'estado_meta', 'fecha_envio', 'id_mensaje_meta')
+    readonly_fields = ('contacto', 'telefono', 'estado_meta', 'fecha_envio', 'id_mensaje_meta')
+    can_delete = False
+    show_change_link = True # Permite navegar al detalle
+
+    def has_add_permission(self, request, obj=None):
+        return False # Los detalles se crean automáticamente por el sistema
+
+# --- MODEL ADMINS ---
+
+@admin.register(MensajePlantilla)
+class MensajePlantillaAdmin(admin.ModelAdmin):
+    """Administración de las plantillas de mensajes reusables."""
+    list_display = ('titulo', 'variables_usadas', 'fecha_creacion', 'creado_por')
+    list_filter = ('fecha_creacion', 'creado_por')
+    search_fields = ('titulo', 'contenido_texto')
+    ordering = ('titulo',)
+    
+    fieldsets = (
+        (None, {
+            'fields': ('titulo', 'contenido_texto'),
+            'description': 'Información principal y contenido del mensaje.'
+        }),
+        ('Variables y Auditoría', {
+            'fields': ('variables_usadas', 'creado_por'),
+            'classes': ('collapse',), 
+            'description': 'Define las variables usadas para la personalización (ej: {DNI}, {nombres_completos}).'
+        }),
+    )
+    
+    def save_model(self, request, obj, form, change):
+        if not obj.pk:
+            obj.creado_por = request.user
+        super().save_model(request, obj, form, change)
+    
+    def get_readonly_fields(self, request, obj=None):
+        fields = ['fecha_creacion']
+        if obj:
+            fields.append('creado_por')
+        return fields
+
+
+@admin.register(TareaEnvioMasivo)
+class TareaEnvioMasivoAdmin(admin.ModelAdmin):
+    """Administración de las tareas de envío (Historial de Campañas)."""
+    list_display = (
+        '__str__', 'fecha_inicio', 'proceso_tipo', 'fecha_origen', 
+        'total_contactos', 'total_entregados', 'estado', 'mostrar_tasa_exito'
+    )
+    list_filter = ('estado', 'proceso_tipo', 'fecha_origen', 'fecha_inicio', 'usuario_que_envia')
+    search_fields = ('mensaje_plantilla__titulo', 'usuario_que_envia__username', 'task_id')
+    date_hierarchy = 'fecha_inicio' 
+    
+    inlines = [DetalleEnvioInline]
+    
+    readonly_fields = (
+        'fecha_inicio', 'usuario_que_envia', 'total_contactos', 
+        'total_entregados', 'total_fallidos', 'task_id', 'mostrar_tasa_exito'
+    )
+
+    def mostrar_tasa_exito(self, obj):
+        """Calcula y muestra la tasa de éxito con formato."""
+        if obj.total_contactos > 0:
+            tasa = (obj.total_entregados / obj.total_contactos) * 100
+            color = 'green' if tasa > 90 else 'orange' if tasa > 50 else 'red'
+            return format_html(f'<strong style="color: {color};">{tasa:.1f}%</strong>')
+        return '0%'
+    mostrar_tasa_exito.short_description = 'Tasa de Éxito'
+
+
+@admin.register(DetalleEnvio)
+class DetalleEnvioAdmin(admin.ModelAdmin):
+    """Administración de los detalles individuales de cada mensaje."""
+    list_display = ('tarea_envio', 'contacto', 'telefono', 'estado_meta', 'fecha_envio', 'id_mensaje_meta')
+    list_filter = ('estado_meta', 'fecha_envio', 'tarea_envio__proceso_tipo')
+    search_fields = ('contacto__DNI', 'telefono', 'id_mensaje_meta', 'contenido_final')
+    date_hierarchy = 'fecha_envio'
+    
+    fieldsets = (
+        (None, {
+            'fields': ('tarea_envio', 'contacto', 'telefono'),
+        }),
+        ('Contenido y Estado', {
+            'fields': ('contenido_final', 'estado_meta', 'id_mensaje_meta', 'fecha_envio'),
+        }),
+    )
+    
+    readonly_fields = (
+        'tarea_envio', 'contacto', 'telefono', 'contenido_final', 
+        'estado_meta', 'id_mensaje_meta', 'fecha_envio'
+    )
+
+    def has_add_permission(self, request):
+        return False 
+    
+    def has_delete_permission(self, request, obj=None):
+        return False 
+    

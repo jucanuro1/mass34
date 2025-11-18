@@ -1,9 +1,12 @@
 import io
 import json
-import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta,time
+from django.conf import settings
+from django.utils.timezone import make_aware,get_current_timezone
 import locale
 from django.shortcuts import redirect
+from random import choice, randint
+from django.core.exceptions import ObjectDoesNotExist
 
 import pandas as pd
 import re
@@ -14,6 +17,7 @@ from django.core.paginator import Paginator
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.decorators import method_decorator
+from django.template.loader import render_to_string
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -23,9 +27,9 @@ from django.db import IntegrityError, DatabaseError, OperationalError
 from django.db import models
 from django.db import transaction
 from django.db.models.functions import Cast
-from django.db.models import Q, Count, Max, Prefetch, OuterRef, Subquery, When, Case, CharField, DateTimeField,Exists,DateField
+from django.db.models import Q, Count, Max, Prefetch, OuterRef, Subquery, When, Case, Exists,DateField, F, FloatField, ExpressionWrapper, IntegerField
 
-from django.http import JsonResponse, HttpResponse, HttpResponseForbidden,HttpResponseBadRequest
+from django.http import JsonResponse, HttpResponse, HttpResponseForbidden,HttpResponseBadRequest,HttpRequest
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_http_methods
@@ -37,7 +41,7 @@ import platform
 from .models import (
     Candidato, Proceso, Empresa, Sede, Supervisor, 
     RegistroAsistencia, DatosCualificacion, ComentarioProceso, 
-    RegistroTest, MOTIVOS_DESCARTE,DocumentoCandidato, TipoDocumento
+    RegistroTest, MOTIVOS_DESCARTE,DocumentoCandidato, TipoDocumento,TareaEnvioMasivo, MensajePlantilla,DetalleEnvio
 )   
 
 REDIRECT_URL = 'kanban_dashboard'
@@ -256,27 +260,14 @@ class KanbanDashboardView(LoginRequiredMixin, View):
 
         candidatos = Candidato.objects.prefetch_related(latest_proceso_prefetch).all()
         candidatos = candidatos.exclude(estado_actual__in=ESTADOS_FINALES_OCULTOS)
-        
-        # INICIO DE MODIFICACIÓN CLAVE: Lógica OR para visibilidad
-        
-        # 🟢 Condición A (CORREGIDA): Candidatos en fase 'REGISTRADO' SOLO si están activos.
-        # Si kanban_activo es False, se oculta.
         filtro_registrado = Q(estado_actual='REGISTRADO', kanban_activo=True)
-        
-        # Condición B: Candidatos con un Proceso activo en el Kanban (convocatorias en curso)
         filtro_activo = Q(procesos__kanban_activo=True)
-        
-        # Filtro principal: Mostrar si está Registrado Y Activo O tiene un proceso activo
         candidatos = candidatos.filter(filtro_registrado | filtro_activo).distinct()
-        
-        # FIN DE MODIFICACIÓN CLAVE
         
         if fecha_inicio_filter:
             try:
                 active_date_for_template = datetime.strptime(fecha_inicio_filter, '%Y-%m-%d').date()
 
-                # El filtro de fecha se aplica solo a los candidatos que ya son visibles (Registrados o Activos)
-                # y que tienen un proceso asociado a esa fecha.
                 candidatos = candidatos.filter(
                     procesos__fecha_inicio=fecha_inicio_filter
                 ).distinct()
@@ -299,8 +290,6 @@ class KanbanDashboardView(LoginRequiredMixin, View):
             
             candidatos = candidatos.filter(filtro)
 
-        # Esta consulta ya solo cuenta los procesos que están activos (kanban_activo=True),
-        # por lo que solo muestra las fechas de las convocatorias que el usuario puede desactivar/activar.
         convocatoria_dates = Proceso.objects.filter(
             kanban_activo=True
         ).values('fecha_inicio') \
@@ -387,9 +376,9 @@ class UpdateStatusMultipleView(LoginRequiredMixin, View):
                 return JsonResponse({'status': 'error', 'message': 'Invalid request: Must be an AJAX POST.'}, status=400)
             
             dni_list = request.POST.getlist('dnis[]')
-            new_status_key = request.POST.get('new_status') # Ej: 'DESISTE'
-            fecha_inicio_str = request.POST.get('fecha_inicio') # Nuevo dato para el flujo REGISTRADO->CONVOCADO
-            motivo_descarte = request.POST.get('motivo_descarte') # Dato de la acción masiva de descarte
+            new_status_key = request.POST.get('new_status') 
+            fecha_inicio_str = request.POST.get('fecha_inicio') 
+            motivo_descarte = request.POST.get('motivo_descarte') 
 
             if not dni_list or not new_status_key:
                 return JsonResponse({'status': 'error', 'message': 'DNI list and new status are required.'}, status=400)
@@ -598,7 +587,6 @@ def registrar_asistencia_rapida(request):
     """
     Recibe los datos POST del modal (AJAX) para registrar la asistencia y devuelve JSON.
     """
-    # 1. VERIFICACIÓN DE AUTENTICACIÓN (Devuelve JSON 403)
     if not request.user.is_authenticated:
         return JsonResponse(
             {'success': False, 'message': 'Fallo de autenticación. Sesión expirada. Recargue la página.'}, 
@@ -657,7 +645,6 @@ def registrar_asistencia_rapida(request):
                     status=409
                 )
 
-        # --- 5. Crear el nuevo registro de asistencia ---
         RegistroAsistencia.objects.create(
             proceso=proceso,
             fase_actual=fase_actual_key,
@@ -667,9 +654,6 @@ def registrar_asistencia_rapida(request):
             momento_registro=timezone.now()
         )
         
-        # --- 6. Lógica de Transición de Estado y Mensajes de Éxito ---
-        
-        # Si el candidato asiste a la convocatoria, avanza a Teoria
         if proceso.estado == 'INICIADO' and fase_actual_key == 'CONVOCADO':
             proceso.estado = 'TEORIA' 
             proceso.save()
@@ -682,14 +666,12 @@ def registrar_asistencia_rapida(request):
         elif movimiento == 'SALIDA':
             mensaje_exito = f"🔴 SALIDA registrada para {candidato_nombre}. ¡Fin de Jornada!"
 
-        # 7. RETORNO FINAL DE ÉXITO (JSON 200)
         return JsonResponse({'success': True, 'message': mensaje_exito})
 
     except Proceso.DoesNotExist:
         return JsonResponse({'success': False, 'message': "Error: El proceso referenciado no existe o no es válido."}, status=404)
 
     except Exception as e:
-        # Esto captura cualquier error de Python (500) y lo devuelve como JSON
         return JsonResponse(
             {'success': False, 'message': f"Error interno crítico en el servidor: {str(e)}"}, 
             status=500
@@ -703,7 +685,6 @@ def asistencia_dashboard(request):
     """
     
     if request.method == 'POST':
-        # Esta función solo acepta peticiones AJAX (para mayor seguridad)
         if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({'success': False, 'message': 'Método no permitido.'}, status=405)
             
@@ -713,10 +694,8 @@ def asistencia_dashboard(request):
             return JsonResponse({'success': False, 'message': 'DNI no puede estar vacío.'})
 
         try:
-            # 1. Buscar el candidato por DNI
             candidato = Candidato.objects.get(DNI=dni)
             
-            # 2. Encontrar el proceso activo más reciente
             ultimo_proceso = Proceso.objects.filter(
                 candidato=candidato
             ).exclude(
@@ -729,20 +708,16 @@ def asistencia_dashboard(request):
                     'message': f'Candidato "{candidato.nombres_completos}" no tiene un proceso activo para registrar asistencia.'
                 })
 
-            # 3. Determinar el TIPO DE MOVIMIENTO y FASE
-            fase_proceso = ultimo_proceso.estado # Ejemplo: 'PRACTICA', 'INDUCCION', etc.
+            fase_proceso = ultimo_proceso.estado
             
-            # Solo la fase 'PRACTICA' o similar requiere control de Entrada/Salida
             requiere_entrada_salida = (fase_proceso == 'PRACTICA')
             
-            movimiento_requerido = 'REGISTRO' # Valor por defecto para fases que solo requieren un check-in
+            movimiento_requerido = 'REGISTRO' 
             ultimo_registro_hoy = None 
             
-            # Lógica específica para Entrada/Salida
             if requiere_entrada_salida:
                 hoy = timezone.localdate()
                 
-                # Buscar el último movimiento de asistencia para hoy, en esta fase.
                 ultimo_registro_hoy = RegistroAsistencia.objects.filter(
                     proceso=ultimo_proceso, 
                     fase_actual=fase_proceso,
@@ -752,20 +727,16 @@ def asistencia_dashboard(request):
                 if ultimo_registro_hoy and ultimo_registro_hoy.movimiento == 'ENTRADA':
                     movimiento_requerido = 'SALIDA'
                 elif ultimo_registro_hoy and ultimo_registro_hoy.movimiento == 'SALIDA':
-                    # Si ya marcó salida HOY, el próximo movimiento debe ser ENTRADA (mañana o si vuelve a entrar)
-                    # Se mantiene como 'ENTRADA' para un eventual nuevo turno o día.
                     movimiento_requerido = 'ENTRADA'
                 else:
-                    # Si no hay registros o el último fue un registro único, asumimos ENTRADA.
                     movimiento_requerido = 'ENTRADA'
 
             if ultimo_registro_hoy:
                 hora_local = timezone.localtime(ultimo_registro_hoy.momento_registro)
                 ultimo_registro_str = f"{ultimo_registro_hoy.get_movimiento_display()} a las {hora_local.strftime('%H:%M:%S')}"
             else:
-                ultimo_registro_str = '' # Enviamos string vacío si es None
+                ultimo_registro_str = '' 
 
-            # 5. Devolver los datos para mostrar el modal de registro
             return JsonResponse({
                 'success': True,
                 'proceso_id': ultimo_proceso.pk,
@@ -782,11 +753,9 @@ def asistencia_dashboard(request):
             return JsonResponse({'success': False, 'message': f'DNI "{dni}" no encontrado en la base de datos.'}, status=404)
         
         except Exception as e:
-            # Captura cualquier otro error de la base de datos o lógica
             print(f"Error en asistencia_dashboard: {e}")
             return JsonResponse({'success': False, 'message': f'Error interno en el servidor: {e}'}, status=500)
 
-    # Si es GET, renderiza la plantilla principal
     return render(request, 'asistencia_dashboard.html', {'today': date.today()})
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -919,7 +888,6 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
         
         candidatos_qs = Candidato.objects.filter(estado_actual=estado)
         
-        # FILTRO CLAVE: Asegura que el Candidato tiene un Proceso con la fecha seleccionada
         if fecha_filtro_str:
             candidatos_qs = candidatos_qs.filter(procesos__fecha_inicio=fecha_filtro_str).distinct()
 
@@ -950,7 +918,6 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
         
         for c in candidatos_a_exportar:
             
-            # El queryset c.procesos.all() ya está filtrado por la fecha si se usó el filtro
             ultimo_proceso = next(iter(c.procesos.all()), None)
             cualificacion = getattr(c, 'datoscualificacion', None) 
 
@@ -1016,7 +983,7 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
 class RegistroPublicoCompletoView(View):
     def get(self, request):
         sedes_disponibles = Sede.objects.all().order_by('nombre') 
-        tipos_documento_disponibles = TipoDocumento.objects.all().order_by('nombre') # ASUME que TipoDocumento está importado
+        tipos_documento_disponibles = TipoDocumento.objects.all().order_by('nombre') 
 
         context = {
             'title': 'Registro y Cualificación de Candidato',
@@ -1201,13 +1168,11 @@ def registrar_observacion(request):
 @require_http_methods(["POST"])
 def registrar_test_archivo(request):
     
-    # 1. Obtener datos del POST (Archivo y Metadatos)
     proceso_id = request.POST.get('proceso_id')
     tipo_test = request.POST.get('tipo_test')
     resultado_obtenido = request.POST.get('resultado_obtenido', '').strip()
     archivo = request.FILES.get('archivo')
 
-    # 2. Validación obligatoria (Status 400)
     if not proceso_id or not tipo_test or not archivo:
         return JsonResponse({'success': False, 'message': 'Faltan datos obligatorios (ID de Proceso, Tipo de Test o Archivo).'}, status=400)
 
@@ -1215,13 +1180,7 @@ def registrar_test_archivo(request):
     
     for attempt in range(MAX_RETRIES):
         try:
-            # 3. Buscar el Proceso (Usamos get() para manejar 404 como JSON)
             proceso = Proceso.objects.get(pk=proceso_id)
-            
-            # El decorador @transaction.atomic YA NO ES NECESARIO AQUÍ
-            # porque estamos manejando la lógica de reintento con try/except
-            
-            # 4. Crear el registro del test (Esta es la operación de escritura crítica)
             RegistroTest.objects.create(
                 proceso=proceso,
                 fase_proceso=proceso.estado,
@@ -1231,31 +1190,27 @@ def registrar_test_archivo(request):
                 registrado_por=request.user
             )
             
-            # 5. Retorno de éxito (Simple para evitar errores de serialización)
             return JsonResponse({
                 'success': True, 
                 'message': 'Archivo de Test registrado y subido con éxito.'
             })
 
-        # 6. Captura de Error de Bloqueo de DB
         except (OperationalError, DatabaseError) as e:
             if "database is locked" not in str(e):
                 raise
                 
             if attempt < MAX_RETRIES - 1:
                 print(f"Intento {attempt + 1} fallido (DB Locked en subida). Reintentando...")
-                time.sleep(0.5 * (attempt + 1)) # Aumentamos la espera a 0.5s para archivos
+                time.sleep(0.5 * (attempt + 1))
             else:
                 return JsonResponse(
                     {'success': False, 'message': f'Error interno en el servidor. Detalles: database is locked tras {MAX_RETRIES} intentos de subida.'}, 
                     status=500
                 )
         
-        # 7. Captura si el proceso no existe (Status 404)
         except Proceso.DoesNotExist:
             return JsonResponse({'success': False, 'message': 'El proceso especificado no fue encontrado.'}, status=404)
         
-        # 8. Captura cualquier otro error grave (incluidos errores de archivos/modelos)
         except Exception as e:
             print(f"Error grave al registrar test/archivo: {e}") 
             return JsonResponse(
@@ -1410,7 +1365,7 @@ class ActivarConvocatoriaView(LoginRequiredMixin, View):
                     kanban_activo=False
                 ).update(kanban_activo=True)
                 display_msg = f"Se han reactivado {count} procesos del MES: {fecha_obj.strftime('%B %Y')}"
-            else: # DIA
+            else: 
                 count = Proceso.objects.filter(
                     fecha_inicio=fecha_obj, 
                     kanban_activo=False
@@ -1527,9 +1482,6 @@ class CandidatoListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        
-        # Corrección: No excluimos nada por defecto para mostrar TODOS
-        # (La línea de exclusión original ha sido removida/comentada aquí)
 
         search_query = self.request.GET.get('search')
         estado_filter = self.request.GET.get('estado')
@@ -1548,7 +1500,6 @@ class CandidatoListView(LoginRequiredMixin, ListView):
             queryset = queryset.filter(motivo_descarte=motivo_descarte_filter)
             
         if self.request.GET.get('asistencia') == 'presentes':
-            # Lógica de filtro de asistencia
             pass
             
         return queryset
@@ -1556,7 +1507,6 @@ class CandidatoListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
-        # Nota: Asegúrate de que Candidato.ESTADOS y MOTIVOS_DESCARTE estén accesibles.
         context['ESTADOS_CANDIDATO'] = Candidato.ESTADOS
         context['MOTIVOS_DESCARTE'] = MOTIVOS_DESCARTE 
         context['active_filters'] = self.request.GET.dict() 
@@ -1689,46 +1639,64 @@ class CandidatoExportView(LoginRequiredMixin, View):
     
 class CandidatoAsistenciaListView(LoginRequiredMixin, ListView):
     model = Candidato
-    template_name = 'candidatos_asistencia_list.html' 
+    template_name = 'candidatos_asistencia_list.html'
     context_object_name = 'candidatos'
     paginate_by = 25 
     ordering = ['-total_registros', '-fecha_registro'] 
 
     def get_queryset(self):
+        hoy = timezone.localdate()
+
+        proceso_filter_q = ~Q(procesos__estado__in=['CONTRATADO', 'NO_APTO', 'ABANDONO'])
         
         latest_attendance = RegistroAsistencia.objects.filter(
             candidato=OuterRef('pk')
         ).order_by('-momento_registro').values(
-            'momento_registro', 'fase_actual', 'movimiento'
+            'momento_registro', 'fase_actual', 'movimiento', 'estado'
         )[:1]
         
+        asistencia_hoy = RegistroAsistencia.objects.filter(
+            candidato=OuterRef('pk'),
+            momento_registro__date=hoy
+        ).exclude(estado=None).order_by('-momento_registro').values('estado')[:1]
+        
         queryset = Candidato.objects.annotate(
-            total_registros=Count('registroasistencia', distinct=True),
+            total_registros=Count(
+                'procesos__registroasistencia', 
+                filter=proceso_filter_q,
+                distinct=True 
+            ),
             
             total_tardanzas=Count(
-                models.Case(models.When(registroasistencia__estado='T', then=1), 
-                            output_field=models.IntegerField()),
-                distinct=True
+                'procesos__registroasistencia',
+                filter=Q(procesos__registroasistencia__estado='T') & proceso_filter_q
             ),
             
             total_faltas=Count(
-                models.Case(models.When(registroasistencia__estado='F', then=1), 
-                            output_field=models.IntegerField()),
-                distinct=True
+                'procesos__registroasistencia',
+                filter=Q(procesos__registroasistencia__estado='F') & proceso_filter_q
             ),
             
-            ultima_fase=models.Subquery(latest_attendance.values('fase_actual'), 
-                                         output_field=models.CharField()),
-                                         
-            ultimo_movimiento=models.Subquery(latest_attendance.values('movimiento'), 
-                                              output_field=models.CharField()),
-                                         
-            ultimo_registro=models.Subquery(latest_attendance.values('momento_registro'), 
-                                            output_field=models.DateTimeField())
+            total_asistencias_puntuales=Count(
+                'procesos__registroasistencia',
+                filter=Q(procesos__registroasistencia__estado='A') & proceso_filter_q
+            ),
+            
+            ultima_fase=Subquery(latest_attendance.values('fase_actual')[:1], 
+                                 output_field=models.CharField()),
+            
+            ultimo_movimiento=Subquery(latest_attendance.values('movimiento')[:1], 
+                                       output_field=models.CharField()),
+            
+            ultimo_registro_momento=Subquery(latest_attendance.values('momento_registro')[:1], 
+                                             output_field=models.DateTimeField()),
+            
+            asistencia_hoy=Subquery(asistencia_hoy, output_field=models.CharField())
         )
         
         search_query = self.request.GET.get('search')
         estado_filter = self.request.GET.get('estado')
+        supervisor_filter = self.request.GET.get('supervisor')
         
         if search_query:
             queryset = queryset.filter(
@@ -1738,19 +1706,34 @@ class CandidatoAsistenciaListView(LoginRequiredMixin, ListView):
 
         if estado_filter:
             queryset = queryset.filter(estado_actual=estado_filter)
+
+        if supervisor_filter:
+            queryset = queryset.filter(procesos__supervisor__pk=supervisor_filter)
             
-        return queryset
+        return queryset.order_by(*self.ordering)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        movimiento_map = dict(RegistroAsistencia.TIPO_MOVIMIENTO)
+        context['SUPERVISORES'] = Supervisor.objects.all().order_by('nombre')
+            
+        hoy = timezone.localdate()
         
-        context['ESTADOS_CANDIDATO'] = Candidato.ESTADOS
+        conteo_global = RegistroAsistencia.objects.filter(
+            momento_registro__date=hoy
+        ).exclude(estado=None).values('estado').annotate(count=Count('estado', distinct=True)) 
+        
+        conteo_dict = {item['estado']: item['count'] for item in conteo_global}
+        
+        context['ESTADOS_CANDIDATO'] = Candidato.ESTADOS 
         context['FASES_ASISTENCIA'] = RegistroAsistencia.FASE_ASISTENCIA 
-        context['MOVIMIENTO_MAP'] = movimiento_map
+        context['MOVIMIENTO_MAP'] = dict(RegistroAsistencia.TIPO_MOVIMIENTO) 
         context['active_filters'] = self.request.GET.dict() 
         
+        context['total_candidatos'] = Candidato.objects.count()
+        context['conteo_asistencias'] = conteo_dict
+        context['current_year'] = date.today().year
+
         return context
 
 class RegistroAsistenciaDetailView(LoginRequiredMixin, DetailView):
@@ -1794,6 +1777,7 @@ class RegistroAsistenciaDetailView(LoginRequiredMixin, DetailView):
             registros_agrupados[group_key]['registros'].append(reg)
         
         context['registros_agrupados'] = registros_agrupados.values()
+        context['MOVIMIENTO_MAP'] = dict(RegistroAsistencia.TIPO_MOVIMIENTO) 
         
         return context
     
@@ -1873,9 +1857,7 @@ class HistoryDetailView(LoginRequiredMixin, View):
                     num_tests = proceso.tests_registrados.count()
                     proceso_detail['num_tests'] = num_tests
                     
-                
                 procesos_data.append(proceso_detail)
-
 
             response_data = {
                 'status': 'success',
@@ -1927,7 +1909,6 @@ class OcultarCandidatosView(LoginRequiredMixin, View):
                 filtro_display = fecha_obj.strftime('%B %Y')
             
             elif accion_tipo == 'DIA':
-                # CORRECCIÓN: Eliminamos '__date' ya que fecha_registro es DateField o se comporta como tal.
                 qs = base_qs.filter(
                     fecha_registro=fecha_obj,
                 )
@@ -1948,7 +1929,6 @@ class OcultarCandidatosView(LoginRequiredMixin, View):
         except Exception as e:
             messages.error(request, f"Error CRÍTICO al ocultar candidatos: {e}")
             
-        #return redirect(REDIRECT_URL)
         return HttpResponse(status=204)
 
 class MostrarCandidatosView(LoginRequiredMixin, View):
@@ -1983,7 +1963,6 @@ class MostrarCandidatosView(LoginRequiredMixin, View):
                 filtro_display = fecha_obj.strftime('%B %Y')
             
             elif accion_tipo == 'DIA':
-                # CORRECCIÓN: Eliminamos '__date' ya que fecha_registro es DateField o se comporta como tal.
                 qs = base_qs.filter(
                     fecha_registro=fecha_obj,
                 )
@@ -2004,7 +1983,6 @@ class MostrarCandidatosView(LoginRequiredMixin, View):
         except Exception as e:
             messages.error(request, f"Error CRÍTICO al mostrar candidatos: {e}")
             
-        #return redirect(REDIRECT_URL)
         return HttpResponse(status=204)      
 
 def set_locale_es():
@@ -2070,7 +2048,6 @@ class ListaCandidatosPorFechaView(LoginRequiredMixin, View):
             .order_by('-fecha_solo_dia')
             
         candidatos_by_month = {}
-        # 🟢 Obtenemos el nombre del mes de filtro en español
         current_month_name = MESES_ESPANOL.get(month_filter, month_year_str) 
         month_display_name = f"{current_month_name} {year_filter}"
         
@@ -2149,7 +2126,6 @@ class MensajeriaDashboardView(LoginRequiredMixin, TemplateView):
         
         return context
     
-
 class MensajeriaAPIView(LoginRequiredMixin, View):
     """API para obtener fechas y contactos por proceso/fecha."""
     
@@ -2185,7 +2161,7 @@ class MensajeriaAPIView(LoginRequiredMixin, View):
         else:
             fechas = Proceso.objects.filter(
                 estado=estado, 
-                candidato__telefono_whatsapp__isnull=False # Candidato debe tener teléfono
+                candidato__telefono_whatsapp__isnull=False 
             ).order_by('-fecha_inicio').values_list('fecha_inicio', flat=True).distinct()
             
         return [f.strftime('%Y-%m-%d') for f in fechas]
@@ -2193,7 +2169,6 @@ class MensajeriaAPIView(LoginRequiredMixin, View):
     def _get_contactos_por_filtro(self, proceso_tipo, estado, fecha_str):
         """Obtiene la lista de contactos (nombre, DNI, teléfono) para el filtro."""
         
-        # Parsear fecha de YYYY-MM-DD a objeto date
         try:
             fecha_obj = date.fromisoformat(fecha_str)
         except ValueError:
@@ -2207,7 +2182,6 @@ class MensajeriaAPIView(LoginRequiredMixin, View):
                 telefono_whatsapp__isnull=False
             )
         else:
-            # Filtramos por Proceso y luego accedemos al Candidato
             qs = Candidato.objects.filter(
                 procesos__estado=estado,
                 procesos__fecha_inicio=fecha_obj,
@@ -2217,3 +2191,326 @@ class MensajeriaAPIView(LoginRequiredMixin, View):
         contactos_list = list(qs.values('DNI', 'nombres_completos', 'telefono_whatsapp'))
         
         return contactos_list
+
+class HistorialEnviosJsonView(ListView):
+    """
+    Retorna el historial de tareas de envío masivo en formato JSON, usando 
+    .values() para garantizar que no se ejecute ninguna lógica de Python.
+    """
+    model = TareaEnvioMasivo
+    
+    def get_queryset(self):
+        return TareaEnvioMasivo.objects.annotate(
+            tasa_exito_db=ExpressionWrapper(
+                F('total_entregados') * 100.0 / F('total_contactos'),
+                output_field=FloatField()
+            )
+        ).values(
+            'id', 
+            'total_entregados', 
+            'total_contactos', 
+            'fecha_origen', 
+            'fecha_inicio',
+            'estado',
+            'tasa_exito_db',
+            'mensaje_plantilla__titulo' 
+        )
+
+    def get_context_data(self, **kwargs):
+        object_list = self.get_queryset() 
+        data = []
+        
+        for tarea in object_list:
+            
+            tasa_exito_valor = round(tarea['tasa_exito_db'], 1) if tarea['total_contactos'] else 0.0
+            
+            estado_display = TareaEnvioMasivo(estado=tarea['estado']).get_estado_display()
+            
+            data.append({
+                'id': tarea['id'],
+                'proceso': tarea['mensaje_plantilla__titulo'],
+                'fechaOrigen': tarea['fecha_origen'].strftime('%Y-%m-%d'),
+                'enviados': tarea['total_entregados'],
+                'total': tarea['total_contactos'],
+                'tasa_exito': tasa_exito_valor,
+                'fechaEnvio': timezone.localtime(tarea['fecha_inicio']).strftime('%d/%m/%Y %H:%M'),
+                'estado': estado_display, 
+            })
+            
+        return {'historialData': data} 
+    def render_to_response(self, context, **response_kwargs):
+        return JsonResponse(context)    
+
+#ESTADOS_META = ['ENTREGADO', 'ENTREGADO', 'ENTREGADO', 'LEIDO', 'FALLIDO']
+ESTADOS_META_SIMULACION = ['ENTREGADO', 'ENTREGADO', 'ENTREGADO', 'LEIDO', 'FALLIDO']
+def simular_tarea_celery(tarea_id, lista_candidatos_pks, mensaje_contenido_final):
+    """
+    Simulación de la función que Celery ejecutaría en segundo plano. 
+    Guarda los DetalleEnvio para cada candidato y actualiza el conteo de la Tarea.
+    """
+    print(f"Tarea Celery ID {tarea_id} iniciada para {len(lista_candidatos_pks)} candidatos.")
+    tarea = TareaEnvioMasivo.objects.get(pk=tarea_id)
+    
+    candidatos_qs = Candidato.objects.filter(pk__in=lista_candidatos_pks).distinct()
+    
+    total_entregados = 0
+    total_fallidos = 0
+
+    detalles_a_crear = []
+    
+    for candidato in candidatos_qs:
+        estado_simulado = choice(ESTADOS_META_SIMULACION) 
+        id_meta_simulado = f"wamid.{randint(100000000000, 999999999999)}" if estado_simulado != 'FALLIDO' else None
+        
+        if estado_simulado in ['ENTREGADO', 'LEIDO', 'ENVIADO']:
+            total_entregados += 1
+        else:
+            total_fallidos += 1
+            
+        detalles_a_crear.append(DetalleEnvio(
+            tarea_envio=tarea,
+            contacto=candidato,
+            telefono=candidato.telefono_whatsapp, 
+            contenido_final=mensaje_contenido_final.replace('{nombres_completos}', candidato.nombres_completos), 
+            estado_meta=estado_simulado,
+            id_mensaje_meta=id_meta_simulado,
+        ))
+
+    DetalleEnvio.objects.bulk_create(detalles_a_crear)
+    
+    tarea.total_entregados = total_entregados
+    tarea.total_fallidos = total_fallidos
+    tarea.estado = 'COMPLETADO' 
+    tarea.save()
+    
+    print(f"Tarea Celery ID {tarea_id} completada. Entregados: {total_entregados}, Fallidos: {total_fallidos}")
+
+class IniciarEnvioMasivoView(View):
+    def post(self, request, *args, **kwargs):
+        mensaje_contenido = request.POST.get('mensaje_contenido')
+        proceso_filtro = request.POST.get('proceso_filtro') 
+        fecha_filtro_str = request.POST.get('fecha_filtro') 
+        candidatos_seleccionados_pks = request.POST.getlist('candidatos_seleccionados[]')
+
+        if not mensaje_contenido or not candidatos_seleccionados_pks or not proceso_filtro or not fecha_filtro_str:
+            return JsonResponse({
+                'success': False, 
+                'message': 'Faltan parámetros esenciales (mensaje, contactos, proceso o fecha).'
+            }, status=400) 
+            
+        try:
+            plantilla, created = MensajePlantilla.objects.get_or_create(
+                contenido_texto=mensaje_contenido, 
+                defaults={
+                    'titulo': f'MENSAJE AD HOC - {timezone.now().strftime("%Y%m%d%H%M%S")}-{request.user.pk}',
+                    'creado_por': request.user, 
+                }
+            )
+            fecha_origen = date.fromisoformat(fecha_filtro_str) 
+
+            nueva_tarea = TareaEnvioMasivo.objects.create(
+                usuario_que_envia=request.user,
+                mensaje_plantilla=plantilla, 
+                proceso_tipo=proceso_filtro,
+                fecha_origen=fecha_origen,
+                total_contactos=len(candidatos_seleccionados_pks),
+                estado='PENDIENTE', 
+            )
+            
+            task_id_simulado = f"celery-{nueva_tarea.id}-{timezone.now().timestamp()}"
+            nueva_tarea.task_id = task_id_simulado
+            nueva_tarea.estado = 'EN_PROCESO'
+            nueva_tarea.save()
+            
+            simular_tarea_celery(
+                nueva_tarea.id, 
+                candidatos_seleccionados_pks, 
+                mensaje_contenido 
+            )
+            
+            return JsonResponse({
+                'success': True, 
+                'message': 'Envío masivo iniciado correctamente.',
+                'tarea_id': nueva_tarea.id,
+                'task_id': task_id_simulado
+            }, status=202)
+
+        except ValueError:
+            return JsonResponse({'success': False, 'message': 'El formato de la fecha de filtro es inválido.'}, status=400)
+
+        except Exception as e:
+            print(f"Error al iniciar envío: {e}")
+            return JsonResponse({'success': False, 'message': f'Error interno: {e}'}, status=500)
+
+def actualizar_fila_y_contadores(request: HttpRequest, candidato_pk: int) -> HttpResponse:
+    hoy = timezone.localdate()
+    
+    conteo_global = RegistroAsistencia.objects.filter(
+        momento_registro__date=hoy
+    ).exclude(estado=None).values('estado').annotate(count=Count('estado'))
+    
+    conteo_dict = {item['estado']: item['count'] for item in conteo_global}
+    
+    total_candidatos = Candidato.objects.exclude(procesos__estado__in=['CONTRATADO', 'NO_APTO', 'ABANDONO']).count() 
+
+    latest_attendance = RegistroAsistencia.objects.filter(
+        candidato=OuterRef('pk')
+    ).order_by('-momento_registro').values(
+        'momento_registro', 'fase_actual', 'movimiento', 'estado'
+    )[:1]
+    
+    asistencia_hoy_subquery = RegistroAsistencia.objects.filter(
+        candidato=OuterRef('pk'),
+        momento_registro__date=hoy
+    ).exclude(estado=None).order_by('-momento_registro').values('estado')[:1]
+
+    proceso_filter_q = ~Q(procesos__estado__in=['CONTRATADO', 'NO_APTO', 'ABANDONO'])
+    
+    candidato = Candidato.objects.annotate(
+        total_registros=Count('procesos__registroasistencia', filter=proceso_filter_q),
+        total_tardanzas=Count('procesos__registroasistencia', filter=Q(procesos__registroasistencia__estado='T') & proceso_filter_q),
+        total_faltas=Count('procesos__registroasistencia', filter=Q(procesos__registroasistencia__estado='F') & proceso_filter_q),
+        total_asistencias_puntuales=Count('procesos__registroasistencia', filter=Q(procesos__registroasistencia__estado='A') & proceso_filter_q),
+        
+        ultima_fase=Subquery(latest_attendance.values('fase_actual'), output_field=models.CharField()),
+        ultimo_movimiento=Subquery(latest_attendance.values('movimiento'), output_field=models.CharField()),
+        ultimo_registro_momento=Subquery(latest_attendance.values('momento_registro'), output_field=models.DateTimeField()),
+        asistencia_hoy=Subquery(asistencia_hoy_subquery, output_field=models.CharField())
+    ).get(pk=candidato_pk)
+    
+    try:
+        candidato.ultimo_registro = RegistroAsistencia.objects.filter(candidato=candidato).latest('momento_registro')
+    except RegistroAsistencia.DoesNotExist:
+        candidato.ultimo_registro = None
+    
+    contexto_fila = {
+        'candidato': candidato, 
+    }
+    contexto_contador = {
+        'total_candidatos': total_candidatos,
+        'conteo_asistencias': conteo_dict
+    }
+
+    fila_html = render_to_string('candidatos/candidato_fila_parcial.html', contexto_fila, request=request)
+    contador_html = render_to_string('candidatos/contador_global_parcial.html', contexto_contador, request=request)
+    
+    return JsonResponse({
+        'success': True,
+        'fila_html': fila_html,
+        'contador_html': contador_html,
+    })
+
+@login_required
+def registrar_asistencia_htmx(request, candidato_pk):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    try:
+        candidato = get_object_or_404(Candidato, pk=candidato_pk)
+        
+        data = json.loads(request.body)
+        nuevo_estado_post = data.get('asistencia', 'F') 
+        
+        movimiento = 'ENTRADA' 
+        registrado_por_user = request.user if request.user.is_authenticated else None
+        
+        proceso_activo = candidato.procesos.filter(
+            ~Q(estado__in=['CONTRATADO', 'NO_APTO', 'ABANDONO'])
+        ).order_by('-fecha_inicio').first()
+        
+        if not proceso_activo:
+            return JsonResponse({'success': False, 'error': f'Candidato {candidato_pk} sin Proceso ACTIVO.'}, status=400)
+        
+        momento_registro = timezone.now() 
+        estado_final = nuevo_estado_post
+        
+        if nuevo_estado_post == 'A':
+            limite_str = getattr(settings, 'HORA_LIMITE_ASISTENCIA', '07:00')
+            limite_hora, limite_minuto = map(int, limite_str.split(':'))
+            
+            hoy_date = momento_registro.date()
+            hora_limite_naive = datetime.combine(hoy_date, time(limite_hora, limite_minuto))
+            hora_limite_aware = make_aware(hora_limite_naive, get_current_timezone())
+            
+            if momento_registro > hora_limite_aware:
+                estado_final = 'T' 
+            else:
+                estado_final = 'A' 
+
+        FASE_MAP = {
+            'INICIADO': 'CONVOCADO', 'TEORIA': 'TEORIA', 'PRACTICA': 'PRACTICA',
+            'CONTRATADO': 'PRACTICA', 'NO_APTO': 'PRACTICA', 'ABANDONO': 'PRACTICA',
+        }
+        fase_asistencia = FASE_MAP.get(proceso_activo.estado, 'CONVOCADO')
+
+        registro = RegistroAsistencia.objects.create(
+            proceso=proceso_activo, 
+            estado=estado_final, 
+            movimiento=movimiento, 
+            fase_actual=fase_asistencia, 
+            registrado_por=registrado_por_user,
+            momento_registro=momento_registro
+        )
+    
+        proceso_filter_q = ~Q(procesos__estado__in=['CONTRATADO', 'NO_APTO', 'ABANDONO'])
+
+        candidato_actualizado = Candidato.objects.filter(pk=candidato_pk).annotate(
+            total_registros=Count('procesos__registroasistencia', filter=proceso_filter_q),
+            total_tardanzas=Count('procesos__registroasistencia', filter=Q(procesos__registroasistencia__estado='T') & proceso_filter_q),
+            total_faltas=Count('procesos__registroasistencia', filter=Q(procesos__registroasistencia__estado='F') & proceso_filter_q),
+            total_asistencias_puntuales=Count('procesos__registroasistencia', filter=Q(procesos__registroasistencia__estado='A') & proceso_filter_q),
+        ).first()
+
+        msg = ""
+        if candidato_actualizado:
+            # 🟢 SOLUCIÓN: ASEGURAR QUE LA PK ESTÉ PRESENTE PARA EL TEMPLATE ID
+            setattr(candidato_actualizado, 'pk', candidato_pk) 
+            
+            setattr(candidato_actualizado, 'asistencia_hoy', estado_final) 
+            setattr(candidato_actualizado, 'ultimo_registro', registro)
+            setattr(candidato_actualizado, 'ultimo_registro_momento', registro.momento_registro)
+            setattr(candidato_actualizado, 'ultima_fase', fase_asistencia)
+            setattr(candidato_actualizado, 'ultimo_movimiento', movimiento)
+            
+            if estado_final == 'A':
+                msg = "✅ Asistencia registrada como PUNTUAL."
+            elif estado_final == 'T':
+                msg = "⚠️ Asistencia registrada como TARDE."
+            else: 
+                msg = "❌ Asistencia registrada como FALTA."
+
+        hoy_date = momento_registro.date()
+        
+        conteo_asistencias_query = RegistroAsistencia.objects.filter(
+            momento_registro__date=hoy_date,
+        ).exclude(proceso__estado__in=['CONTRATADO', 'NO_APTO', 'ABANDONO']).values('estado').annotate(
+            count=Count('estado')
+        ).order_by('estado')
+
+        conteo_dict = {item['estado']: item['count'] for item in conteo_asistencias_query}
+        
+        total_candidatos = Candidato.objects.exclude(procesos__estado__in=['CONTRATADO', 'NO_APTO', 'ABANDONO']).count() 
+
+        fila_html = render_to_string(
+            'candidatos/candidato_fila_parcial.html',
+            {'candidato': candidato_actualizado},
+            request=request
+        )
+
+        contador_html = render_to_string(
+            'candidatos/contador_global_parcial.html',
+            {'conteo_asistencias': conteo_dict, 'total_candidatos': total_candidatos},
+            request=request
+        )
+
+        return JsonResponse({
+            'success': True,
+            'fila_html': fila_html,
+            'contador_html': contador_html,
+            'mensaje': msg
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Formato JSON inválido.'}, status=400)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
