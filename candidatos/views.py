@@ -2190,7 +2190,10 @@ class MensajeriaAPIView(LoginRequiredMixin, View):
         return [f.strftime('%Y-%m-%d') for f in fechas]
     
     def _get_contactos_por_filtro(self, proceso_tipo, estado_db, fecha_str):
-        """Obtiene la lista de contactos y verifica si ya se les envió mensaje."""
+        """
+        Obtiene la lista de contactos y anota la cantidad de mensajes exitosos 
+        enviados a cada uno, sin aplicar filtros de exclusión.
+        """
         try:
             fecha_obj = date.fromisoformat(fecha_str)
         except ValueError:
@@ -2212,14 +2215,12 @@ class MensajeriaAPIView(LoginRequiredMixin, View):
             
         estados_exitosos = ['ENVIADO', 'ENTREGADO', 'LEIDO']
         
-        envios_previos = DetalleEnvio.objects.filter(
-            contacto=OuterRef('pk'),
-            estado_meta__in=estados_exitosos
-        )
-        
         qs = qs.annotate(
-            ya_enviado=Exists(envios_previos)
-        ).values('pk', 'DNI', 'nombres_completos', 'telefono_whatsapp', 'ya_enviado')
+            conteo_envios_exitosos=Count(
+                'detalleenvio', 
+                filter=Q(detalleenvio__estado_meta__in=estados_exitosos)
+            )
+        ).values('pk', 'DNI', 'nombres_completos', 'telefono_whatsapp', 'conteo_envios_exitosos')
         
         return list(qs)
 
@@ -2271,7 +2272,6 @@ class HistorialEnviosJsonView(ListView):
             })
             
         return JsonResponse({'status': 'success', 'historialData': data})   
-
 
 class DetalleTareaJsonView(LoginRequiredMixin, View):
     """

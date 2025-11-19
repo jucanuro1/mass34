@@ -22,12 +22,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnRemoverTodos = document.getElementById('btn-remover-todos');
 
     let contactosData = []; 
+    // Asegúrate de que urlMensajeriaApi y urlIniciarEnvio estén definidos en tu template HTML
 
     // --- Funciones Auxiliares ---
 
     function toggleLoading(isLoading) {
         loadingSpinner.classList.toggle('hidden', !isLoading);
-        // Solo deshabilitamos fecha si estamos cargando fechas, no contactos
         if (isLoading && selectFecha.options.length <= 1) {
              selectFecha.disabled = true;
              selectFecha.classList.add('bg-gray-100');
@@ -38,7 +38,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateCounts() {
-        // Filtramos visualmente cuántos hay en la lista (excluyendo ocultos por filtro de búsqueda)
         let visiblesDisponibles = 0;
         Array.from(selectDisponibles.options).forEach(opt => {
             if (opt.style.display !== 'none') visiblesDisponibles++;
@@ -54,17 +53,100 @@ document.addEventListener('DOMContentLoaded', function() {
             btnEnviar.disabled = !(hasContacts && hasMessage); 
         }
     }
+
+    // 🟢 NUEVA FUNCIÓN: Manejo de Tooltip/Mini-detalle
+    function initTooltipHistorial() {
+        // Usamos selectDisponibles porque es donde cargamos los detalles
+        selectDisponibles.addEventListener('mousemove', handleTooltip);
+        selectDisponibles.addEventListener('mouseleave', hideTooltip);
+
+        // Creamos un div flotante para el tooltip (debe existir en el DOM o ser creado)
+        let tooltipDiv = document.getElementById('historial-tooltip');
+        if (!tooltipDiv) {
+            tooltipDiv = document.createElement('div');
+            tooltipDiv.id = 'historial-tooltip';
+            // Clases de Tailwind para estilo y ocultar por defecto
+            tooltipDiv.className = 'absolute z-50 p-2 text-xs bg-gray-800 text-white rounded shadow-xl pointer-events-none hidden max-w-xs transition-opacity duration-300';
+            document.body.appendChild(tooltipDiv);
+        }
+
+        function handleTooltip(e) {
+            const option = e.target;
+            // Solo actuar si el target es una opción y es elegible (no deshabilitado)
+            if (option.tagName === 'OPTION' && !option.disabled) {
+                const conteo = parseInt(option.getAttribute('data-conteo'));
+                
+                if (conteo > 0) {
+                    let content = `<p class="font-bold mb-1">Historial de Mensajes</p>`;
+                    content += `<p>Total de envíos exitosos: <span class="${conteo > 4 ? 'text-red-400' : 'text-green-400'}">${conteo}</span></p>`;
+                    content += `<p class="mt-1 text-gray-400">Selecciona para volver a enviar.</p>`;
+
+                    tooltipDiv.innerHTML = content;
+                    tooltipDiv.style.left = `${e.pageX + 10}px`;
+                    tooltipDiv.style.top = `${e.pageY + 10}px`;
+                    tooltipDiv.classList.remove('hidden');
+                } else {
+                    hideTooltip();
+                }
+            } else {
+                hideTooltip();
+            }
+        }
+
+        function hideTooltip() {
+            tooltipDiv.classList.add('hidden');
+        }
+    }
+
+    function renderizarListaContactos(lista) {
+        selectDisponibles.innerHTML = '';
+        selectElegidos.innerHTML = '';
+        let disponiblesCount = 0;
+        
+        lista.forEach(c => { 
+            const conteo = c.conteo_envios_exitosos || 0;
+            let badgeTexto = '';
+            let badgeClass = '';
+
+            if (conteo > 0) {
+                badgeTexto = `[${conteo} ENVÍO(S)] `;
+                
+                if (conteo === 1) {
+                    badgeClass = 'bg-yellow-50 text-yellow-800'; 
+                } else if (conteo < 5) {
+                    badgeClass = 'bg-blue-50 text-blue-800';
+                } else {
+                    badgeClass = 'bg-red-50 text-red-800 font-bold';
+                }
+            }
+
+            const displayText = `${badgeTexto}${c.nombres_completos} (${c.DNI})`; 
+            const option = new Option(displayText, c.DNI); // <-- 'option' queda definida aquí
+            
+            option.setAttribute('data-conteo', conteo);
+
+            if (conteo > 0) {
+                const classesToAdd = badgeClass.split(' ');
+                option.classList.add(...classesToAdd); 
+            }
+
+            selectDisponibles.add(option);
+            disponiblesCount++; 
+        }); 
+        
+
+        totalDisponiblesText.textContent = disponiblesCount;
+        updateCounts();
+    }
+
     
-    // --- FUNCIÓN 1: Cargar Fechas (Habilita el select) ---
     async function loadFechas() {
         const proceso = selectProceso.value;
         
-        // Resetear UI
         selectFecha.innerHTML = '<option value="">Cargando...</option>';
         selectFecha.disabled = true;
         selectFecha.classList.add('bg-gray-100');
         
-        // Limpiar contactos si cambia el proceso
         selectDisponibles.innerHTML = '';
         selectElegidos.innerHTML = '';
         totalDisponiblesText.textContent = '0';
@@ -87,13 +169,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.status === 'success') {
                 if (data.fechas && data.fechas.length > 0) {
                     data.fechas.forEach(fecha => {
-                        // Formateo simple de fecha para display (opcional)
                         const partes = fecha.split('-');
                         const fechaDisplay = `${partes[2]}/${partes[1]}/${partes[0]}`;
-                        const option = new Option(fechaDisplay, fecha); // text, value
+                        const option = new Option(fechaDisplay, fecha); 
                         selectFecha.add(option);
                     });
-                    selectFecha.disabled = false; // HABILITAR AQUI
+                    selectFecha.disabled = false; 
                     selectFecha.classList.remove('bg-gray-100');
                     selectFecha.classList.add('bg-white');
                 } else {
@@ -110,7 +191,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- FUNCIÓN 2: Cargar Contactos (La que te faltaba) ---
+    // --- FUNCIÓN 2: Cargar Contactos (Modificada para llamar a renderizarListaContactos) ---
     async function loadContactos() {
         const proceso = selectProceso.value;
         const fecha = selectFecha.value;
@@ -120,7 +201,6 @@ document.addEventListener('DOMContentLoaded', function() {
         contactosData = [];
         updateCounts();
 
-        // Actualizar inputs ocultos del formulario
         const inputProceso = document.getElementById('hidden-proceso-tipo');
         const inputFecha = document.getElementById('hidden-fecha-seleccionada');
         if(inputProceso) inputProceso.value = proceso;
@@ -139,26 +219,10 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (data.status === 'success') {
                 contactosData = data.contactos;
-                let disponiblesReales = 0;
                 
-                contactosData.forEach(c => {
-                    const displayText = `${c.nombres_completos} (${c.DNI}) - ${c.telefono_whatsapp}`; 
-                    const option = new Option(displayText, c.DNI); // Value es el DNI (o ID si prefieres)
-
-                    // Lógica visual para enviados
-                    if (c.ya_enviado) {
-                        option.text = `✅ (ENVIADO) ${displayText}`;
-                        option.disabled = true; 
-                        option.classList.add('text-gray-400', 'bg-gray-50', 'italic');
-                    } else {
-                        disponiblesReales++;
-                    }
-                    
-                    selectDisponibles.add(option);
-                });
-
-                totalDisponiblesText.textContent = disponiblesReales;
-                updateCounts();
+                // 🔴 USAMOS LA NUEVA FUNCIÓN PARA RENDERIZAR
+                renderizarListaContactos(contactosData);
+                
             } else {
                 alert('Error al cargar contactos: ' + data.message);
             }
@@ -173,10 +237,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- Funciones de Transferencia (Listbox) ---
     
     function transferOptions(sourceSelect, targetSelect) {
-        // Convertimos a array para evitar problemas al mover nodos vivos
         const selectedOptions = Array.from(sourceSelect.selectedOptions);
         selectedOptions.forEach(option => {
-            // No mover si está deshabilitado (ej. ya enviado)
             if (!option.disabled) {
                 targetSelect.appendChild(option);
                 option.selected = false; 
@@ -187,7 +249,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     function transferAllOptions(sourceSelect, targetSelect) {
         Array.from(sourceSelect.options).forEach(option => {
-            // Respetar filtro de búsqueda visible y estado disabled
             if (option.style.display !== 'none' && !option.disabled) {
                 targetSelect.appendChild(option);
                 option.selected = false;
@@ -202,7 +263,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const display = option.text.toLowerCase();
             option.style.display = display.includes(filterText) ? 'block' : 'none';
         });
-        // Actualizar contadores visuales tras filtrar
         updateCounts(); 
     }
 
@@ -227,13 +287,11 @@ document.addEventListener('DOMContentLoaded', function() {
     if (selectElegidos) selectElegidos.addEventListener('change', updateCounts);
     if (mensajeWhatsapp) mensajeWhatsapp.addEventListener('input', updateCounts);
     
-    // Manejo del Envío del Formulario
     const formEnvio = document.getElementById('form-envio-masivo');
     if (formEnvio) {
         formEnvio.addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            // Recolectar DNI/IDs de los elegidos
             const contactosAEnviar = Array.from(selectElegidos.options).map(opt => opt.value);
             const mensaje = mensajeWhatsapp.value.trim();
             const procesoFiltro = selectProceso.value;
@@ -244,7 +302,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 return; 
             }
             
-            // UI de Carga
             btnEnviar.disabled = true;
             const originalBtnText = btnEnviar.innerHTML;
             btnEnviar.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2 inline" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Iniciando...';
@@ -269,12 +326,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 formData.append('candidatos_seleccionados[]', dni); 
             });
             formData.append('mensaje_contenido', mensaje); 
+            // Si tenías campos de etapa, agrégalos aquí. Por ahora no son necesarios.
 
             try {
-                const response = await fetch(urlIniciarEnvio, { // Variable global definida en el template
+                const response = await fetch(urlIniciarEnvio, { 
                     method: 'POST',
                     headers: {
-                        'X-CSRFToken': getCookie('csrftoken'), // Asegúrate de tener la función getCookie
+                        'X-CSRFToken': getCookie('csrftoken'), 
                     },
                     body: formData,
                 });
@@ -287,7 +345,6 @@ document.addEventListener('DOMContentLoaded', function() {
                         progresoContainer.classList.add('bg-green-50', 'border-green-500', 'text-green-800');
                         progresoTexto.innerHTML = `✅ **Éxito:** ${result.message} <a href="#" id="link-ver-historial" class="underline font-bold ml-2">Ver historial</a>.`;
                         
-                        // Vincular el click del link generado dinámicamente
                         document.getElementById('link-ver-historial').addEventListener('click', (e) => {
                              e.preventDefault();
                              const btnHistorial = document.getElementById('btn-abrir-historial');
@@ -295,11 +352,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
                     }
                     
-                    // Limpiar selección
                     selectElegidos.innerHTML = ''; 
                     mensajeWhatsapp.value = ''; 
-                    // Recargar disponibles para actualizar marcas de "Enviado"
-                    loadContactos(); 
+                    loadContactos(); // Vuelve a cargar la lista para actualizar los estados de 'HISTORIAL PREVIO'
                     
                 } else {
                     throw new Error(result.message || 'Error desconocido');
@@ -323,7 +378,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Helper para CSRF (si no lo tienes global)
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -339,6 +393,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return cookieValue;
     }
 
-    // Inicializar conteos
+    // 🟢 INICIALIZACIÓN DE TOOLTIP
+    initTooltipHistorial();
     updateCounts();
 });
