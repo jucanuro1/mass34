@@ -1647,13 +1647,11 @@ class CandidatoAsistenciaListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         hoy = timezone.localdate()
 
-        # Claves de estado definitivas para el seguimiento
         VALID_ATTENDANCE_STATES = ['INICIADO', 'TEORIA', 'PRACTICA']
-        DEFAULT_STATE_SUPERVISOR = 'PRACTICA' # Solo se usa para la dependencia del supervisor
+        DEFAULT_STATE_SUPERVISOR = 'PRACTICA' 
         
         proceso_filter_q = Q(procesos__estado__in=VALID_ATTENDANCE_STATES)
         
-        # --- Lógica de Anotaciones ---
         latest_attendance = RegistroAsistencia.objects.filter(
             candidato=OuterRef('pk'),
             proceso__estado__in=VALID_ATTENDANCE_STATES
@@ -1677,7 +1675,6 @@ class CandidatoAsistenciaListView(LoginRequiredMixin, ListView):
             ultimo_registro_momento=Subquery(latest_attendance.values('momento_registro')[:1], output_field=models.DateTimeField()),
             asistencia_hoy=Subquery(asistencia_hoy, output_field=models.CharField())
         ).filter(
-            # FILTRO MANDATORIO: Muestra el total de candidatos en estados rastreables.
             procesos__estado__in=VALID_ATTENDANCE_STATES
         )
         
@@ -1685,22 +1682,15 @@ class CandidatoAsistenciaListView(LoginRequiredMixin, ListView):
         estado_filter = self.request.GET.get('estado')
         supervisor_filter = self.request.GET.get('supervisor')
         
-        # 1. LÓGICA ESPECIAL: SUPERVISOR (Total por defecto)
         if supervisor_filter: 
-            # Si se selecciona supervisor, se filtra y se fuerza el estado
             queryset = queryset.filter(
                 procesos__estado=DEFAULT_STATE_SUPERVISOR,
                 procesos__supervisor__pk=supervisor_filter
             )
         
-        # 2. LÓGICA DEL FILTRO DE ESTADO (Total por defecto)
         elif estado_filter:
-            # Si se selecciona un estado manual, se aplica
             queryset = queryset.filter(procesos__estado=estado_filter)
             
-        # 🔴 Si no hay filtros, se mantiene el queryset con el filtro MANDATORIO (mostrando el TOTAL).
-        
-        # 3. BÚSQUEDA
         if search_query:
             queryset = queryset.filter(
                 Q(DNI__icontains=search_query) | 
@@ -1723,8 +1713,6 @@ class CandidatoAsistenciaListView(LoginRequiredMixin, ListView):
 
         active_filters = self.request.GET.dict().copy()
         
-        # Solo seteamos 'PRACTICA' en el selector de estado si el filtro de supervisor está activo
-        # Esto asegura que en la carga inicial, active_filters['estado'] esté vacío, mostrando '-- Todos --'.
         if 'supervisor' in active_filters and active_filters.get('supervisor'):
             active_filters['estado'] = DEFAULT_STATE_SUPERVISOR
             
@@ -1732,7 +1720,6 @@ class CandidatoAsistenciaListView(LoginRequiredMixin, ListView):
         
         context['SUPERVISORES'] = Supervisor.objects.all().order_by('nombre')
         
-        # Uso de Proceso.ESTADOS_PROCESO para llenar el selector
         context['ESTADOS_CANDIDATO'] = [
             (key, label) for key, label in Proceso.ESTADOS_PROCESO 
             if key in VALID_ATTENDANCE_STATES
@@ -1837,9 +1824,14 @@ class RegistrarDocumentoView(LoginRequiredMixin, View):
             return HttpResponse(f"Error interno del servidor: {e}", status=500)
         
 class HistoryDetailView(LoginRequiredMixin, View):
+    """
+    Vista para obtener el historial detallado de un CANDIDATO específico (por DNI).
+    """
     def get(self, request, dni):
         try:
-            candidato = get_object_or_404(Candidato, DNI=dni)
+            # Usamos .get() directo para controlar la excepción DoesNotExist
+            candidato = Candidato.objects.get(DNI=dni)
+            
             procesos = candidato.procesos.all().order_by('-fecha_inicio')
             procesos_data = []
             
@@ -1866,14 +1858,16 @@ class HistoryDetailView(LoginRequiredMixin, View):
                         if ultima_momento else 'Sin registro'
                     )
                     
-                    documentos_totales = proceso.documentocandidato_set.count()
-                    proceso_detail['documentacion'] = f"{documentos_totales} documentos subidos"
+                    # Validaciones seguras de relaciones
+                    documentos_totales = getattr(proceso, 'documentocandidato_set', None)
+                    documentos_count = documentos_totales.count() if documentos_totales else 0
+                    proceso_detail['documentacion'] = f"{documentos_count} documentos subidos"
                     
-                    num_comentarios = proceso.comentarios.count()
-                    proceso_detail['num_comentarios'] = num_comentarios
+                    comentarios_rel = getattr(proceso, 'comentarios', None)
+                    proceso_detail['num_comentarios'] = comentarios_rel.count() if comentarios_rel else 0
                     
-                    num_tests = proceso.tests_registrados.count()
-                    proceso_detail['num_tests'] = num_tests
+                    tests_rel = getattr(proceso, 'tests_registrados', None)
+                    proceso_detail['num_tests'] = tests_rel.count() if tests_rel else 0
                     
                 procesos_data.append(proceso_detail)
 
@@ -1890,10 +1884,11 @@ class HistoryDetailView(LoginRequiredMixin, View):
             return JsonResponse(response_data)
 
         except Candidato.DoesNotExist:
-            return JsonResponse({'status': 'error', 'message': 'Candidato no encontrado.'}, status=404)
+            return JsonResponse({'status': 'error', 'message': f'Candidato con DNI {dni} no encontrado.'}, status=404)
+            
         except Exception as e:
             print(f"Error CRÍTICO en HistoryDetailView: {e}") 
-            return JsonResponse({'status': 'error', 'message': f'Error interno: {str(e)}. ¡Revisa el log de la terminal!'}, status=500)
+            return JsonResponse({'status': 'error', 'message': f'Error interno: {str(e)}'}, status=500)
 
 class OcultarCandidatosView(LoginRequiredMixin, View):
     def post(self, request, *args, **kwargs):
@@ -2130,17 +2125,14 @@ PROCESO_ESTADO_MAP = {
 
 class MensajeriaDashboardView(LoginRequiredMixin, TemplateView):
     """Renderiza la interfaz principal del módulo de mensajería."""
-    template_name = 'dashboard_mensajeria.html'
+    template_name = 'dashboard_mensajeria.html' # Ajusta a tu ruta real
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
         context['procesos_opciones'] = [
-            {'value': key, 'display': value} 
-            for key, value in PROCESO_ESTADO_MAP.items()
+            {'value': key, 'display': key.replace('_', ' ')} 
+            for key in PROCESO_ESTADO_MAP.keys()
         ]
-        
-        context['empresas'] = Empresa.objects.all() 
         
         return context
     
@@ -2151,42 +2143,54 @@ class MensajeriaAPIView(LoginRequiredMixin, View):
         accion = request.GET.get('accion')
         proceso_tipo = request.GET.get('proceso')
         
+        if not accion or not proceso_tipo:
+             return JsonResponse({'status': 'error', 'message': 'Faltan parámetros.'}, status=400)
+
         if proceso_tipo not in PROCESO_ESTADO_MAP:
             return JsonResponse({'status': 'error', 'message': 'Tipo de proceso no válido.'}, status=400)
         
-        estado = PROCESO_ESTADO_MAP[proceso_tipo]
+        estado_db = PROCESO_ESTADO_MAP[proceso_tipo]
         
-        if accion == 'get_fechas':
-            fechas_disponibles = self._get_fechas_disponibles(proceso_tipo, estado)
-            return JsonResponse({'status': 'success', 'fechas': fechas_disponibles})
+        try:
+            if accion == 'get_fechas':
+                fechas_disponibles = self._get_fechas_disponibles(proceso_tipo, estado_db)
+                return JsonResponse({'status': 'success', 'fechas': fechas_disponibles})
+            
+            elif accion == 'get_contactos':
+                fecha_str = request.GET.get('fecha')
+                if not fecha_str:
+                    return JsonResponse({'status': 'error', 'message': 'Falta la fecha.'}, status=400)
+                    
+                contactos = self._get_contactos_por_filtro(proceso_tipo, estado_db, fecha_str)
+                return JsonResponse({'status': 'success', 'contactos': contactos})
         
-        elif accion == 'get_contactos':
-            fecha_str = request.GET.get('fecha')
-            contactos = self._get_contactos_por_filtro(proceso_tipo, estado, fecha_str)
-            return JsonResponse({'status': 'success', 'contactos': contactos})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
         
-        return JsonResponse({'status': 'error', 'message': 'Acción no especificada.'}, status=400)
+        return JsonResponse({'status': 'error', 'message': 'Acción desconocida.'}, status=400)
 
-    def _get_fechas_disponibles(self, proceso_tipo, estado):
-        """Obtiene las fechas únicas de Candidatos (REGISTRADOS) o Proceso (otros)."""
-        
+    def _get_fechas_disponibles(self, proceso_tipo, estado_db):
+        """
+        Obtiene las fechas únicas disponibles para el estado seleccionado.
+        """
         if proceso_tipo == 'REGISTRADOS':
             fechas = Candidato.objects.filter(
-                estado_actual=estado, 
+                estado_actual=estado_db, #
                 kanban_activo=True, 
                 telefono_whatsapp__isnull=False 
-            ).order_by('-fecha_registro').values_list('fecha_registro', flat=True).distinct()
+            ).dates('fecha_registro', 'day', order='DESC') 
+            
         else:
+          
             fechas = Proceso.objects.filter(
-                estado=estado, 
+                estado=estado_db, 
                 candidato__telefono_whatsapp__isnull=False 
-            ).order_by('-fecha_inicio').values_list('fecha_inicio', flat=True).distinct()
+            ).dates('fecha_inicio', 'day', order='DESC')
             
         return [f.strftime('%Y-%m-%d') for f in fechas]
     
-    def _get_contactos_por_filtro(self, proceso_tipo, estado, fecha_str):
-        """Obtiene la lista de contactos (nombre, DNI, teléfono) para el filtro."""
-        
+    def _get_contactos_por_filtro(self, proceso_tipo, estado_db, fecha_str):
+        """Obtiene la lista de contactos y verifica si ya se les envió mensaje."""
         try:
             fecha_obj = date.fromisoformat(fecha_str)
         except ValueError:
@@ -2194,26 +2198,34 @@ class MensajeriaAPIView(LoginRequiredMixin, View):
             
         if proceso_tipo == 'REGISTRADOS':
             qs = Candidato.objects.filter(
-                estado_actual=estado,
+                estado_actual=estado_db,
                 fecha_registro=fecha_obj,
                 kanban_activo=True,
                 telefono_whatsapp__isnull=False
             )
         else:
             qs = Candidato.objects.filter(
-                procesos__estado=estado,
+                procesos__estado=estado_db,
                 procesos__fecha_inicio=fecha_obj,
                 telefono_whatsapp__isnull=False
             ).distinct()
             
-        contactos_list = list(qs.values('DNI', 'nombres_completos', 'telefono_whatsapp'))
+        estados_exitosos = ['ENVIADO', 'ENTREGADO', 'LEIDO']
         
-        return contactos_list
+        envios_previos = DetalleEnvio.objects.filter(
+            contacto=OuterRef('pk'),
+            estado_meta__in=estados_exitosos
+        )
+        
+        qs = qs.annotate(
+            ya_enviado=Exists(envios_previos)
+        ).values('pk', 'DNI', 'nombres_completos', 'telefono_whatsapp', 'ya_enviado')
+        
+        return list(qs)
 
 class HistorialEnviosJsonView(ListView):
     """
-    Retorna el historial de tareas de envío masivo en formato JSON, usando 
-    .values() para garantizar que no se ejecute ninguna lógica de Python.
+    API: Retorna la lista general de tareas para el Modal.
     """
     model = TareaEnvioMasivo
     
@@ -2231,36 +2243,65 @@ class HistorialEnviosJsonView(ListView):
             'fecha_inicio',
             'estado',
             'tasa_exito_db',
+            'proceso_tipo', 
             'mensaje_plantilla__titulo' 
-        )
+        ).order_by('-fecha_inicio')
 
-    def get_context_data(self, **kwargs):
+    def get(self, request, *args, **kwargs):
         object_list = self.get_queryset() 
         data = []
         
         for tarea in object_list:
-            
             tasa_exito_valor = round(tarea['tasa_exito_db'], 1) if tarea['total_contactos'] else 0.0
             
-            estado_display = TareaEnvioMasivo(estado=tarea['estado']).get_estado_display()
+            estado_obj = TareaEnvioMasivo(estado=tarea['estado'])
+            proceso_obj = TareaEnvioMasivo(proceso_tipo=tarea['proceso_tipo'])
             
             data.append({
                 'id': tarea['id'],
-                'proceso': tarea['mensaje_plantilla__titulo'],
+                'proceso': tarea['proceso_tipo'], 
+                'proceso_display': f"{proceso_obj.get_proceso_tipo_display()}", 
                 'fechaOrigen': tarea['fecha_origen'].strftime('%Y-%m-%d'),
                 'enviados': tarea['total_entregados'],
                 'total': tarea['total_contactos'],
                 'tasa_exito': tasa_exito_valor,
                 'fechaEnvio': timezone.localtime(tarea['fecha_inicio']).strftime('%d/%m/%Y %H:%M'),
-                'estado': estado_display, 
+                'estado': tarea['estado'], 
+                'estado_display': estado_obj.get_estado_display()
             })
             
-        return {'historialData': data} 
-    def render_to_response(self, context, **response_kwargs):
-        return JsonResponse(context)    
+        return JsonResponse({'status': 'success', 'historialData': data})   
+
+
+class DetalleTareaJsonView(LoginRequiredMixin, View):
+    """
+    API: Retorna la lista de personas (DetalleEnvio) de una Tarea específica.
+    Se llama cuando das click en el botón de 'ojo' en la tabla.
+    """
+    def get(self, request, tarea_id):
+        try:
+            detalles = DetalleEnvio.objects.filter(tarea_envio_id=tarea_id).select_related('contacto').order_by('estado_meta')
+            
+            data_detalles = []
+            for d in detalles:
+                nombre = d.contacto.nombres_completos if d.contacto else "Contacto Eliminado"
+                dni = d.contacto.DNI if d.contacto else "---"
+                
+                data_detalles.append({
+                    'dni': dni,
+                    'nombre': nombre,
+                    'telefono': d.telefono,
+                    'estado': d.get_estado_meta_display(),
+                    'estado_codigo': d.estado_meta, 
+                    'fecha_hora': timezone.localtime(d.fecha_envio).strftime('%H:%M:%S')
+                })
+            
+            return JsonResponse({'status': 'success', 'detalles': data_detalles})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 #ESTADOS_META = ['ENTREGADO', 'ENTREGADO', 'ENTREGADO', 'LEIDO', 'FALLIDO']
-ESTADOS_META_SIMULACION = ['ENTREGADO', 'ENTREGADO', 'ENTREGADO', 'LEIDO', 'FALLIDO']
+ESTADOS_META_SIMULACION = ['ENTREGADO', 'LEIDO', 'ENVIADO']
 def simular_tarea_celery(tarea_id, lista_candidatos_pks, mensaje_contenido_final):
     """
     Simulación de la función que Celery ejecutaría en segundo plano. 

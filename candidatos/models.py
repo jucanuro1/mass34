@@ -689,10 +689,10 @@ class DetalleEnvio(models.Model):
     )
     
     ESTADOS_META = [
-        ('ENVIADO', 'Enviado (a la cola de Meta)'),
-        ('ENTREGADO', 'Entregado (al dispositivo del usuario)'),
-        ('LEIDO', 'Leído (por el usuario)'),
-        ('FALLIDO', 'Fallido (error en el envío/número inválido)')
+        ('ENVIADO', 'Enviado'),
+        ('ENTREGADO', 'Entregado'),
+        ('LEIDO', 'Leído'),
+        ('FALLIDO', 'Fallido')
     ]
     estado_meta = models.CharField(
         max_length=15,

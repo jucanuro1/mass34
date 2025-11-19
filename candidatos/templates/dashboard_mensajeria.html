@@ -191,70 +191,63 @@
     </form>
 </div>
 <div id="modal-historial" class="fixed inset-0 bg-gray-900 bg-opacity-80 z-50 hidden transition-opacity duration-300 items-center justify-center">
-    <div class="bg-white rounded-xl shadow-3xl w-full max-w-6xl max-h-[95vh] overflow-y-auto transform scale-100 transition-transform duration-500">
+    <div class="bg-white rounded-xl shadow-3xl w-full max-w-6xl max-h-[95vh] overflow-y-auto transform scale-100 transition-transform duration-500 relative">
         
         <div class="sticky top-0 bg-white p-6 border-b border-red-600 flex justify-between items-center z-10">
             <h3 class="text-xl font-extrabold text-gray-900 flex items-center">
-                <svg class="w-8 h-8 mr-3 text-red-600" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-text">
-                    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
-                    <path d="M14 2v4a2 2 0 0 0 2 2h4"/>
-                    <path d="M10 9H8"/>
-                    <path d="M16 13H8"/>
-                    <path d="M16 17H8"/>
-                </svg>
+                <svg class="w-8 h-8 mr-3 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
                 Registro de Envíos Masivos
             </h3>
             <button id="btn-cerrar-historial" class="text-gray-400 hover:text-red-600 p-2 rounded-lg transition-colors">
-                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
         </div>
 
-        <div class="p-8 bg-gray-100 border-b">
-            <h4 class="text-base font-bold mb-4 text-gray-700 uppercase tracking-wider flex items-center">
-                <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sliders"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="2" x2="6" y1="14" y2="14"/><line x1="10" x2="14" y1="8" y2="8"/><line x1="18" x2="22" y1="16" y2="16"/></svg>
+        <div class="p-6 bg-gray-100 border-b">
+            <h4 class="text-sm font-bold mb-4 text-gray-700 uppercase tracking-wider flex items-center">
+                <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-3.414a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
                 Filtros de Auditoría
             </h4>
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <select id="select-proceso" name="proceso" 
-                    class="block w-full px-3 py-2 text-sm font-medium border border-gray-300 rounded-md bg-white appearance-none transition-colors 
-                    focus:ring-2 focus-ring-corp-red focus-border-corp-red">
-                    <option value="">— Seleccione Proceso —</option>
-                        {% for proceso in procesos_opciones %}
-                    <option value="{{ proceso.value }}">{{ proceso.display|capfirst }}</option>
-                    {% endfor %}
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                
+                <select id="filtro-proceso-historial" class="block w-full px-3 py-2 text-xs font-medium border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                    <option value="">TODOS los Procesos</option>
                 </select>
-                <select id="select-fecha" name="fecha" disabled
-                        class="block w-full px-3 py-2 text-sm font-medium border border-gray-300 rounded-md bg-gray-100 appearance-none transition-colors 
-                            focus:ring-2 focus-ring-corp-red focus-border-corp-red">
-                    <option value="">— Seleccione Fecha —</option>
+                
+                <select id="filtro-fecha-origen-historial" class="block w-full px-3 py-2 text-xs font-medium border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                    <option value="">Fecha Origen (Datos)</option>
                 </select>
-                <select id="filtro-mes-envio-historial" class="p-3 border border-gray-300 rounded-xl text-sm font-medium focus:ring-red-500 focus:border-red-500 transition-colors bg-white">
-                    <option value="">TODOS los Meses de Envío</option>
+
+                <div class="relative">
+                    <input type="date" id="filtro-fecha-envio-exacta" class="block w-full px-3 py-2 text-xs font-medium border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-600" title="Filtrar por fecha exacta de envío">
+                </div>
+                
+                <select id="filtro-mes-envio-historial" class="block w-full px-3 py-2 text-xs font-medium border border-gray-300 rounded-md bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                    <option value="">Mes de Envío</option>
                 </select>
-                <button id="btn-limpiar-filtros" class="p-3 bg-gray-300 hover:bg-red-600 hover:text-white text-gray-800 font-semibold rounded-xl text-sm transition-colors shadow-md active:scale-98">
-                    Restablecer Filtros
+                
+                <button id="btn-limpiar-filtros" class="w-full p-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold rounded-md text-xs transition-colors shadow-sm">
+                    Restablecer
                 </button>
             </div>
         </div>
 
-        <div class="p-8">
-            <div class="overflow-x-auto border border-gray-200 rounded-xl">
+        <div class="p-6">
+            <div class="overflow-x-auto border border-gray-200 rounded-xl shadow-sm">
                 <table id="tabla-historial" class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50 border-b-2 border-red-100">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-extrabold text-red-600 uppercase tracking-wider">ID de Tarea</th>
-                            <th class="px-6 py-3 text-left text-xs font-extrabold text-red-600 uppercase tracking-wider">Proceso & Origen</th>
-                            <th class="px-6 py-3 text-left text-xs font-extrabold text-red-600 uppercase tracking-wider">Volumen Total</th>
-                            <th class="px-6 py-3 text-left text-xs font-extrabold text-red-600 uppercase tracking-wider">Tasa de Éxito</th>
-                            <th class="px-6 py-3 text-left text-xs font-extrabold text-red-600 uppercase tracking-wider">Fecha de Envío</th>
-                            <th class="px-6 py-3 text-left text-xs font-extrabold text-red-600 uppercase tracking-wider">Estado</th>
+                            <th class="px-6 py-3 text-left text-xs font-extrabold text-gray-600 uppercase tracking-wider">ID</th>
+                            <th class="px-6 py-3 text-left text-xs font-extrabold text-gray-600 uppercase tracking-wider">Proceso / Origen</th>
+                            <th class="px-6 py-3 text-center text-xs font-extrabold text-gray-600 uppercase tracking-wider">Volumen</th>
+                            <th class="px-6 py-3 text-left text-xs font-extrabold text-gray-600 uppercase tracking-wider">Fecha Envío</th>
+                            <th class="px-6 py-3 text-center text-xs font-extrabold text-gray-600 uppercase tracking-wider">Estado</th>
+                            <th class="px-6 py-3 text-center text-xs font-extrabold text-gray-600 uppercase tracking-wider">Detalle</th>
                         </tr>
                     </thead>
                     <tbody id="historial-body" class="bg-white divide-y divide-gray-100">
                         <tr>
-                            <td colspan="6" class="p-10 text-center text-gray-500 font-medium bg-gray-50 rounded-b-xl">
-                                Cargando historial...
-                            </td>
+                            <td colspan="6" class="p-10 text-center text-gray-500 font-medium">Cargando historial...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -262,40 +255,71 @@
         </div>
     </div>
 </div>
+
+<div id="modal-detalles-envio" class="fixed inset-0 bg-black bg-opacity-50 z-[60] hidden items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col transform transition-all">
+        
+        <div class="flex justify-between items-center p-5 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+            <div>
+                <h4 class="text-lg font-bold text-gray-800 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                    Detalle de Destinatarios
+                </h4>
+                <p class="text-xs text-gray-500 mt-1" id="detalle-subtitulo">Cargando información...</p>
+            </div>
+            <button id="btn-cerrar-detalle" class="text-gray-400 hover:text-gray-700 bg-white border border-gray-200 hover:bg-gray-100 p-2 rounded-full transition shadow-sm">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+
+        <div class="p-0 overflow-y-auto flex-grow">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-100 sticky top-0 shadow-sm">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">DNI</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Nombre</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Teléfono</th>
+                        <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Hora</th>
+                        <th class="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="cuerpo-tabla-detalles" class="bg-white divide-y divide-gray-100 text-sm">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
+    // --- Variables Globales ---
     const urlMensajeriaApi = "{% url 'mensajeria_api' %}";
     const urlIniciarEnvio = "{% url 'iniciar_envio_masivo' %}"; 
-    const urlHistorialApi = "{% url 'api_historial_envios' %}";
+    const urlHistorialApi = "{% url 'api_historial_envios' %}"; 
+    const urlDetalleBase = "{% url 'api_detalle_tarea' 0 %}".slice(0, -2);
     
     let historialData = [];
+    
+    // --- DOM Elements (Historial) ---
     const historialBody = document.getElementById('historial-body');
-    const historialLoadingSpinner = document.getElementById('historial-loading-spinner'); 
     const modalHistorial = document.getElementById('modal-historial');
     const btnAbrirHistorial = document.getElementById('btn-abrir-historial');
     const btnCerrarHistorial = document.getElementById('btn-cerrar-historial');
+    
+    // --- Filtros Historial ---
     const filtroProceso = document.getElementById('filtro-proceso-historial');
     const filtroFechaOrigen = document.getElementById('filtro-fecha-origen-historial');
     const filtroMesEnvio = document.getElementById('filtro-mes-envio-historial');
+    const filtroFechaExacta = document.getElementById('filtro-fecha-envio-exacta'); 
     const btnLimpiarFiltros = document.getElementById('btn-limpiar-filtros');
 
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.startsWith(name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
-    const csrftoken = getCookie('csrftoken');
+    // --- DOM Elements (Detalle) ---
+    const modalDetalles = document.getElementById('modal-detalles-envio');
+    const cuerpoTablaDetalles = document.getElementById('cuerpo-tabla-detalles');
+    const btnCerrarDetalle = document.getElementById('btn-cerrar-detalle');
+
+    // --- FUNCIONES DEL HISTORIAL ---
 
     function populateFiltros() {
         const procesos = new Set();
@@ -303,8 +327,9 @@
         const mesesEnvio = new Set();
 
         historialData.forEach(envio => {
-            procesos.add(envio.proceso);
+            procesos.add(envio.proceso); 
             fechasOrigen.add(envio.fechaOrigen);
+            
             const partesFecha = envio.fechaEnvio.split(' ')[0].split('/');
             if (partesFecha.length === 3) {
                  mesesEnvio.add(`${partesFecha[1]}/${partesFecha[2]}`); 
@@ -313,43 +338,48 @@
 
         const fillSelect = (selectElement, set, label) => {
             const currentValue = selectElement.value;
-            selectElement.innerHTML = `<option value="">TODOS los ${label}</option>`;
+            selectElement.innerHTML = `<option value="">${label}</option>`;
             Array.from(set).sort().forEach(item => {
                 selectElement.add(new Option(item, item));
             });
             selectElement.value = currentValue; 
         };
 
-        fillSelect(filtroProceso, procesos, 'Procesos');
-        fillSelect(filtroFechaOrigen, fechasOrigen, 'Fechas Origen');
-        fillSelect(filtroMesEnvio, mesesEnvio, 'Meses de Envío');
+        fillSelect(filtroProceso, procesos, 'TODOS los Procesos');
+        fillSelect(filtroFechaOrigen, fechasOrigen, 'Fecha Origen');
+        fillSelect(filtroMesEnvio, mesesEnvio, 'Mes de Envío');
     }
 
     function renderHistorial() {
         if (!historialBody) return;
 
-        const procesoFiltro = filtroProceso.value;
-        const fechaOrigenFiltro = filtroFechaOrigen.value;
-        const mesEnvioFiltro = filtroMesEnvio.value;
+        const procVal = filtroProceso.value;
+        const fOriVal = filtroFechaOrigen.value;
+        const mesVal = filtroMesEnvio.value;
+        const fechaExactaVal = filtroFechaExacta.value; 
 
         let filteredData = historialData.filter(envio => {
-            const matchesProceso = !procesoFiltro || envio.proceso === procesoFiltro;
-            const matchesFechaOrigen = !fechaOrigenFiltro || envio.fechaOrigen === fechaOrigenFiltro;
-            const mesEnvioEnDato = envio.fechaEnvio.split(' ')[0].split('/').slice(1).join('/');
-            const matchesMesEnvio = !mesEnvioFiltro || mesEnvioEnDato.includes(mesEnvioFiltro);
-            return matchesProceso && matchesFechaOrigen && matchesMesEnvio;
+            const [fechaPart] = envio.fechaEnvio.split(' ');
+            const [dia, mes, ano] = fechaPart.split('/');
+            const fechaEnvioISO = `${ano}-${mes}-${dia}`; 
+
+            const matchProceso = !procVal || envio.proceso === procVal;
+            const matchOrigen = !fOriVal || envio.fechaOrigen === fOriVal;
+            const matchMes = !mesVal || `${mes}/${ano}` === mesVal;
+            const matchFechaExacta = !fechaExactaVal || fechaEnvioISO === fechaExactaVal;
+
+            return matchProceso && matchOrigen && matchMes && matchFechaExacta;
         });
 
         filteredData.sort((a, b) => b.id - a.id);
         
         historialBody.innerHTML = '';
-        const numColumns = 6; 
 
         if (filteredData.length === 0) {
             historialBody.innerHTML = `
-                <tr id="historial-vacio">
-                    <td colspan="${numColumns}" class="p-10 text-center text-gray-500 font-medium bg-gray-50 rounded-b-xl">
-                        No hay registros que coincidan con los filtros aplicados.
+                <tr>
+                    <td colspan="6" class="p-10 text-center text-gray-500 font-medium bg-gray-50 rounded-b-xl">
+                        No se encontraron resultados con los filtros actuales.
                     </td>
                 </tr>`;
             return;
@@ -357,38 +387,33 @@
 
         filteredData.forEach(envio => {
             const tasaExitoNum = (envio.enviados / envio.total) * 100;
-            const tasaExito = isNaN(tasaExitoNum) ? '0.0%' : `${tasaExitoNum.toFixed(1)}%`;
-            const tasaClass = tasaExitoNum > 90 ? 'text-green-600 font-extrabold' : 
-                                tasaExitoNum > 70 ? 'text-yellow-600 font-semibold' : 
-                                'text-red-600 font-semibold'; 
+            const tasaExito = isNaN(tasaExitoNum) ? '0%' : `${tasaExitoNum.toFixed(0)}%`;
+            const colorTasa = tasaExitoNum > 90 ? 'text-green-600' : (tasaExitoNum > 50 ? 'text-yellow-600' : 'text-red-600');
 
-            let estadoClass;
-            let estadoDisplay;
-            if (envio.estado === 'COMPLETADO') {
-                estadoClass = 'bg-green-100 text-green-800';
-                estadoDisplay = 'Completado';
-            } else if (envio.estado === 'EN_PROCESO') {
-                estadoClass = 'bg-blue-100 text-blue-800 animate-pulse';
-                estadoDisplay = 'En Proceso';
-            } else if (envio.estado === 'PENDIENTE') {
-                estadoClass = 'bg-yellow-100 text-yellow-800';
-                estadoDisplay = 'Pendiente';
-            } else {
-                estadoClass = 'bg-gray-100 text-gray-800';
-                estadoDisplay = envio.estado;
-            }
-            
+            let estadoBadge = `<span class="px-2 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-800">${envio.estado}</span>`;
+            if(envio.estado === 'COMPLETADO') estadoBadge = `<span class="px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-800">Completado</span>`;
+            else if(envio.estado === 'EN_PROCESO') estadoBadge = `<span class="px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 animate-pulse">En Proceso</span>`;
+            else if(envio.estado === 'PENDIENTE') estadoBadge = `<span class="px-2 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800">Pendiente</span>`;
+
             const row = `
-                <tr class="hover:bg-red-50 transition-colors">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">${envio.id}</td>
-                    <td class="px-6 py-4 text-sm text-gray-700">${envio.proceso} | <span class="text-gray-500">${envio.fechaOrigen}</span></td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">${envio.enviados} / ${envio.total}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm ${tasaClass}">${tasaExito}</td>
+                <tr class="hover:bg-gray-50 transition-colors border-b border-gray-100">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-500">#${envio.id}</td>
+                    <td class="px-6 py-4 text-sm text-gray-700">
+                        <div class="font-bold text-gray-900">${envio.proceso_display}</div>
+                        <div class="text-xs text-gray-400 mt-1">Datos del: ${envio.fechaOrigen}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                        <div class="text-sm font-bold text-gray-800">${envio.enviados} / ${envio.total}</div>
+                        <div class="text-xs ${colorTasa} font-bold mt-1">${tasaExito} éxito</div>
+                    </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">${envio.fechaEnvio}</td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-bold rounded-full ${estadoClass}">
-                            ${estadoDisplay}
-                        </span>
+                    <td class="px-6 py-4 whitespace-nowrap text-center">${estadoBadge}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                        <button onclick="verDetallesTarea(${envio.id})" 
+                                class="text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 p-2 rounded-full transition-all shadow-sm" 
+                                title="Ver lista de destinatarios">
+                            <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                        </button>
                     </td>
                 </tr>
             `;
@@ -397,11 +422,7 @@
     }
 
     async function loadHistorial() {
-        historialBody.innerHTML = ''; 
-        historialBody.innerHTML = `<tr><td colspan="6" class="p-10 text-center text-gray-500 font-medium">
-            <svg class="animate-spin h-5 w-5 mr-3 inline text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-            Cargando historial de envíos...
-            </td></tr>`;
+        historialBody.innerHTML = `<tr><td colspan="6" class="p-10 text-center text-gray-500 font-medium"><svg class="animate-spin h-5 w-5 mr-3 inline text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Cargando historial...</td></tr>`;
 
         try {
             const response = await fetch(urlHistorialApi); 
@@ -411,121 +432,111 @@
                 historialData = result.historialData; 
                 populateFiltros(); 
                 renderHistorial(); 
+            } else {
                 console.error("Error al cargar historial:", result);
-                historialBody.innerHTML = `
-                    <tr><td colspan="6" class="p-10 text-center text-red-500 font-medium bg-red-50 rounded-b-xl">
-                    Error al obtener datos del historial: ${result.message || 'Error desconocido'}.</td></tr>
-                `;
+                historialBody.innerHTML = `<tr><td colspan="6" class="p-10 text-center text-red-500 font-medium bg-red-50">Error: ${result.message || 'Error desconocido'}.</td></tr>`;
             }
         } catch (error) {
             console.error('Error de conexión:', error);
-            historialBody.innerHTML = `
-                <tr><td colspan="6" class="p-10 text-center text-red-500 font-medium bg-red-50 rounded-b-xl">Error de conexión con el servidor.</td></tr>
-            `;
+            historialBody.innerHTML = `<tr><td colspan="6" class="p-10 text-center text-red-500 font-medium bg-red-50">Error de conexión con el servidor.</td></tr>`;
         }
     }
 
-    btnAbrirHistorial.addEventListener('click', () => {
-        loadHistorial(); 
-        modalHistorial.classList.remove('hidden');
-        modalHistorial.style.display = 'flex';
-    });
-    btnCerrarHistorial.addEventListener('click', () => {
-        modalHistorial.classList.add('hidden');
-        modalHistorial.style.display = 'none';
-    });
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !modalHistorial.classList.contains('hidden')) {
+    async function verDetallesTarea(tareaId) {
+        modalDetalles.classList.remove('hidden');
+        modalDetalles.style.display = 'flex';
+        
+        const subtitulo = document.getElementById('detalle-subtitulo');
+        subtitulo.textContent = `Cargando datos de Tarea #${tareaId}...`;
+        
+        cuerpoTablaDetalles.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-gray-500"><svg class="animate-spin h-6 w-6 text-red-600 mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Obteniendo lista...</td></tr>`;
+
+        try {
+            const url = `${urlDetalleBase}${tareaId}/`;
+            
+            const response = await fetch(url);
+            
+            if (!response.ok) {
+                throw new Error(`Error del servidor: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                subtitulo.textContent = `Tarea #${tareaId} | ${data.detalles.length} destinatarios`;
+                cuerpoTablaDetalles.innerHTML = '';
+                
+                if (data.detalles.length === 0) {
+                    cuerpoTablaDetalles.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-gray-400 italic">No se encontraron registros detallados.</td></tr>`;
+                    return;
+                }
+
+                data.detalles.forEach(d => {
+                    let badgeClass = 'bg-gray-100 text-gray-600';
+                    if (['ENTREGADO', 'LEIDO'].includes(d.estado_codigo)) badgeClass = 'bg-green-100 text-green-700 border border-green-200';
+                    if (d.estado_codigo === 'ENVIADO') badgeClass = 'bg-blue-50 text-blue-700 border border-blue-100';
+                    if (d.estado_codigo === 'FALLIDO') badgeClass = 'bg-red-50 text-red-700 border border-red-100';
+
+                    const row = `
+                        <tr class="hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0">
+                            <td class="px-6 py-3 font-mono text-gray-600 text-xs">${d.dni}</td>
+                            <td class="px-6 py-3 font-medium text-gray-800">${d.nombre}</td>
+                            <td class="px-6 py-3 text-gray-600 font-mono text-xs">${d.telefono}</td>
+                            <td class="px-6 py-3 text-gray-500 text-xs">${d.fecha_hora}</td>
+                            <td class="px-6 py-3 text-center">
+                                <span class="px-2 py-1 rounded-full text-[10px] uppercase font-bold tracking-wide ${badgeClass}">${d.estado}</span>
+                            </td>
+                        </tr>
+                    `;
+                    cuerpoTablaDetalles.insertAdjacentHTML('beforeend', row);
+                });
+            } else {
+                cuerpoTablaDetalles.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500 font-medium">Error lógico: ${data.message}</td></tr>`;
+            }
+        } catch (error) {
+            console.error(error);
+            cuerpoTablaDetalles.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500 font-medium">Error de conexión: ${error.message}</td></tr>`;
+        }
+    }
+
+    
+    if (btnAbrirHistorial) {
+        btnAbrirHistorial.addEventListener('click', () => {
+            loadHistorial();
+            modalHistorial.classList.remove('hidden');
+            modalHistorial.style.display = 'flex';
+        });
+    }
+    
+    if (btnCerrarHistorial) {
+        btnCerrarHistorial.addEventListener('click', () => {
             modalHistorial.classList.add('hidden');
             modalHistorial.style.display = 'none';
-        }
-    });
+        });
+    }
+
+    if (btnCerrarDetalle) {
+        btnCerrarDetalle.addEventListener('click', () => {
+            modalDetalles.classList.add('hidden');
+            modalDetalles.style.display = 'none';
+        });
+    }
+    
     filtroProceso.addEventListener('change', renderHistorial);
     filtroFechaOrigen.addEventListener('change', renderHistorial);
     filtroMesEnvio.addEventListener('change', renderHistorial);
-    btnLimpiarFiltros.addEventListener('click', () => {
-        filtroProceso.value = '';
-        filtroFechaOrigen.value = '';
-        filtroMesEnvio.value = '';
-        renderHistorial();
-    });
-
-    document.addEventListener('DOMContentLoaded', () => {
-        const filtroProceso = document.getElementById('select-proceso');
-        const selectElegidos = document.getElementById('select-elegidos');
-        const totalResumen = document.getElementById('total-seleccionados-resumen');
-
-        const updateSelectedCount = () => {
-            if (selectElegidos && totalResumen) {
-                totalResumen.textContent = selectElegidos.options.length;
-            }
-        };
-
-        if (selectElegidos) {
-            new MutationObserver(updateSelectedCount).observe(selectElegidos, { childList: true });
-            updateSelectedCount();
-        }
-        selectProceso.addEventListener('change', async function() {
-        const proceso = this.value;
-        
-        // Limpiar y deshabilitar el select de fecha mientras se carga
-        selectFecha.innerHTML = '<option value="">— Cargando Fechas... —</option>';
-        selectFecha.disabled = true;
-
-        if (proceso) {
-            const apiUrl = `/api/mensajeria/?accion=get_fechas&proceso=${proceso}`;
-            
-            try {
-                // Asume que makeApiCall maneja fetch y devuelve los datos JSON
-                const response = await fetch(apiUrl);
-                const data = await response.json();
-
-                if (data.status === 'success') {
-                    // Limpiar el select de fecha para nuevos datos
-                    selectFecha.innerHTML = '<option value="">— Seleccione Fecha —</option>';
-                    
-                    if (data.fechas && data.fechas.length > 0) {
-                        data.fechas.forEach(fecha => {
-                            const option = document.createElement('option');
-                            option.value = fecha;
-                            // Puedes formatear la fecha para mostrarla mejor al usuario
-                            option.textContent = formatearFechaDisplay(fecha); 
-                            selectFecha.appendChild(option);
-                        });
-                        selectFecha.disabled = false;
-                        selectFecha.classList.remove('bg-gray-100');
-                        selectFecha.classList.add('bg-white');
-                    } else {
-                        selectFecha.innerHTML = '<option value="">— No hay fechas disponibles —</option>';
-                    }
-                    
-                } else {
-                    console.error('Error al obtener fechas:', data.message);
-                    selectFecha.innerHTML = '<option value="">— Error al cargar fechas —</option>';
-                }
-
-            } catch (error) {
-                console.error('Error de red al obtener fechas:', error);
-                selectFecha.innerHTML = '<option value="">— Error de red —</option>';
-            }
-        } else {
-            // Si no se selecciona un proceso, limpiar y deshabilitar fechas
-            selectFecha.innerHTML = '<option value="">— Seleccione Fecha —</option>';
-        }
-    });
-
-    // Función auxiliar para mostrar la fecha más legible (opcional)
-    function formatearFechaDisplay(fechaISO) {
-        try {
-            const parts = fechaISO.split('-');
-            if (parts.length === 3) {
-                return `${parts[2]}/${parts[1]}/${parts[0]}`; // DD/MM/YYYY
-            }
-        } catch (e) {
-            return fechaISO;
-        }
+    filtroFechaExacta.addEventListener('change', renderHistorial); 
+    
+    if (btnLimpiarFiltros) {
+        btnLimpiarFiltros.addEventListener('click', () => {
+            filtroProceso.value = '';
+            filtroFechaOrigen.value = '';
+            filtroMesEnvio.value = '';
+            filtroFechaExacta.value = '';
+            renderHistorial();
+        });
     }
-    });
+
 </script>
 <script src="{% static 'js/mensajeria_masiva.js' %}"></script>
 {% endblock %}
