@@ -37,7 +37,7 @@ ROOT_URLCONF = 'projectmass34.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'templates')], # Directorio de templates global (si existe)
+        'DIRS': [os.path.join(BASE_DIR, 'templates')], 
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -84,3 +84,8 @@ LOGIN_URL = '/login/'
 SECRET_KEY = '' 
 DEBUG = False
 ALLOWED_HOSTS = []
+
+WHATSAPP_API_VERSION = 'v19.0' 
+WHATSAPP_API_URL = f'https://graph.facebook.com/{WHATSAPP_API_VERSION}/'
+WHATSAPP_PHONE_ID = '96582358756' 
+WHATSAPP_ACCESS_TOKEN = 'TU_TOKEN_TEMPORAL_DE_24_HORAS'

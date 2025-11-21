@@ -54,25 +54,20 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // 🟢 NUEVA FUNCIÓN: Manejo de Tooltip/Mini-detalle
     function initTooltipHistorial() {
-        // Usamos selectDisponibles porque es donde cargamos los detalles
         selectDisponibles.addEventListener('mousemove', handleTooltip);
         selectDisponibles.addEventListener('mouseleave', hideTooltip);
 
-        // Creamos un div flotante para el tooltip (debe existir en el DOM o ser creado)
         let tooltipDiv = document.getElementById('historial-tooltip');
         if (!tooltipDiv) {
             tooltipDiv = document.createElement('div');
             tooltipDiv.id = 'historial-tooltip';
-            // Clases de Tailwind para estilo y ocultar por defecto
             tooltipDiv.className = 'absolute z-50 p-2 text-xs bg-gray-800 text-white rounded shadow-xl pointer-events-none hidden max-w-xs transition-opacity duration-300';
             document.body.appendChild(tooltipDiv);
         }
 
         function handleTooltip(e) {
             const option = e.target;
-            // Solo actuar si el target es una opción y es elegible (no deshabilitado)
             if (option.tagName === 'OPTION' && !option.disabled) {
                 const conteo = parseInt(option.getAttribute('data-conteo'));
                 
@@ -121,7 +116,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             const displayText = `${badgeTexto}${c.nombres_completos} (${c.DNI})`; 
-            const option = new Option(displayText, c.DNI); // <-- 'option' queda definida aquí
+            const option = new Option(displayText, c.DNI); 
             
             option.setAttribute('data-conteo', conteo);
 
@@ -160,7 +155,6 @@ document.addEventListener('DOMContentLoaded', function() {
         toggleLoading(true);
 
         try {
-            // Usa la variable global urlMensajeriaApi definida en el template
             const response = await fetch(`${urlMensajeriaApi}?accion=get_fechas&proceso=${proceso}`);
             const data = await response.json();
             
@@ -191,7 +185,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- FUNCIÓN 2: Cargar Contactos (Modificada para llamar a renderizarListaContactos) ---
     async function loadContactos() {
         const proceso = selectProceso.value;
         const fecha = selectFecha.value;
@@ -220,7 +213,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.status === 'success') {
                 contactosData = data.contactos;
                 
-                // 🔴 USAMOS LA NUEVA FUNCIÓN PARA RENDERIZAR
                 renderizarListaContactos(contactosData);
                 
             } else {
@@ -234,7 +226,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- Funciones de Transferencia (Listbox) ---
     
     function transferOptions(sourceSelect, targetSelect) {
         const selectedOptions = Array.from(sourceSelect.selectedOptions);
@@ -266,7 +257,6 @@ document.addEventListener('DOMContentLoaded', function() {
         updateCounts(); 
     }
 
-    // --- Event Listeners ---
 
     if (selectProceso) {
         selectProceso.addEventListener('change', loadFechas);
@@ -326,7 +316,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 formData.append('candidatos_seleccionados[]', dni); 
             });
             formData.append('mensaje_contenido', mensaje); 
-            // Si tenías campos de etapa, agrégalos aquí. Por ahora no son necesarios.
 
             try {
                 const response = await fetch(urlIniciarEnvio, { 
@@ -354,7 +343,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     
                     selectElegidos.innerHTML = ''; 
                     mensajeWhatsapp.value = ''; 
-                    loadContactos(); // Vuelve a cargar la lista para actualizar los estados de 'HISTORIAL PREVIO'
+                    loadContactos(); 
                     
                 } else {
                     throw new Error(result.message || 'Error desconocido');
@@ -393,7 +382,6 @@ document.addEventListener('DOMContentLoaded', function() {
         return cookieValue;
     }
 
-    // 🟢 INICIALIZACIÓN DE TOOLTIP
     initTooltipHistorial();
     updateCounts();
 });

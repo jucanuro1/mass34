@@ -7,6 +7,7 @@ import locale
 from django.shortcuts import redirect
 from random import choice, randint
 from django.core.exceptions import ObjectDoesNotExist
+from .utils.whatsapp_api import enviar_mensaje_whatsapp
 
 import pandas as pd
 import re
@@ -1725,12 +1726,28 @@ class CandidatoAsistenciaListView(LoginRequiredMixin, ListView):
             if key in VALID_ATTENDANCE_STATES
         ] 
         
-        hoy = timezone.localdate()
-        conteo_global = RegistroAsistencia.objects.filter(
-            momento_registro__date=hoy
-        ).exclude(estado=None).values('estado').annotate(count=Count('estado', distinct=True)) 
+        # INICIO DE LA SOLUCIÓN: CÁLCULO DEL CONTEO GLOBAL DE REGISTROS (A, T, F)
         
-        conteo_dict = {item['estado']: item['count'] for item in conteo_global}
+        # 1. Obtener los DNI de los candidatos activos (Usa DNI, no 'id')
+        candidato_dnies_activos = Candidato.objects.filter(
+            procesos__estado__in=VALID_ATTENDANCE_STATES
+        ).values_list('DNI', flat=True)
+
+        # 2. Realizar la agregación de TOTALES de registros sobre el modelo RegistroAsistencia
+        conteo_global_registros = RegistroAsistencia.objects.filter(
+            candidato__DNI__in=candidato_dnies_activos
+        ).aggregate(
+            A=Count('pk', filter=Q(estado='A')), 
+            T=Count('pk', filter=Q(estado='T')), 
+            F=Count('pk', filter=Q(estado='F')),
+        )
+        
+        conteo_dict = {
+            'A': conteo_global_registros.get('A', 0),
+            'T': conteo_global_registros.get('T', 0),
+            'F': conteo_global_registros.get('F', 0),
+        }
+        # FIN DE LA SOLUCIÓN
         
         context['FASES_ASISTENCIA'] = RegistroAsistencia.FASE_ASISTENCIA 
         context['MOVIMIENTO_MAP'] = dict(RegistroAsistencia.TIPO_MOVIMIENTO) 
@@ -2602,6 +2619,66 @@ class CandidatoPracticaSupervisorListView(ListView):
         context = super().get_context_data(**kwargs)
         
         context['active_filters'] = self.request.GET.copy()
-        
 
         return context
+
+def iniciar_envio_mensajes(request):
+    if request.method == 'POST':
+        candidatos_dnies = request.POST.getlist('candidatos_seleccionados[]')
+        mensaje_contenido = request.POST.get('mensaje_contenido')
+        
+        resultados_envio = []
+
+        for dni in candidatos_dnies:
+            try:
+                candidato = Candidato.objects.get(DNI=dni)
+                telefono = candidato.telefono_whatsapp
+                
+                resultado_api = enviar_mensaje_whatsapp(telefono, mensaje_contenido)
+                
+                if resultado_api['success']:
+                    DetalleEnvio.objects.create(
+                        contacto=candidato,
+                        mensaje=mensaje_contenido,
+                        estado_meta='ACEPTADO', 
+                        whatsapp_message_id=resultado_api['data']['messages'][0]['id']
+                    )
+                    resultados_envio.append({'dni': dni, 'status': 'Éxito', 'msg': 'Aceptado por Meta'})
+                else:
+                    DetalleEnvio.objects.create(
+                        contacto=candidato,
+                        mensaje=mensaje_contenido,
+                        estado_meta='ERROR_API',
+                    )
+                    resultados_envio.append({'dni': dni, 'status': 'Error', 'msg': resultado_api['message']})
+
+            except Candidato.DoesNotExist:
+                resultados_envio.append({'dni': dni, 'status': 'Error', 'msg': 'Candidato no encontrado'})
+            except Exception as e:
+                resultados_envio.append({'dni': dni, 'status': 'Error', 'msg': f'Error interno: {e}'})
+
+        return JsonResponse({
+            'success': True,
+            'message': f"Envío masivo iniciado. Se procesaron {len(candidatos_dnies)} contactos.",
+            'details': resultados_envio
+        }, status=200)
+
+    return JsonResponse({'success': False, 'message': 'Método no permitido.'}, status=405)
+
+
+WEBHOOK_VERIFY_TOKEN = 'TU_TOKEN_SECRETO_PARA_WEBHOOKS' 
+class WhatsappWebhookView(View):
+
+    def get(self, request, *args, **kwargs):
+
+        mode = request.GET.get('hub.mode')
+        token = request.GET.get('hub.verify_token')
+        challenge = request.GET.get('hub.challenge')
+
+        if mode == 'subscribe' and token == WEBHOOK_VERIFY_TOKEN:
+            return HttpResponse(challenge, status=200)
+        else:
+            return HttpResponse("Fallo en la verificación o token incorrecto.", status=403)
+
+    def post(self, request, *args, **kwargs):
+        return HttpResponse(status=200)

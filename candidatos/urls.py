@@ -60,4 +60,7 @@ urlpatterns = [
     # Esta es la URL que llama el JS del modal. Ahora ya no choca con nada.
     path('api/mensajeria/historial-data/', views.HistorialEnviosJsonView.as_view(), name='api_historial_envios'),
     path('api/historial/detalle/<int:tarea_id>/', views.DetalleTareaJsonView.as_view(), name='api_detalle_tarea'),
+
+    # Es la url para manejar los estados post envío
+    path('api/whatsapp/webhook/', views.WhatsappWebhookView.as_view(), name='whatsapp_webhook'),
 ]

@@ -191,19 +191,19 @@
     </form>
 </div>
 <div id="modal-historial" class="fixed inset-0 bg-gray-900 bg-opacity-80 z-50 hidden transition-opacity duration-300 items-center justify-center">
-    <div class="bg-white rounded-xl shadow-3xl w-full max-w-6xl max-h-[95vh] overflow-y-auto transform scale-100 transition-transform duration-500 relative">
+    <div class="bg-white rounded-xl shadow-3xl w-full max-w-6xl max-h-[95vh] flex flex-col overflow-hidden transform scale-100 transition-transform duration-500 relative">
         
-        <div class="sticky top-0 bg-white p-6 border-b border-red-600 flex justify-between items-center z-10">
+        <div class="bg-white p-6 border-b border-red-600 flex justify-between items-center z-10 flex-shrink-0">
             <h3 class="text-xl font-extrabold text-gray-900 flex items-center">
                 <svg class="w-8 h-8 mr-3 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
                 Registro de Envíos Masivos
             </h3>
-            <button id="btn-cerrar-historial" class="text-gray-400 hover:text-red-600 p-2 rounded-lg transition-colors">
+            <button id="btn-cerrar-historial" class="p-2 rounded-full text-gray-600 bg-gray-100 hover:bg-red-600 hover:text-white transition duration-200 transform active:scale-95">
                 <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
         </div>
 
-        <div class="p-6 bg-gray-100 border-b">
+        <div class="p-6 bg-gray-100 border-b flex-shrink-0">
             <h4 class="text-sm font-bold mb-4 text-gray-700 uppercase tracking-wider flex items-center">
                 <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-3.414a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
                 Filtros de Auditoría
@@ -232,10 +232,10 @@
             </div>
         </div>
 
-        <div class="p-6">
+        <div class="p-6 overflow-y-auto flex-grow">
             <div class="overflow-x-auto border border-gray-200 rounded-xl shadow-sm">
                 <table id="tabla-historial" class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50 border-b-2 border-red-100">
+                    <thead class="bg-gray-50 border-b-2 border-red-100 sticky top-0 z-5">
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-extrabold text-gray-600 uppercase tracking-wider">ID</th>
                             <th class="px-6 py-3 text-left text-xs font-extrabold text-gray-600 uppercase tracking-wider">Proceso / Origen</th>
