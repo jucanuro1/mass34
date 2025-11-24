@@ -3,7 +3,7 @@
 {% block title %}Dashboard | +34 Elite{% endblock %}
 
 {% block content %}
-<div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-4">
     
     <header class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center border-b border-gray-100 pb-4">
     
@@ -14,7 +14,6 @@
             </h1>
 
             <div class="hidden sm:flex items-center space-x-3 border-l border-gray-200 pl-6">
-                
                 <a href="{% url 'registro_candidato' %}" 
                 title="Registro Rápido de Candidato"
                 class="btn-icon-red flex items-center justify-center p-3">
@@ -30,7 +29,6 @@
                         <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07L13 7"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07L11 17"/>
                     </svg>
                 </a>
-
                 <div class="relative flex items-center bg-gray-100 border border-gray-200 rounded-full p-1 shadow-sm">
                     {% url 'registro_publico_completo' as public_registration_path %}
                     {% with request.scheme as scheme %}
@@ -48,7 +46,7 @@
                                 </svg>
                                 
                                 <span id="copy-message" 
-                                    class="absolute -top-10 px-3 py-1 text-xs whitespace-nowrap bg-green-500 text-white rounded-full 
+                                    class="absolute -top-6 px-3 py-1 text-xs whitespace-nowrap bg-green-500 text-white rounded-full 
                                             opacity-0 pointer-events-none transition-opacity duration-300">
                                     ¡Copiado! ✅
                                 </span>
@@ -100,9 +98,8 @@
             {% endfor %}
         </div>
     {% endif %}
-
-    <div class="mb-8 bg-white rounded-xl shadow-2xl overflow-hidden border border-gray-100/80 transition-all duration-300"> 
-        <div class="p-5 flex justify-between items-center bg-gray-50 hover:bg-gray-100 cursor-pointer select-none border-b border-gray-100" 
+    <div class="mb-4 bg-white rounded-xl shadow-2xl overflow-hidden border border-gray-100/80 transition-all duration-300"> 
+        <div class="p-3 flex justify-between items-center bg-gray-50 hover:bg-gray-100 cursor-pointer select-none border-b border-gray-100" 
             id="toggle-header">
             <h2 class="text-xl font-medium text-gray-800 flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3 text-red-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
@@ -737,7 +734,6 @@
     </div>
 </div>
 {% endblock content %}
-
 
 {% block extra_js %}
         <script>

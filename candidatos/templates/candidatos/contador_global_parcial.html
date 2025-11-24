@@ -1,20 +1,20 @@
-<div id="contador-global" class="mb-8">
-    <div class="flex justify-around bg-white p-5 rounded-xl shadow-2xl ring-1 ring-gray-100">
+<div id="contador-global" class="mb-4">
+    <div class="flex justify-around bg-white p-4 rounded-xl shadow-2xl ring-1 ring-gray-100">
         <div class="text-center">
             <p class="text-xs font-semibold uppercase text-gray-500 tracking-widest mb-1">Total Candidatos</p>
-            <p class="text-3xl font-extrabold text-gray-900">{{ total_candidatos|default:0 }}</p>
+            <p class="text-2xl font-extrabold text-gray-900">{{ total_candidatos|default:0 }}</p>
         </div>
         <div class="text-center">
             <p class="text-xs font-semibold uppercase text-green-600 tracking-widest mb-1">Asistencias (A)</p>
-            <p class="text-3xl font-extrabold text-green-600">{{ conteo_asistencias.A|default:0 }}</p>
+            <p class="text-2xl font-extrabold text-green-600">{{ conteo_asistencias.A|default:0 }}</p>
         </div>
         <div class="text-center">
             <p class="text-xs font-semibold uppercase text-yellow-600 tracking-widest mb-1">Tardanzas (T)</p>
-            <p class="text-3xl font-extrabold text-yellow-600">{{ conteo_asistencias.T|default:0 }}</p>
+            <p class="text-2xl font-extrabold text-yellow-600">{{ conteo_asistencias.T|default:0 }}</p>
         </div>
         <div class="text-center">
             <p class="text-xs font-semibold uppercase text-red-600 tracking-widest mb-1">Faltas (F)</p>
-            <p class="text-3xl font-extrabold text-red-600">{{ conteo_asistencias.F|default:0 }}</p>
+            <p class="text-2xl font-extrabold text-red-600">{{ conteo_asistencias.F|default:0 }}</p>
         </div>
     </div>
 </div>

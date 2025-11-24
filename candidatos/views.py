@@ -537,136 +537,234 @@ class CandidatoSearchView(View):
 
 class AsistenciaDiariaCheckView(View):
     """
-    Verifica si un candidato específico tiene un registro de asistencia para el día de hoy, 
-    permitiendo la búsqueda por DNI o Teléfono/WhatsApp.
+    REGISTRA la asistencia (Entrada/Salida) manteniendo la compatibilidad 
+    con los campos 'estado' y 'estado_asistencia', y corrigiendo la puntualidad.
     """
-    def get(self, request, *args, **kwargs):
-        query_value = request.GET.get('dni') or request.GET.get('q')
-        hoy = date.today()
+    def post(self, request, *args, **kwargs):
+        query_value = request.POST.get('dni') or request.POST.get('q') 
         
         if not query_value:
-            return JsonResponse({'asistencia_registrada': False, 'candidato_encontrado': False}, status=400)
+            return JsonResponse({'success': False, 'message': 'No se proporcionó valor de búsqueda.'}, status=400)
             
         normalized_query = re.sub(r'\D', '', query_value).strip()
-
         if not normalized_query:
-            return JsonResponse({'asistencia_registrada': False, 'candidato_encontrado': False, 'message': 'Consulta vacía después de la normalización.'}, status=400)
+            return JsonResponse({'success': False, 'message': 'Consulta inválida.'}, status=400)
 
+        zona_horaria_servidor = timezone.get_current_timezone()
+        momento_registro = timezone.localtime(timezone.now(), timezone=zona_horaria_servidor)
+        hoy_date = momento_registro.date()
+        
         try:
             candidato = Candidato.objects.filter(
                 Q(DNI=normalized_query) | Q(telefono_whatsapp=normalized_query)
             ).first() 
             
             if not candidato:
-                return JsonResponse({'asistencia_registrada': False, 'candidato_encontrado': False}, status=200)
+                return JsonResponse({'success': False, 'message': f'Candidato no encontrado.'}, status=200)
+
+            proceso_activo = candidato.procesos.filter(
+                ~Q(estado__in=['CONTRATADO', 'NO_APTO', 'ABANDONO'])
+            ).order_by('-fecha_inicio').first()
+            
+            if not proceso_activo:
+                return JsonResponse({'success': False, 'message': f'Candidato {candidato.DNI} sin Proceso ACTIVO.'}, status=200)
+
+            
+            def get_aware_time(h, m):
+                naive_time = datetime.combine(hoy_date, time(h, m))
+                return make_aware(naive_time, zona_horaria_servidor) 
+
+            hora_limite_entrada = get_aware_time(7, 0) 
+            hora_limite_tardanza = get_aware_time(14, 0) 
+            
+            
+            
+            entrada_hoy_exists = RegistroAsistencia.objects.filter(
+                proceso=proceso_activo,
+                momento_registro__date=hoy_date,
+                movimiento='ENTRADA' 
+            ).exists()
+            
+            msg_accion = ""
+            estado_final = 'A' 
+            registrado_por_user = request.user if request.user.is_authenticated else None
 
 
-            proceso_activo = Proceso.objects.filter(candidato=candidato).order_by('-pk').first()
+            if entrada_hoy_exists:
+                movimiento = 'SALIDA'
+                
+                if momento_registro < hora_limite_tardanza:
+                    msg_accion = "⚠️ Se registró la SALIDA, pero fue TEMPRANO (antes de 14:00)."
+                else:
+                    msg_accion = "✅ Salida registrada con éxito."
 
-            if proceso_activo:
-                asistencia_existe = RegistroAsistencia.objects.filter(
-                    proceso=proceso_activo,
-                    fecha=hoy
-                ).exists()
-
-                return JsonResponse({
-                    'asistencia_registrada': asistencia_existe,
-                    'candidato_encontrado': True,
-                    'dni': candidato.DNI,  
-                    'proceso_id': proceso_activo.pk 
-                })
             else:
-                return JsonResponse({'asistencia_registrada': False, 'candidato_encontrado': True, 'dni': candidato.DNI, 'proceso_id': None})
+                movimiento = 'ENTRADA'
+                
+                if momento_registro >= hora_limite_tardanza:
+                    estado_final = 'F'
+                    msg_accion = "❌ Registro FALLIDO: Es después de las 14:00 y no hay ENTRADA previa. Se marca como FALTA."
+                
+                elif momento_registro > hora_limite_entrada:
+                    estado_final = 'T' 
+                    msg_accion = "⚠️ Entrada registrada como TARDE."
+                
+                else:
+                    estado_final = 'A' 
+                    msg_accion = "✅ Entrada registrada como PUNTUAL."
+            
+                        
+            FASE_MAP = {
+                'INICIADO': 'CONVOCADO', 'TEORIA': 'TEORIA', 'PRACTICA': 'PRACTICA',
+            }
+            fase_asistencia = FASE_MAP.get(proceso_activo.estado, 'CONVOCADO')
+            
+            registro = RegistroAsistencia.objects.create(
+                proceso=proceso_activo, 
+                
+                estado_asistencia=estado_final, 
+                estado=estado_final, 
+                movimiento=movimiento, 
+                fase_actual=fase_asistencia, 
+                registrado_por=registrado_por_user,
+                momento_registro=momento_registro
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Registro para {candidato.nombres_completos} ({candidato.DNI}): {msg_accion}',
+                'dni': candidato.DNI,
+                'movimiento': movimiento,
+                'estado': estado_final
+            }, status=200)
 
         except Exception as e:
-            return JsonResponse({'error': f'Error interno: {e}'}, status=500)
+            return JsonResponse({'success': False, 'error': f'Error interno crítico en el servidor: {e}'}, status=500)
 
 @csrf_exempt 
 @require_http_methods(["POST"])
 @transaction.atomic
 def registrar_asistencia_rapida(request):
     """
-    Recibe los datos POST del modal (AJAX) para registrar la asistencia y devuelve JSON.
+    Registra asistencia (solo ENTRADA/SALIDA). CALCULA EL MOVIMIENTO automáticamente,
+    corrige la clasificación de estados y mantiene la compatibilidad de campos.
     """
+    from datetime import datetime, time
+    from django.utils.timezone import make_aware, get_current_timezone
+    from django.db.models import Q
+    
     if not request.user.is_authenticated:
         return JsonResponse(
             {'success': False, 'message': 'Fallo de autenticación. Sesión expirada. Recargue la página.'}, 
             status=403
         )
 
+    zona_horaria_servidor = get_current_timezone()
+    momento_registro = timezone.localtime(timezone.now(), timezone=zona_horaria_servidor)
+    hoy = momento_registro.date()
+    
     try:
         proceso_id = request.POST.get('proceso_id')
         fase_actual_key = request.POST.get('fase_actual') 
-        movimiento = request.POST.get('movimiento')      
-        estado_asistencia = request.POST.get('estado_asistencia', 'A') 
         
-        if not all([proceso_id, fase_actual_key, movimiento]):
+        if not all([proceso_id, fase_actual_key]):
             return JsonResponse(
                 {'success': False, 'message': "Error de datos: Faltan campos obligatorios para el registro."}, 
                 status=400
             )
 
-        # 3. Obtener el proceso
         proceso = Proceso.objects.get(pk=proceso_id)
-        candidato_nombre = proceso.candidato.nombres_completos
-        hoy = timezone.localdate()
+        candidato = proceso.candidato
+        candidato_nombre = candidato.nombres_completos
         mensaje_exito = "" 
-        
-        
-        if movimiento == 'REGISTRO':
-            registro_existente_hoy = RegistroAsistencia.objects.filter(
-                proceso=proceso,
-                fase_actual=fase_actual_key,
-                momento_registro__date=hoy
-            ).exclude(movimiento__in=['ENTRADA', 'SALIDA']).exists()
+        estado_final = 'A'
 
-            if registro_existente_hoy:
-                return JsonResponse(
-                    {'success': False, 'message': f"⚠️ El candidato ya tiene registrada la asistencia ÚNICA para hoy en la fase {fase_actual_key}."}, 
-                    status=409
-                )
+        def get_aware_time(h, m):
+            naive_time = datetime.combine(hoy, time(h, m))
+            return make_aware(naive_time, zona_horaria_servidor) 
         
-        elif movimiento in ['ENTRADA', 'SALIDA'] and fase_actual_key == 'PRACTICA':
-            ultimo_registro_hoy = RegistroAsistencia.objects.filter(
-                proceso=proceso, 
-                fase_actual='PRACTICA', 
-                momento_registro__date=hoy
-            ).order_by('-momento_registro').first()
+        
+        falta_existente_hoy = RegistroAsistencia.objects.filter(
+            proceso=proceso,
+            momento_registro__date=hoy,
+            estado='F' 
+        ).exists()
+        
+        if falta_existente_hoy:
+            return JsonResponse({
+                'success': False, 
+                'message': f'⚠️ El candidato {candidato_nombre} ya fue marcado como **FALTA** hoy. Contacte a soporte para corregir el estado.'
+            }, status=409)
+
+
+        entrada_registro = RegistroAsistencia.objects.filter(
+            proceso=proceso,
+            momento_registro__date=hoy,
+            movimiento='ENTRADA' 
+        ).first()
+
+        salida_hoy_exists = RegistroAsistencia.objects.filter(
+            proceso=proceso,
+            momento_registro__date=hoy,
+            movimiento='SALIDA' 
+        ).exists()
+
+        if entrada_registro is None:
+            movimiento = 'ENTRADA'
+
+            hora_limite_entrada = get_aware_time(7, 0)
+            hora_limite_tardanza = get_aware_time(14, 0) # 2:00 PM
             
-            if movimiento == 'ENTRADA' and ultimo_registro_hoy and ultimo_registro_hoy.movimiento == 'ENTRADA':
-                hora_registro = timezone.localtime(ultimo_registro_hoy.momento_registro).strftime('%H:%M')
-                return JsonResponse(
-                    {'success': False, 'message': f"❌ Error: Ya marcó ENTRADA hoy a las {hora_registro}."}, 
-                    status=409
-                )
+            if momento_registro >= hora_limite_tardanza:
+                estado_final = 'F'
+                mensaje_exito = f"❌ Registro de ENTRADA FALLIDO (> 14:00). Marcado como **FALTA**."
+            elif momento_registro > hora_limite_entrada:
+                estado_final = 'T' 
+                mensaje_exito = f"⚠️ ENTRADA registrada para {candidato_nombre} como TARDE."
+            else:
+                estado_final = 'A'
+                mensaje_exito = f"🟢 ENTRADA registrada para {candidato_nombre} como PUNTUAL."
 
-            if movimiento == 'SALIDA' and (not ultimo_registro_hoy or ultimo_registro_hoy.movimiento == 'SALIDA'):
-                return JsonResponse(
-                    {'success': False, 'message': "❌ Error: Debe marcar ENTRADA antes de marcar SALIDA."}, 
-                    status=409
-                )
+        elif entrada_registro is not None and not salida_hoy_exists:
+            movimiento = 'SALIDA'
+            
+            estado_final = entrada_registro.estado
+            
+            hora_limite_salida = get_aware_time(14, 0)
+            
+            if momento_registro < hora_limite_salida:
+                mensaje_exito = f"⚠️ SALIDA registrada para {candidato_nombre} antes de la hora límite (14:00). Se considera Salida Temprana."
+            else:
+                mensaje_exito = f"✅ SALIDA registrada para {candidato_nombre} a tiempo. ¡Fin de Jornada!"
+
+        else: 
+             return JsonResponse({
+                'success': False, 
+                'message': f'⛔ El candidato {candidato_nombre} ya tiene registrado su ciclo de ENTRADA/SALIDA completo para hoy.'
+            }, status=409)
 
         RegistroAsistencia.objects.create(
             proceso=proceso,
+            candidato=candidato,
             fase_actual=fase_actual_key,
             movimiento=movimiento,
-            estado_asistencia=estado_asistencia,
+            
+            estado_asistencia=estado_final,
+            estado=estado_final,
+            
             registrado_por=request.user,
-            momento_registro=timezone.now()
+            momento_registro=momento_registro
         )
         
+        
+        # 5. Lógica de Avance de Proceso (se mantiene si es necesaria)
         if proceso.estado == 'INICIADO' and fase_actual_key == 'CONVOCADO':
             proceso.estado = 'TEORIA' 
             proceso.save()
+            # Si avanza a TEORIA, el mensaje de éxito es más relevante que el de asistencia simple
             mensaje_exito = f"🎉 ¡Asistencia Registrada y Avance! {candidato_nombre} ha avanzado a la fase de TEORÍA."
             
-        elif movimiento == 'REGISTRO':
-            mensaje_exito = f"✅ Asistencia Única para {candidato_nombre} en fase {fase_actual_key} registrada."
-        elif movimiento == 'ENTRADA':
-            mensaje_exito = f"🟢 ENTRADA registrada para {candidato_nombre}."
-        elif movimiento == 'SALIDA':
-            mensaje_exito = f"🔴 SALIDA registrada para {candidato_nombre}. ¡Fin de Jornada!"
-
+        # 6. Respuesta final
         return JsonResponse({'success': True, 'message': mensaje_exito})
 
     except Proceso.DoesNotExist:
@@ -747,7 +845,7 @@ def asistencia_dashboard(request):
                 'fase_proceso_key': fase_proceso,
                 'movimiento_requerido': movimiento_requerido,
                 'requiere_entrada_salida': requiere_entrada_salida,
-                'ultimo_registro': ultimo_registro_str, # Se envía el string formateado
+                'ultimo_registro': ultimo_registro_str, 
             })
 
         except Candidato.DoesNotExist:
@@ -1040,7 +1138,16 @@ class RegistroPublicoCompletoView(View):
         if not (telefono_whatsapp and telefono_whatsapp.isdigit() and len(telefono_whatsapp) == 9):
             messages.error(request, 'El número de teléfono (WhatsApp) debe tener exactamente 9 dígitos y contener solo números.')
             return redirect('registro_publico_completo')
-            
+
+        edad_int = int(edad)
+        try:
+            if edad_int > 35:
+                messages.error(request, '❌ Por favor, **leer los requisitos** de postulación publicados para poder continuar')
+                return redirect('registro_publico_completo')
+        except ValueError:
+            messages.error(request, 'La edad debe ser un número entero.')
+            return redirect('registro_publico_completo')
+        
         try:
              sede_seleccionada = Sede.objects.get(pk=sede_id_seleccionada)
         except Sede.DoesNotExist:
@@ -1726,14 +1833,10 @@ class CandidatoAsistenciaListView(LoginRequiredMixin, ListView):
             if key in VALID_ATTENDANCE_STATES
         ] 
         
-        # INICIO DE LA SOLUCIÓN: CÁLCULO DEL CONTEO GLOBAL DE REGISTROS (A, T, F)
-        
-        # 1. Obtener los DNI de los candidatos activos (Usa DNI, no 'id')
         candidato_dnies_activos = Candidato.objects.filter(
             procesos__estado__in=VALID_ATTENDANCE_STATES
         ).values_list('DNI', flat=True)
 
-        # 2. Realizar la agregación de TOTALES de registros sobre el modelo RegistroAsistencia
         conteo_global_registros = RegistroAsistencia.objects.filter(
             candidato__DNI__in=candidato_dnies_activos
         ).aggregate(
@@ -1747,7 +1850,6 @@ class CandidatoAsistenciaListView(LoginRequiredMixin, ListView):
             'T': conteo_global_registros.get('T', 0),
             'F': conteo_global_registros.get('F', 0),
         }
-        # FIN DE LA SOLUCIÓN
         
         context['FASES_ASISTENCIA'] = RegistroAsistencia.FASE_ASISTENCIA 
         context['MOVIMIENTO_MAP'] = dict(RegistroAsistencia.TIPO_MOVIMIENTO) 
@@ -2317,7 +2419,6 @@ class DetalleTareaJsonView(LoginRequiredMixin, View):
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
-#ESTADOS_META = ['ENTREGADO', 'ENTREGADO', 'ENTREGADO', 'LEIDO', 'FALLIDO']
 ESTADOS_META_SIMULACION = ['ENTREGADO', 'LEIDO', 'ENVIADO']
 def simular_tarea_celery(tarea_id, lista_candidatos_pks, mensaje_contenido_final):
     """
@@ -2483,12 +2584,13 @@ def registrar_asistencia_htmx(request, candidato_pk):
 
     try:
         candidato = get_object_or_404(Candidato, pk=candidato_pk)
-        
         data = json.loads(request.body)
-        nuevo_estado_post = data.get('asistencia', 'F') 
         
-        movimiento = 'ENTRADA' 
         registrado_por_user = request.user if request.user.is_authenticated else None
+        momento_registro = timezone.now() 
+        zona_horaria_servidor = timezone.get_current_timezone()
+        momento_registro_aware = timezone.localtime(momento_registro, timezone=zona_horaria_servidor)
+        hoy_date = momento_registro_aware.date()
         
         proceso_activo = candidato.procesos.filter(
             ~Q(estado__in=['CONTRATADO', 'NO_APTO', 'ABANDONO'])
@@ -2497,22 +2599,73 @@ def registrar_asistencia_htmx(request, candidato_pk):
         if not proceso_activo:
             return JsonResponse({'success': False, 'error': f'Candidato {candidato_pk} sin Proceso ACTIVO.'}, status=400)
         
-        momento_registro = timezone.now() 
-        estado_final = nuevo_estado_post
+        falta_existente_hoy = RegistroAsistencia.objects.filter(
+            proceso=proceso_activo,
+            momento_registro__date=hoy_date,
+            estado='F' 
+        ).exists()
         
-        if nuevo_estado_post == 'A':
-            limite_str = getattr(settings, 'HORA_LIMITE_ASISTENCIA', '07:00')
-            limite_hora, limite_minuto = map(int, limite_str.split(':'))
+        if falta_existente_hoy:
+            return JsonResponse({
+                'success': False, 
+                'error': f'⚠️ El candidato {candidato.nombres_completos} ya fue marcado como **FALTA** hoy. Contacte a soporte para corregir el estado.'
+            }, status=200)
+
+        entrada_hoy = RegistroAsistencia.objects.filter(
+            proceso=proceso_activo,
+            momento_registro__date=hoy_date,
+            movimiento='ENTRADA' 
+        ).first() 
+        
+        salida_hoy_exists = RegistroAsistencia.objects.filter(
+            proceso=proceso_activo,
+            momento_registro__date=hoy_date,
+            movimiento='SALIDA' 
+        ).exists()
+        
+        msg_accion = ""
+        
+        
+        if entrada_hoy and not salida_hoy_exists:
+            movimiento = 'SALIDA'
+            estado_final = entrada_hoy.estado 
             
-            hoy_date = momento_registro.date()
-            hora_limite_naive = datetime.combine(hoy_date, time(limite_hora, limite_minuto))
-            hora_limite_aware = make_aware(hora_limite_naive, get_current_timezone())
+            limite_salida_str = '14:00'
+            limite_hora_salida, limite_minuto_salida = map(int, limite_salida_str.split(':'))
+            hora_limite_salida_aware = make_aware(datetime.combine(hoy_date, time(limite_hora_salida, limite_minuto_salida)), get_current_timezone())
             
-            if momento_registro > hora_limite_aware:
+            if momento_registro_aware < hora_limite_salida_aware:
+                msg_accion = "⚠️ Salida registrada antes de la hora límite (14:00). Se considera Salida Temprana."
+            else:
+                msg_accion = "✅ Salida registrada a tiempo (14:00 o después). Fin de Jornada."
+
+        elif entrada_hoy and salida_hoy_exists:
+            return JsonResponse({
+                'success': False, 
+                'error': f'⛔ El candidato {candidato.nombres_completos} ya tiene registrado su ciclo de ENTRADA/SALIDA completo para hoy.'
+            }, status=200)
+
+        else: 
+            movimiento = 'ENTRADA'
+            
+            limite_entrada_str = getattr(settings, 'HORA_LIMITE_ASISTENCIA', '07:00')
+            limite_hora_entrada, limite_minuto_entrada = map(int, limite_entrada_str.split(':'))
+            
+            hora_limite_aware = make_aware(datetime.combine(hoy_date, time(limite_hora_entrada, limite_minuto_entrada)), get_current_timezone())
+            hora_limite_tardanza_aware = make_aware(datetime.combine(hoy_date, time(14, 0)), get_current_timezone())
+
+            
+            if momento_registro_aware > hora_limite_tardanza_aware:
+                estado_final = 'F' 
+                msg_accion = "❌ Registro de ENTRADA FALLIDO (> 14:00). Marcado como **FALTA**." 
+            elif momento_registro_aware > hora_limite_aware:
                 estado_final = 'T' 
+                msg_accion = "⚠️ Asistencia registrada como TARDE."
             else:
                 estado_final = 'A' 
-
+                msg_accion = "✅ Asistencia registrada como PUNTUAL."
+            
+        
         FASE_MAP = {
             'INICIADO': 'CONVOCADO', 'TEORIA': 'TEORIA', 'PRACTICA': 'PRACTICA',
             'CONTRATADO': 'PRACTICA', 'NO_APTO': 'PRACTICA', 'ABANDONO': 'PRACTICA',
@@ -2521,15 +2674,17 @@ def registrar_asistencia_htmx(request, candidato_pk):
 
         registro = RegistroAsistencia.objects.create(
             proceso=proceso_activo, 
+            candidato=candidato,
+            estado_asistencia=estado_final, 
             estado=estado_final, 
+            
             movimiento=movimiento, 
             fase_actual=fase_asistencia, 
             registrado_por=registrado_por_user,
-            momento_registro=momento_registro
+            momento_registro=momento_registro 
         )
-    
+            
         proceso_filter_q = ~Q(procesos__estado__in=['CONTRATADO', 'NO_APTO', 'ABANDONO'])
-
         candidato_actualizado = Candidato.objects.filter(pk=candidato_pk).annotate(
             total_registros=Count('procesos__registroasistencia', filter=proceso_filter_q),
             total_tardanzas=Count('procesos__registroasistencia', filter=Q(procesos__registroasistencia__estado='T') & proceso_filter_q),
@@ -2537,26 +2692,14 @@ def registrar_asistencia_htmx(request, candidato_pk):
             total_asistencias_puntuales=Count('procesos__registroasistencia', filter=Q(procesos__registroasistencia__estado='A') & proceso_filter_q),
         ).first()
 
-        msg = ""
         if candidato_actualizado:
-            # 🟢 SOLUCIÓN: ASEGURAR QUE LA PK ESTÉ PRESENTE PARA EL TEMPLATE ID
             setattr(candidato_actualizado, 'pk', candidato_pk) 
-            
             setattr(candidato_actualizado, 'asistencia_hoy', estado_final) 
             setattr(candidato_actualizado, 'ultimo_registro', registro)
             setattr(candidato_actualizado, 'ultimo_registro_momento', registro.momento_registro)
             setattr(candidato_actualizado, 'ultima_fase', fase_asistencia)
             setattr(candidato_actualizado, 'ultimo_movimiento', movimiento)
             
-            if estado_final == 'A':
-                msg = "✅ Asistencia registrada como PUNTUAL."
-            elif estado_final == 'T':
-                msg = "⚠️ Asistencia registrada como TARDE."
-            else: 
-                msg = "❌ Asistencia registrada como FALTA."
-
-        hoy_date = momento_registro.date()
-        
         conteo_asistencias_query = RegistroAsistencia.objects.filter(
             momento_registro__date=hoy_date,
         ).exclude(proceso__estado__in=['CONTRATADO', 'NO_APTO', 'ABANDONO']).values('estado').annotate(
@@ -2583,9 +2726,8 @@ def registrar_asistencia_htmx(request, candidato_pk):
             'success': True,
             'fila_html': fila_html,
             'contador_html': contador_html,
-            'mensaje': msg
+            'mensaje': msg_accion 
         })
-
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'error': 'Formato JSON inválido.'}, status=400)
     except Exception as e:
@@ -2664,7 +2806,6 @@ def iniciar_envio_mensajes(request):
         }, status=200)
 
     return JsonResponse({'success': False, 'message': 'Método no permitido.'}, status=405)
-
 
 WEBHOOK_VERIFY_TOKEN = 'TU_TOKEN_SECRETO_PARA_WEBHOOKS' 
 class WhatsappWebhookView(View):

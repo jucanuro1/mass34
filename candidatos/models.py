@@ -319,8 +319,7 @@ class RegistroAsistencia(models.Model):
     
     TIPO_MOVIMIENTO = [
         ('ENTRADA', 'Entrada'),
-        ('SALIDA', 'Salida'),
-        ('REGISTRO', 'Registro Único') 
+        ('SALIDA', 'Salida')
     ]
 
     estado_asistencia = models.CharField(
@@ -336,7 +335,7 @@ class RegistroAsistencia(models.Model):
         related_name='registros_creados'
     )
 
-    movimiento = models.CharField(max_length=8, choices=TIPO_MOVIMIENTO, default='REGISTRO')
+    movimiento = models.CharField(max_length=8, choices=TIPO_MOVIMIENTO, default='ENTRADA')
 
     FASE_ASISTENCIA = [
         ('CONVOCADO', 'Convocado'),
@@ -373,8 +372,6 @@ class RegistroAsistencia(models.Model):
             return 'text-green-600 bg-green-100' 
         elif self.movimiento == 'SALIDA':
             return 'text-red-600 bg-red-100'   
-        elif self.movimiento == 'REGISTRO':
-            return 'text-yellow-700 bg-yellow-100' 
         
         return 'text-gray-500 bg-gray-100'
 
