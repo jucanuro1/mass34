@@ -98,8 +98,9 @@ class Candidato(models.Model):
     )
 
     ESTADOS = [
-        ('REGISTRADO', 'Registrado (Primer Contacto)'),
-        ('CONVOCADO', 'Convocado (Segundo Contacto)'),
+        ('REGISTRADO', 'Registrado'),
+        ('CONVOCADO', 'Convocado'),
+        ('CONFIRMADO', 'Confirmado'),
         ('CAPACITACION_TEORICA', 'En Capacitación Teórica'),
         ('CAPACITACION_PRACTICA', 'En Capacitación Práctica'),
         ('NO_APTO', 'No Apto (Descarte por rendimiento)'),
@@ -229,7 +230,6 @@ class DatosCualificacion(models.Model):
     def __str__(self):
         return f"Cualificación de {self.candidato.nombres_completos}"
     
-
 class Proceso(models.Model):
     candidato = models.ForeignKey(
         'Candidato', 
@@ -245,14 +245,17 @@ class Proceso(models.Model):
     kanban_activo = models.BooleanField(default=True)
 
     ESTADOS_PROCESO = [
-        ('INICIADO', 'Iniciado/Confirmado'),
+        ('CONVOCADO', 'Convocado'),
+        ('CONFIRMADO', 'Confirmado'),
         ('TEORIA', 'Capacitación Teórica'),
         ('PRACTICA', 'Capacitación Práctica'),
         ('CONTRATADO', 'Contratado'),
         ('NO_APTO', 'No Apto (No cumple pruebas/objetivos)'),
         ('ABANDONO', 'Abandono/Deserción')
     ]
-    estado = models.CharField(max_length=15, choices=ESTADOS_PROCESO, default='INICIADO')
+    estado = models.CharField(max_length=15, choices=ESTADOS_PROCESO, default='CONVOCADO')
+
+    fecha_confirmado =models.CharField(null=True,blank=True, help_text="Fecha en el que el cadidato pasó a Confirmado")
 
     fecha_teorico = models.DateField(
         null=True, blank=True,
@@ -287,6 +290,9 @@ class Proceso(models.Model):
                 pass 
 
         current_date = date.today() 
+
+        if self.estado == 'CONFIRMADO' and old_estado != 'CONFIRMADO' and not self.fecha_confirmado:
+            self.fecha_confirmado = current_date
         
         if self.estado == 'TEORIA' and old_estado != 'TEORIA' and not self.fecha_teorico:
             self.fecha_teorico = current_date
@@ -304,7 +310,6 @@ class Proceso(models.Model):
 
     class Meta:
         unique_together = ('candidato', 'fecha_inicio', 'empresa_proceso')
-
 
 class RegistroAsistencia(models.Model):
     proceso = models.ForeignKey('Proceso', on_delete=models.CASCADE)
@@ -339,6 +344,7 @@ class RegistroAsistencia(models.Model):
 
     FASE_ASISTENCIA = [
         ('CONVOCADO', 'Convocado'),
+        ('CONFIRMADO', 'Confirmado'),
         ('TEORIA', 'Capacitación Teórica'),
         ('PRACTICA', 'Capacitación Práctica (OJT)'),
     ]
@@ -375,7 +381,6 @@ class RegistroAsistencia(models.Model):
         
         return 'text-gray-500 bg-gray-100'
 
-
 class ComentarioProceso(models.Model):
     """
     Registra observaciones o comentarios sobre un candidato durante una fase de su proceso.
@@ -392,7 +397,7 @@ class ComentarioProceso(models.Model):
     fase_proceso = models.CharField(
         max_length=150, 
         choices=Proceso.ESTADOS_PROCESO, 
-        default='INICIADO',
+        default='CONVOCADO',
         help_text="Fase del proceso en el momento del registro del comentario."
     )
     
@@ -419,7 +424,6 @@ class ComentarioProceso(models.Model):
         verbose_name = "Comentario de Proceso"
         verbose_name_plural = "Comentarios de Procesos"
         ordering = ['-fecha_registro'] 
-
 
 class RegistroTest(models.Model):
     """
@@ -600,7 +604,9 @@ class TareaEnvioMasivo(models.Model):
         ('GLOBAL', 'Envío Global/Múltiples Estados'),
         ('REGISTRADO', 'Registrado (Primer Contacto)'), 
         ('CONVOCADO', 'Convocado (Segundo Contacto)'),
+        ('CONFIRMADO', 'Confirmado'),
         ('CAPACITACION_TEORICA', 'En Capacitación Teórica'),
+        ('CONTRATADO','Contratado')
     ]
     proceso_tipo = models.CharField(
         max_length=50, 

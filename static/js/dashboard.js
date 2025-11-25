@@ -15,16 +15,13 @@ const STATUS_KEY_REGISTRADO = 'REGISTRADO';
 const STATUS_MAP = {
     'column-REGISTRADO': 'REGISTRADO',
     'column-CONVOCADO': 'CONVOCADO',
+    'column-CONFIRMADO': 'CONFIRMADO',
     'column-CAPACITACION_TEORICA': 'CAPACITACION_TEORICA',
-    'column-CAPACITACION_PRACTICA': 'CAPACITACION_PRACTICA',
+    'column-OJT': 'CAPACITACION_PRACTICA',
     'column-CONTRATADO': 'CONTRATADO'
 };
     
 let selectedCards = []; 
-
-// ====================================================================
-// A. GESTIÓN DE SELECCIÓN DE TARJETAS (MODIFICADO)
-// ====================================================================
 
 function toggleCardSelection(cardElement) {
     const dni = cardElement.getAttribute('data-dni');
@@ -33,10 +30,10 @@ function toggleCardSelection(cardElement) {
     if (cardElement.classList.contains('dragging')) return;
 
     if (cardElement.classList.contains('selected')) {
-        cardElement.classList.remove('selected', 'border-4', 'border-blue-500', 'ring-2', 'ring-blue-500'); 
+        cardElement.classList.remove('selected', 'border-4', 'border-sky-700', 'ring-2', 'ring-sky-700'); 
         selectedCards = selectedCards.filter(card => card.dni !== dni);
     } else {
-        cardElement.classList.add('selected', 'border-4', 'border-blue-500', 'ring-2', 'ring-blue-500');
+        cardElement.classList.add('selected', 'border-4', 'border-sky-700', 'ring-2', 'ring-sky-700');
         selectedCards.push({ dni: dni, proceso_id: procesoId });
     }
     
@@ -44,10 +41,6 @@ function toggleCardSelection(cardElement) {
     
     console.log(`Tarjetas seleccionadas: ${selectedCards.length}`, selectedCards);
 }
-
-// --------------------------------------------------------------------
-// B. DRAG & DROP
-// --------------------------------------------------------------------
 
 function allowDrop(event) {
     event.preventDefault();
@@ -70,7 +63,7 @@ function drag(event) {
         event.dataTransfer.setData("text/dnis", JSON.stringify(selectedCards.map(c => c.dni)));
         
         const dragImage = document.createElement('div');
-        dragImage.className = 'bg-blue-600 text-white p-2 rounded-lg shadow-xl font-bold';
+        dragImage.className = 'bg-sky-700 text-white p-2 rounded-lg shadow-xl font-bold';
         dragImage.textContent = `Moviendo ${selectedCards.length} candidatos`;
         document.body.appendChild(dragImage);
         event.dataTransfer.setDragImage(dragImage, 10, 10);
@@ -205,9 +198,7 @@ function triggerMassAction(targetStatus) {
     clearSelection();
 }
 
-// --------------------------------------------------------------------
-// C. GESTIÓN CENTRALIZADA DE LA SELECCIÓN Y BOTÓN
-// --------------------------------------------------------------------
+
 
 function getSelectedDnis() {
     return selectedCards.map(card => card.dni); 
@@ -215,14 +206,10 @@ function getSelectedDnis() {
 
 function clearSelection() {
     selectedCards = [];
-    document.querySelectorAll('.kanban-card.selected').forEach(card => card.classList.remove('selected', 'border-4', 'border-blue-500', 'ring-2', 'ring-blue-500'));
+    document.querySelectorAll('.kanban-card.selected').forEach(card => card.classList.remove('selected', 'border-4', 'border-sky-700', 'ring-2', 'ring-sky-700'));
     
     updateMassActionButton();
 }
-
-// --------------------------------------------------------------------
-// D. LÓGICA DEL BOTÓN FLOTANTE Y MENÚ DE ACCIÓN MASIVA
-// --------------------------------------------------------------------
 
 function closeMassActionMenu() {
     document.getElementById('mass-action-menu').classList.add('hidden');
@@ -317,10 +304,6 @@ function confirmMassDescarte() {
         });
 }
 
-// --------------------------------------------------------------------
-// E. COMUNICACIÓN CON EL BACKEND (Fetch API)
-// --------------------------------------------------------------------
-
 function confirmIndividualUpdate(dni, newStatus) {
     fetch(updateUrl, {
         method: 'POST',
@@ -349,13 +332,11 @@ function confirmIndividualUpdate(dni, newStatus) {
 function confirmMassUpdate(dnisArray, newStatus, extraData) {
     const formData = new FormData();
     
-    // 1. Validación de entrada
     if (dnisArray.length === 0) {
         alert("Error en actualización masiva: DNI list is required.");
         return Promise.reject(new Error("No DNI list"));
     }
     
-    // 2. Construcción de FormData
     dnisArray.forEach(dni => {
         formData.append('dnis[]', dni); 
     });
@@ -366,34 +347,27 @@ function confirmMassUpdate(dnisArray, newStatus, extraData) {
         formData.append(key, extraData[key]);
     }
 
-    // 3. Inicio de la petición con manejo robusto de red y respuesta
     return fetch(massiveUpdateUrl, {
         method: 'POST',
         headers: {
             'X-CSRFToken': csrfToken,
             'X-Requested-With': 'XMLHttpRequest', 
-            // Nota: Con FormData, el 'Content-Type' se maneja automáticamente
         },
         body: formData
     })
-    .then(async response => { // Usamos 'async' para el manejo de texto/JSON
+    .then(async response => { 
         if (!response.ok) {
-            // Si el status es 4xx o 5xx, intentamos leer el cuerpo para depuración
             const errorBody = await response.text();
             console.error(`Error HTTP ${response.status} en la petición. Cuerpo del error:`, errorBody);
             
-            // Intentamos parsear el JSON de error (si existe) para un mensaje más limpio
             try {
                 const errorData = JSON.parse(errorBody);
                 throw new Error(errorData.message || `Petición fallida. Código: ${response.status}.`);
             } catch (e) {
-                // Si falla JSON.parse (ej. HTML o texto plano), usamos un mensaje genérico
                 throw new Error(`Petición fallida. Código: ${response.status}. Revise la consola.`);
             }
         }
         
-        // 4. Solución al SyntaxError: Si la respuesta es OK (200), leemos el JSON
-        // (Esto es donde puede fallar si Django no devuelve JSON, aunque response.ok lo mitiga)
         try {
             return response.json();
         } catch (e) {
@@ -406,13 +380,11 @@ function confirmMassUpdate(dnisArray, newStatus, extraData) {
             window.location.reload(); 
             return data;
         } else {
-            // Si el backend devuelve status: 'error' (como con el FOREIGN KEY), se atrapa aquí.
             alert(`❌ Error en actualización masiva: ${data.message}`);
             throw new Error(data.message);
         }
     })
     .catch(error => {
-        // 5. Captura de Errores FATALES (incluido NetworkError)
         const errorMessage = error.message || String(error);
         
         if (errorMessage.includes("NetworkError") || errorMessage.includes("Failed to fetch")) {
@@ -426,9 +398,7 @@ function confirmMassUpdate(dnisArray, newStatus, extraData) {
     });
 }
 
-// --------------------------------------------------------------------
-// F. GESTIÓN DE MODALES (Funciones auxiliares)
-// --------------------------------------------------------------------
+//Gestion de modales
 
 function openMassConvocatoriaModal(dnisArray) {
     const count = dnisArray.length;
@@ -590,7 +560,7 @@ function openHistoryModal(dni, nombre) {
             let estado_color_class = 'text-indigo-700';
             let bg_color_class = 'bg-indigo-50 border-indigo-200';
             
-            if (raw_estado_maestro.includes('INICIADO')) {
+            if (raw_estado_maestro.includes('CONVOCADO')) {
                 display_estado = 'CONVOCADO / ' + raw_estado_maestro; 
                 estado_color_class = 'text-green-700';
                 bg_color_class = 'bg-green-50 border-green-200';
@@ -715,7 +685,6 @@ function showCopyFeedback(buttonElement) {
     }, 2000);
 }
 
-
 function openCandModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
@@ -723,9 +692,8 @@ function openCandModal(modalId) {
     }
 }
 
-/**
- * Cierra el modal de gestión de Candidatos.
- */
+// Cierra el modal de gestión de Candidatos.
+
 function closeCandModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
@@ -743,7 +711,7 @@ function handleSelectAll(event) {
         selectedCards = []; 
         
         kanbanCards.forEach(card => {
-            card.classList.remove('selected', 'border-4', 'border-blue-500', 'ring-2', 'ring-blue-500');
+            card.classList.remove('selected', 'border-4', 'border-sky-700', 'ring-2', 'ring-sky-700');
         });
         
     } else {
@@ -755,11 +723,11 @@ function handleSelectAll(event) {
 
             if (procesoId === 'None') { 
                 
-                card.classList.add('selected', 'border-4', 'border-blue-500', 'ring-2', 'ring-blue-500');
+                card.classList.add('selected', 'border-4', 'border-sky-700', 'ring-2', 'ring-sky-700');
                 
                 selectedCards.push({ dni: dni, proceso_id: procesoId });
             } else {
-                card.classList.remove('selected', 'border-4', 'border-blue-500', 'ring-2', 'ring-blue-500');
+                card.classList.remove('selected', 'border-4', 'border-sky-700', 'ring-2', 'ring-sky-700');
             }
         });
     }
@@ -811,7 +779,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 5000); 
     });
 
-    // 4. Filtros de fecha
     const dateButtons = document.querySelectorAll('.filter-date-btn');
     dateButtons.forEach(button => {
         button.addEventListener('click', (event) => {
@@ -832,11 +799,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // 5. Búsqueda por DNI 
     const dniSearchInput = document.getElementById('dni-search');
 
     function handleQuickSearch(e) {
-        // Solo actuamos si se presiona la tecla Enter
         if (e.key !== 'Enter') {
             return;
         }
@@ -846,12 +811,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const searchValue = dniSearchInput.value.trim();
         const currentUrl = new URL(window.location.href);
         
-        // 1. Validaciones
-        // Determina si es un ID (8-10 dígitos) o Teléfono (9-12 dígitos) para la búsqueda rápida.
         const isExactID = /^\d{8,10}$/.test(searchValue); 
         const isExactPhone = /^\d{9,12}$/.test(searchValue);
         
-        // Si la búsqueda no coincide con un formato estricto (ID o Teléfono), vamos a la búsqueda general.
         if (!isExactID && !isExactPhone) {
             if (searchValue) {
                 currentUrl.searchParams.set('search', searchValue);
@@ -859,10 +821,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentUrl.searchParams.delete('search');
             }
             window.location.href = currentUrl.toString();
-            return; // Salimos de la función
+            return; 
         }
 
-        // 2. Ejecutar la Búsqueda Rápida (fetch)
         const apiUrl = `${API_ASISTENCIA_CHECK_URL}?q=${searchValue}`;
         
         fetch(apiUrl)
@@ -871,45 +832,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (data.candidato_encontrado && !data.asistencia_registrada && data.proceso_id) {
                     
-                    // Abrir el modal si el candidato está, la asistencia NO y hay proceso.
                     openAsistenciaModal(data.dni || searchValue, data.proceso_id);
                     
-                    // Actualizar la URL sin recargar la página
                     const updatedUrl = new URL(window.location.href);
                     updatedUrl.searchParams.set('search', searchValue);
                     window.history.pushState({}, '', updatedUrl);
 
                 } else {
-                    // Si no hay match de asistencia o proceso, redirigir a la búsqueda general
-                    // para ver los detalles del candidato en el dashboard.
                     currentUrl.searchParams.set('search', searchValue);
                     window.location.href = currentUrl.toString();
                 }
             })
             .catch(error => {
                 console.error('Error de red o API:', error);
-                // En caso de error, redirigir a la búsqueda general como fallback
                 currentUrl.searchParams.set('search', searchValue);
                 window.location.href = currentUrl.toString();
             });
     }
 
-    // Asignar el event listener a la nueva función
     dniSearchInput.addEventListener('keypress', handleQuickSearch);
-/*
-    const toggleHeader = document.getElementById('toggle-header');
-    const collapsibleContent = document.getElementById('collapsible-content');
-    const toggleIcon = document.getElementById('toggle-icon');
-    
-    if (toggleHeader && collapsibleContent && toggleIcon) {
-        toggleHeader.addEventListener('click', function() {
-            collapsibleContent.classList.toggle('hidden'); 
-            toggleIcon.classList.toggle('rotate-180');
-        });
-    }*/
-
-
-    // 7. Funcionalidad del Dropdown de Desactivación
     const menuButton = document.getElementById('');
     const dropdownMenu = document.getElementById('dropdown-menu');
 
@@ -1017,10 +958,9 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("Error al ejecutar la acción del formulario:", error);
             modalContentAreaConvocatorias.innerHTML = originalContent; 
             alert(`Ocurrió un error al aplicar la acción: ${error.message}`);
-            initModalConvocatoriasListeners(); // Re-inicializa listeners si falló.
+            initModalConvocatoriasListeners(); 
         }
     }
-
 
     function initModalConvocatoriasListeners() {
         const closeButton = modalContentAreaConvocatorias.querySelector('[data-modal-close]');
@@ -1077,7 +1017,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
-
 
     function closeConvocatoriasModal() {
         modalConvocatorias.classList.add('hidden');
@@ -1136,7 +1075,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (candModalContainer) {
         
-        // Delegación de Eventos para el Filtro de Mes
         candModalContainer.addEventListener('change', function(e) {
             if (e.target.id === 'month-select') {
                 const selectedMonth = e.target.value;

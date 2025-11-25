@@ -240,12 +240,13 @@
             </div>
         </div>
     </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-        {% include "kanban_column.html" with status_key='REGISTRADO' title='1. Registrado' color='border-red-500' data=kanban_data.REGISTRADO %}
-        {% include "kanban_column.html" with status_key='CONVOCADO' title='2. Convocado' color='border-indigo-500' data=kanban_data.CONVOCADO %}
-        {% include "kanban_column.html" with status_key='CAPACITACION_TEORICA' title='3. Teoría' color='border-yellow-500' data=kanban_data.CAPACITACION_TEORICA %}
-        {% include "kanban_column.html" with status_key='CAPACITACION_PRACTICA' title='4. Práctica' color='border-orange-500' data=kanban_data.CAPACITACION_PRACTICA %}
-        {% include "kanban_column.html" with status_key='CONTRATADO' title='5. Contratado' color='border-green-500' data=kanban_data.CONTRATADO %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 tex-xs">
+        {% include "kanban_column.html" with status_key='REGISTRADO' title='Registrado' color='border-red-500' data=kanban_data.REGISTRADO %}
+        {% include "kanban_column.html" with status_key='CONVOCADO' title='Convocado' color='border-indigo-500' data=kanban_data.CONVOCADO %}
+        {% include "kanban_column.html" with status_key='CONFIRMADO' title='Confirmado' color='border-cyan-500' data=kanban_data.CONFIRMADO %}
+        {% include "kanban_column.html" with status_key='CAPACITACION_TEORICA' title='Teoría' color='border-yellow-500' data=kanban_data.CAPACITACION_TEORICA %}
+        {% include "kanban_column.html" with status_key='CAPACITACION_PRACTICA' title='Práctica' color='border-orange-500' data=kanban_data.CAPACITACION_PRACTICA %}
+        {% include "kanban_column.html" with status_key='CONTRATADO' title='Contratado' color='border-green-500' data=kanban_data.CONTRATADO %}
     </div>
 </div>
 

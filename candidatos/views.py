@@ -1,49 +1,4 @@
-import io
-import json
-from datetime import date, datetime, timedelta,time
-from django.conf import settings
-from django.utils.timezone import make_aware,get_current_timezone
-import locale
-from django.shortcuts import redirect
-from random import choice, randint
-from django.core.exceptions import ObjectDoesNotExist
-from .utils.whatsapp_api import enviar_mensaje_whatsapp
-
-import pandas as pd
-import re
-from django.db.models.functions import TruncDate
-
-from django.core.exceptions import ValidationError
-from django.core.paginator import Paginator
-from django.urls import reverse
-from django.utils import timezone
-from django.utils.decorators import method_decorator
-from django.template.loader import render_to_string
-
-from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
-
-from django.db import IntegrityError, DatabaseError, OperationalError
-from django.db import models
-from django.db import transaction
-from django.db.models.functions import Cast
-from django.db.models import Q, Count, Max, Prefetch, OuterRef, Subquery, When, Case, Exists,DateField, F, FloatField, ExpressionWrapper, IntegerField
-
-from django.http import JsonResponse, HttpResponse, HttpResponseForbidden,HttpResponseBadRequest,HttpRequest
-from django.shortcuts import render, redirect, get_object_or_404
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST, require_http_methods
-from django.views.generic import View, DetailView, ListView,TemplateView
-from django.db.models.functions import ExtractYear, ExtractMonth    
-from django.utils.formats import date_format
-import platform
-
-from .models import (
-    Candidato, Proceso, Empresa, Sede, Supervisor, 
-    RegistroAsistencia, DatosCualificacion, ComentarioProceso, 
-    RegistroTest, MOTIVOS_DESCARTE,DocumentoCandidato, TipoDocumento,TareaEnvioMasivo, MensajePlantilla,DetalleEnvio
-)   
+from .view_imports import *
 
 REDIRECT_URL = 'kanban_dashboard'
 
@@ -168,7 +123,7 @@ class IniciarProcesoView(LoginRequiredMixin, View):
                 fecha_inicio=fecha_inicio,
                 empresa_proceso=empresa_proceso,
                 sede_proceso=sede_registro,
-                estado='INICIADO'
+                estado='CONVOCADO'
             )
 
             candidato.estado_actual = 'CONVOCADO'
@@ -198,7 +153,8 @@ class ActualizarProcesoView(LoginRequiredMixin, View):
         factor_actitud = request.POST.get('factor_actitud_aplica') == 'on'
 
         estado_candidato_map = {
-            'INICIADO': 'CONVOCADO', 
+            'CONVOCADO': 'CONVOCADO',
+            'CONFIRMADO': 'CONFIRMADO', 
             'TEORIA': 'CAPACITACION_TEORICA',
             'PRACTICA': 'CAPACITACION_PRACTICA',
             'CONTRATADO': 'CONTRATADO',
@@ -392,7 +348,8 @@ class UpdateStatusMultipleView(LoginRequiredMixin, View):
                     return JsonResponse({'status': 'error', 'message': 'Formato de fecha de inicio no válido. Use AAAA-MM-DD.'}, status=400)
 
             proceso_estado_map = {
-                'CONVOCADO': 'INICIADO', 
+                'CONVOCADO': 'CONVOCADO', 
+                'CONFIRMADO': 'CONFIRMADO',
                 'CAPACITACION_TEORICA': 'TEORIA',
                 'CAPACITACION_PRACTICA': 'PRACTICA',
                 'CONTRATADO': 'CONTRATADO',
@@ -445,7 +402,7 @@ class UpdateStatusMultipleView(LoginRequiredMixin, View):
                                 supervisor=default_supervisor, 
                                 empresa_proceso=default_empresa, 
                                 sede_proceso=candidato.sede_registro, 
-                                estado='INICIADO'
+                                estado='CONVOCADO'
                             )
                             candidato.estado_actual = new_status_key
                             
@@ -615,9 +572,9 @@ class AsistenciaDiariaCheckView(View):
             
                         
             FASE_MAP = {
-                'INICIADO': 'CONVOCADO', 'TEORIA': 'TEORIA', 'PRACTICA': 'PRACTICA',
+                'CONVOCADO': 'CONFIRMADO', 'TEORIA': 'TEORIA', 'PRACTICA': 'PRACTICA',
             }
-            fase_asistencia = FASE_MAP.get(proceso_activo.estado, 'CONVOCADO')
+            fase_asistencia = FASE_MAP.get(proceso_activo.estado, 'TEORIA')
             
             registro = RegistroAsistencia.objects.create(
                 proceso=proceso_activo, 
@@ -649,10 +606,7 @@ def registrar_asistencia_rapida(request):
     Registra asistencia (solo ENTRADA/SALIDA). CALCULA EL MOVIMIENTO automáticamente,
     corrige la clasificación de estados y mantiene la compatibilidad de campos.
     """
-    from datetime import datetime, time
-    from django.utils.timezone import make_aware, get_current_timezone
-    from django.db.models import Q
-    
+   
     if not request.user.is_authenticated:
         return JsonResponse(
             {'success': False, 'message': 'Fallo de autenticación. Sesión expirada. Recargue la página.'}, 
@@ -756,15 +710,11 @@ def registrar_asistencia_rapida(request):
             momento_registro=momento_registro
         )
         
-        
-        # 5. Lógica de Avance de Proceso (se mantiene si es necesaria)
-        if proceso.estado == 'INICIADO' and fase_actual_key == 'CONVOCADO':
+        if proceso.estado == 'CONFIRMADO' and fase_actual_key == 'CONVOCADO':
             proceso.estado = 'TEORIA' 
             proceso.save()
-            # Si avanza a TEORIA, el mensaje de éxito es más relevante que el de asistencia simple
             mensaje_exito = f"🎉 ¡Asistencia Registrada y Avance! {candidato_nombre} ha avanzado a la fase de TEORÍA."
             
-        # 6. Respuesta final
         return JsonResponse({'success': True, 'message': mensaje_exito})
 
     except Proceso.DoesNotExist:
@@ -875,7 +825,8 @@ class UpdateStatusView(LoginRequiredMixin, View):
             proceso_activo = candidato.procesos.order_by('-fecha_inicio').first() 
 
             proceso_estado_map = {
-                'CONVOCADO': 'INICIADO',
+                'CONVOCADO': 'CONVOCADO',
+                'CONFIRMADO':'CONFIRMADO',
                 'CAPACITACION_TEORICA': 'TEORIA',
                 'CAPACITACION_PRACTICA': 'PRACTICA',
                 'CONTRATADO': 'CONTRATADO',
@@ -900,7 +851,7 @@ class UpdateStatusView(LoginRequiredMixin, View):
                         supervisor_id=1,
                         empresa_proceso_id=1,
                         sede_proceso_id=candidato.sede_registro_id,
-                        estado='INICIADO'
+                        estado='CONVOCADO'
                     )
                     proceso_activo = proceso_nuevo
                 
@@ -1044,6 +995,7 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
 
                 'Empresa_Cliente': ultimo_proceso.empresa_proceso.nombre if ultimo_proceso and ultimo_proceso.empresa_proceso else '',
                 'Fecha_Convocatoria': format_date(ultimo_proceso.fecha_inicio) if ultimo_proceso else '',
+                'Fecha_Confirmado': format_date(ultimo_proceso.fecha_confirmado) if ultimo_proceso else '',
                 'Fecha_Teorico': format_date(ultimo_proceso.fecha_teorico) if ultimo_proceso else '',
                 'Fecha_Practico': format_date(ultimo_proceso.fecha_practico) if ultimo_proceso else '',
                 'Fecha_Contratacion': format_date(ultimo_proceso.fecha_contratacion) if ultimo_proceso else '',
@@ -1342,7 +1294,8 @@ def actualizar_fecha_proceso(request, proceso_id):
             return JsonResponse({'success': False, 'error': 'Datos JSON inválidos.'}, status=400)
 
         field_map = {
-            'inicio': 'fecha_inicio',
+            'convocado': 'fecha_inicio',
+            'confirmado': 'fecha_confirmado',
             'teorico': 'fecha_teorico',
             'practico': 'fecha_practico',
             'contratacion': 'fecha_contratacion',
@@ -1361,7 +1314,8 @@ def actualizar_fecha_proceso(request, proceso_id):
         current_state = proceso.estado
          
         allowed_changes = {
-            'INICIADO': ['inicio', 'teorico'],
+            'CONVOCADO': ['convocado', 'confirmado'],
+            'CONFIRMADO':['confirmado','teorico'],
             'TEORIA': ['teorico', 'practico'],
             'PRACTICA': ['practico', 'contratacion'],
         }
@@ -1373,17 +1327,29 @@ def actualizar_fecha_proceso(request, proceso_id):
             }, status=403) 
         
         if date_type == 'inicio':
-            if proceso.fecha_teorico and proceso.fecha_teorico < new_date_obj:
+            if proceso.fecha_confirmado and proceso.fecha_teorico and proceso.fecha_teorico < new_date_obj:
                 return JsonResponse({
                     'success': False, 
-                    'error': f'La nueva Fecha de Inicio ({new_date}) es posterior a la Fecha Teórica actual ({proceso.fecha_teorico.strftime("%d/%m/%Y")}).'
+                    'error': f'La nueva Fecha de Inicio ({new_date}) es posterior a la Fecha Confirmado actual ({proceso.fecha_confirmado.strftime("%d/%m/%Y")}).'
                 }, status=400)
-
-        elif date_type == 'teorico':
+            
+        elif date_type == 'confirmado':
             if proceso.fecha_inicio and new_date_obj < proceso.fecha_inicio:
                 return JsonResponse({
+                    'succes': False,
+                    'error': f'La Fecha Confirmado no puede ser anterior a la Fecha de Inicio({proceso.fecha_inicio.strftime("%d/%m/%Y")}).'
+                }, status=400)
+            if proceso.fecha_confirmado and proceso.fecha_confirmado < new_date_obj:
+                return JsonResponse({
+                    'succes': False,
+                    'error': f'La Fecha Confirmado ({new_date}) es posterior a la Fecha Confirmado actual ({proceso.fecha_confirmado.strftime("%d/%m/%Y")}).'
+                })
+
+        elif date_type == 'teorico':
+            if proceso.fecha_confirmado and new_date_obj < proceso.fecha_confirmado:
+                return JsonResponse({
                     'success': False, 
-                    'error': f'La Fecha Teórica no puede ser anterior a la Fecha de Inicio ({proceso.fecha_inicio.strftime("%d/%m/%Y")}).'
+                    'error': f'La Fecha Teórica no puede ser anterior a la Fecha de Inicio ({proceso.fecha_confirmado.strftime("%d/%m/%Y")}).'
                 }, status=400)
             if proceso.fecha_practico and proceso.fecha_practico < new_date_obj:
                 return JsonResponse({
@@ -1709,6 +1675,7 @@ class CandidatoExportView(LoginRequiredMixin, View):
 
                 'Empresa_Cliente': ultimo_proceso.empresa_proceso.nombre if ultimo_proceso and ultimo_proceso.empresa_proceso else '',
                 'Fecha_Convocatoria': format_date(ultimo_proceso.fecha_inicio) if ultimo_proceso else '',
+                'Fecha_Confirmado': format_date(ultimo_proceso.fecha_confirmado) if ultimo_proceso else '' ,
                 'Fecha_Teorico': format_date(ultimo_proceso.fecha_teorico) if ultimo_proceso else '',
                 'Fecha_Practico': format_date(ultimo_proceso.fecha_practico) if ultimo_proceso else '',
                 'Fecha_Contratacion': format_date(ultimo_proceso.fecha_contratacion) if ultimo_proceso else '',
@@ -1755,7 +1722,7 @@ class CandidatoAsistenciaListView(LoginRequiredMixin, ListView):
     def get_queryset(self):
         hoy = timezone.localdate()
 
-        VALID_ATTENDANCE_STATES = ['INICIADO', 'TEORIA', 'PRACTICA']
+        VALID_ATTENDANCE_STATES = ['CONVOCADO','CONFIRMADO', 'TEORIA', 'PRACTICA']
         DEFAULT_STATE_SUPERVISOR = 'PRACTICA' 
         
         proceso_filter_q = Q(procesos__estado__in=VALID_ATTENDANCE_STATES)
@@ -1812,7 +1779,7 @@ class CandidatoAsistenciaListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
-        VALID_ATTENDANCE_STATES = ['INICIADO', 'TEORIA', 'PRACTICA']
+        VALID_ATTENDANCE_STATES = ['CONVOCADO','CONFIRMADO', 'TEORIA', 'PRACTICA']
         DEFAULT_STATE_SUPERVISOR = 'PRACTICA'
         
         estado_is_in_get = 'estado' in self.request.GET
@@ -2236,7 +2203,8 @@ class ListaCandidatosPorFechaView(LoginRequiredMixin, View):
     
 PROCESO_ESTADO_MAP = {
     'REGISTRADOS': 'REGISTRADO', 
-    'CONVOCADOS': 'INICIADO',     
+    'CONVOCADOS': 'CONVOCADO',  
+    'CONFIRMADOS': 'CONFIRMADO',   
     'TEORIA': 'TEORIA',           
     'PRACTICA': 'PRACTICA',       
     'CONTRATADOS': 'CONTRATADO',  
@@ -2667,7 +2635,7 @@ def registrar_asistencia_htmx(request, candidato_pk):
             
         
         FASE_MAP = {
-            'INICIADO': 'CONVOCADO', 'TEORIA': 'TEORIA', 'PRACTICA': 'PRACTICA',
+            'CONVOCADO': 'CONVOCADO','CONFIRMADO': 'CONFIRMADO', 'TEORIA': 'TEORIA', 'PRACTICA': 'PRACTICA',
             'CONTRATADO': 'PRACTICA', 'NO_APTO': 'PRACTICA', 'ABANDONO': 'PRACTICA',
         }
         fase_asistencia = FASE_MAP.get(proceso_activo.estado, 'CONVOCADO')

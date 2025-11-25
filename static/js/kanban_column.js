@@ -1,6 +1,3 @@
-// Funciones globales para abrir/cerrar modales de Comentarios, Tests y Documentos.
-// Deben estar disponibles globalmente, ya que son llamadas desde el HTML (onclick="...").
-
 function openCommentModal(procesoId, candidatoNombre) {
     const modal = document.getElementById('comment-modal');
     const panel = document.getElementById('comment-panel');
@@ -104,16 +101,13 @@ function closeDocumentUploadModal() {
     }, 500); 
 }
 
-// Lógica de AJAX y Event Listeners que requieren jQuery
 $(document).ready(function() {
     
-    // Contador de caracteres para comentarios
     $('#observacion_texto').on('input', function() {
         const charCount = $(this).val().length;
         $('#char-count').text(charCount);
     });
 
-    // Envío del formulario de Comentarios (AJAX)
     $('#registro-comentario-form').off('submit').on('submit', function(e) {
         e.preventDefault(); 
         const form = $(this);
@@ -152,7 +146,6 @@ $(document).ready(function() {
         });
     });
 
-    // Envío del formulario de Tests/Archivos (AJAX con FormData)
     $('#registro-test-form').off('submit').on('submit', function(e) {
         e.preventDefault(); 
         const form = $(this);
@@ -196,7 +189,6 @@ $(document).ready(function() {
         });
     });
     
-    // Envío del formulario de Actualización de Fechas (Fetch API)
     document.getElementById('dateEditForm').addEventListener('submit', function(event) {
         event.preventDefault(); 
 
