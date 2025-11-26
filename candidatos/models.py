@@ -255,7 +255,7 @@ class Proceso(models.Model):
     ]
     estado = models.CharField(max_length=15, choices=ESTADOS_PROCESO, default='CONVOCADO')
 
-    fecha_confirmado =models.CharField(null=True,blank=True, help_text="Fecha en el que el cadidato pasó a Confirmado")
+    fecha_confirmado = models.DateField(null=True, blank=True, help_text="Fecha en el que el cadidato pasó a Confirmado")
 
     fecha_teorico = models.DateField(
         null=True, blank=True,
@@ -290,6 +290,9 @@ class Proceso(models.Model):
                 pass 
 
         current_date = date.today() 
+
+        if self.estado == 'CONFIRMADO' and old_estado != 'CONFIRMADO' and not self.fecha_confirmado:
+            self.fecha_confirmado = current_date 
 
         if self.estado == 'CONFIRMADO' and old_estado != 'CONFIRMADO' and not self.fecha_confirmado:
             self.fecha_confirmado = current_date

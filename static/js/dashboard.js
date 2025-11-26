@@ -1,6 +1,3 @@
-// ====================================================================
-// CONFIGURACIÓN GLOBAL Y MAPEO DE ESTADOS
-// ====================================================================
 
 const updateUrl = AppConfig.updateUrl;
 const massiveUpdateUrl = AppConfig.massiveUpdateUrl;
@@ -17,7 +14,7 @@ const STATUS_MAP = {
     'column-CONVOCADO': 'CONVOCADO',
     'column-CONFIRMADO': 'CONFIRMADO',
     'column-CAPACITACION_TEORICA': 'CAPACITACION_TEORICA',
-    'column-OJT': 'CAPACITACION_PRACTICA',
+    'column-CAPACITACION_PRACTICA': 'CAPACITACION_PRACTICA',
     'column-CONTRATADO': 'CONTRATADO'
 };
     
@@ -149,12 +146,17 @@ function handleMultipleDrop(dnisArray, currentStatus, newStatus) {
         openMassConvocatoriaModal(dnisArray);
         return;
     }
-
+/*
     if (currentStatus === 'CAPACITACION_TEORICA' && newStatus === 'CAPACITACION_PRACTICA') {
         openMassAssignSupervisorModal(dnisArray);
         return;
     }
-    
+    */
+    if (currentStatus === 'CAPACITACION_TEORICA' && newStatus === 'CAPACITACION_PRACTICA') {
+        openMassAssignSupervisorModal(dnisArray, newStatus); 
+        return;
+    }
+
     let confirmMessage = `¿Mover a **${count}** candidatos de **${currentStatus}** a **${newStatus}**?`;
     
     if (confirm(confirmMessage)) {

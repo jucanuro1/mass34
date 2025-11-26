@@ -159,7 +159,7 @@ class ActualizarProcesoView(LoginRequiredMixin, View):
             'PRACTICA': 'CAPACITACION_PRACTICA',
             'CONTRATADO': 'CONTRATADO',
             'NO_APTO': 'NO_APTO', 
-            'ABANDONO': 'ABANDONO'
+            'ABANDONO': 'DESISTE'
         }
 
         if not nuevo_estado_proceso:
@@ -1309,13 +1309,13 @@ def actualizar_fecha_proceso(request, proceso_id):
         try:
             new_date_obj = datetime.strptime(new_date, '%Y-%m-%d').date()
         except ValueError:
-             return JsonResponse({'success': False, 'error': 'Formato de fecha inválido (debe ser YYYY-MM-DD).'}, status=400)
+            return JsonResponse({'success': False, 'error': 'Formato de fecha inválido (debe ser YYYY-MM-DD).'}, status=400)
 
         current_state = proceso.estado
-         
+          
         allowed_changes = {
             'CONVOCADO': ['convocado', 'confirmado'],
-            'CONFIRMADO':['confirmado','teorico'],
+            'CONFIRMADO': ['confirmado', 'teorico'], 
             'TEORIA': ['teorico', 'practico'],
             'PRACTICA': ['practico', 'contratacion'],
         }
@@ -1326,32 +1326,32 @@ def actualizar_fecha_proceso(request, proceso_id):
                 'error': f'No puedes cambiar la fecha de {date_type.capitalize()} porque el proceso está actualmente en estado "{current_state}".'
             }, status=403) 
         
-        if date_type == 'inicio':
-            if proceso.fecha_confirmado and proceso.fecha_teorico and proceso.fecha_teorico < new_date_obj:
+        if date_type == 'convocado':
+            if proceso.fecha_confirmado and new_date_obj > proceso.fecha_confirmado:
                 return JsonResponse({
                     'success': False, 
-                    'error': f'La nueva Fecha de Inicio ({new_date}) es posterior a la Fecha Confirmado actual ({proceso.fecha_confirmado.strftime("%d/%m/%Y")}).'
+                    'error': f'La nueva Fecha de Inicio ({new_date}) es posterior a la Fecha Confirmado ({proceso.fecha_confirmado.strftime("%d/%m/%Y")}).'
                 }, status=400)
             
         elif date_type == 'confirmado':
             if proceso.fecha_inicio and new_date_obj < proceso.fecha_inicio:
                 return JsonResponse({
-                    'succes': False,
-                    'error': f'La Fecha Confirmado no puede ser anterior a la Fecha de Inicio({proceso.fecha_inicio.strftime("%d/%m/%Y")}).'
+                    'success': False,
+                    'error': f'La Fecha Confirmado no puede ser anterior a la Fecha de Inicio ({proceso.fecha_inicio.strftime("%d/%m/%Y")}).'
                 }, status=400)
-            if proceso.fecha_confirmado and proceso.fecha_confirmado < new_date_obj:
+            if proceso.fecha_teorico and new_date_obj > proceso.fecha_teorico:
                 return JsonResponse({
-                    'succes': False,
-                    'error': f'La Fecha Confirmado ({new_date}) es posterior a la Fecha Confirmado actual ({proceso.fecha_confirmado.strftime("%d/%m/%Y")}).'
-                })
+                    'success': False,
+                    'error': f'La Fecha Confirmado no puede ser posterior a la Fecha Teórica actual ({proceso.fecha_teorico.strftime("%d/%m/%Y")}).'
+                }, status=400)
 
         elif date_type == 'teorico':
             if proceso.fecha_confirmado and new_date_obj < proceso.fecha_confirmado:
                 return JsonResponse({
                     'success': False, 
-                    'error': f'La Fecha Teórica no puede ser anterior a la Fecha de Inicio ({proceso.fecha_confirmado.strftime("%d/%m/%Y")}).'
+                    'error': f'La Fecha Teórica no puede ser anterior a la Fecha Confirmado ({proceso.fecha_confirmado.strftime("%d/%m/%Y")}).'
                 }, status=400)
-            if proceso.fecha_practico and proceso.fecha_practico < new_date_obj:
+            if proceso.fecha_practico and new_date_obj > proceso.fecha_practico:
                 return JsonResponse({
                     'success': False, 
                     'error': f'La Fecha Teórica ({new_date}) es posterior a la Fecha Práctica actual ({proceso.fecha_practico.strftime("%d/%m/%Y")}).'
