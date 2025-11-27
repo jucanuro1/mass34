@@ -8,6 +8,24 @@ from django.core.exceptions import ObjectDoesNotExist
 
 class Empresa(models.Model):
     nombre = models.CharField(max_length=100, unique=True)
+    logo = models.ImageField(
+        upload_to='logos_empresa/', 
+        null=True, 
+        blank=True, 
+        help_text="Logo principal de la empresa."
+    )
+
+    color_primario = models.CharField(
+        max_length=20, 
+        default='blue-600', 
+        help_text="Color Tailwind CSS principal (ej: red-600, blue-900)."
+    )
+
+    color_secundario = models.CharField(
+        max_length=20, 
+        default='gray-100', 
+        help_text="Color Tailwind CSS secundario (ej: gray-100, yellow-300)."
+    )
 
     def __str__(self):
         return self.nombre
