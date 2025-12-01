@@ -11,6 +11,8 @@ from .utils.whatsapp_api import enviar_mensaje_whatsapp
 
 import pandas as pd
 import re
+from openpyxl.utils import get_column_letter
+
 from django.db.models.functions import TruncDate
 
 from django.core.exceptions import ValidationError

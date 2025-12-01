@@ -1,7 +1,7 @@
 {% load static %}
 <div class="kanban-col bg-gray-50 rounded-xl shadow-2xl overflow-hidden flex flex-col flex-shrink-0">
     
-    <h3 class="p-4 text-base font-extrabold bg-white border-b-4 {{ color }} flex justify-between items-center transition-colors">
+    <h3 class="p-4 text-xs font-extrabold bg-white border-b-4 {{ color }} flex justify-between items-center transition-colors">
         
         <span>
             <span>
@@ -80,7 +80,7 @@
             data-proceso-empresa="{{ proceso.empresa_proceso.nombre|default:'' }}"
             data-proceso-supervisor="{{ proceso.supervisor.nombre|default:'' }}"
             data-proceso-objetivo="{{ proceso.objetivo_ventas_alcanzado|yesno:'true,false,false' }}"
-            data-proceso-actitud="{{ proceso.factor_actitud_aplica|yesno:'true,false,false' }}"
+            data-proceso-actitud="{{ proceso.factor_aptitud_aplica|yesno:'true,false,false' }}"
             
             draggable="true" 
             ondragstart="drag(event)"
@@ -94,7 +94,7 @@
                 '{{ proceso.empresa_proceso.nombre|default:'' }}',
                 '{{ proceso.supervisor.nombre|default:'' }}',
                 '{{ proceso.objetivo_ventas_alcanzado|yesno:'true,false,false' }}',
-                '{{ proceso.factor_actitud_aplica|yesno:'true,false,false' }}'
+                '{{ proceso.factor_aptitud_aplica|yesno:'true,false,false' }}'
             )"
             {% else %}
             ondblclick="window.location.href='{% url 'detalle_candidato' dni=candidato.DNI %}'"

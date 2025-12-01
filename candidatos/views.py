@@ -150,7 +150,7 @@ class ActualizarProcesoView(LoginRequiredMixin, View):
         nuevo_estado_proceso = request.POST.get('estado_proceso')
 
         objetivo_ventas = request.POST.get('objetivo_ventas_alcanzado') == 'on'
-        factor_actitud = request.POST.get('factor_actitud_aplica') == 'on'
+        factor_actitud = request.POST.get('factor_aptitud_aplica') == 'on'
 
         estado_candidato_map = {
             'CONVOCADO': 'CONVOCADO',
@@ -173,7 +173,7 @@ class ActualizarProcesoView(LoginRequiredMixin, View):
 
                 if nuevo_estado_proceso in ['CONTRATADO', 'NO_APTO']:
                     proceso.objetivo_ventas_alcanzado = objetivo_ventas
-                    proceso.factor_actitud_aplica = factor_actitud
+                    proceso.factor_aptitud_aplica = factor_actitud
 
                 proceso.save()
 
@@ -285,7 +285,7 @@ class KanbanDashboardView(LoginRequiredMixin, View):
                     empresa_nombre = proceso_actual.empresa_proceso.nombre if proceso_actual.empresa_proceso else 'N/A'
                     supervisor_nombre = proceso_actual.supervisor.nombre if proceso_actual.supervisor else 'N/A'
                     objetivo_alcanzado = 'true' if proceso_actual.objetivo_ventas_alcanzado else 'false'
-                    factor_actitud = 'true' if proceso_actual.factor_actitud_aplica else 'false'
+                    factor_actitud = 'true' if proceso_actual.factor_aptitud_aplica else 'false'
                     fecha_inicio = proceso_actual.fecha_inicio
                     
                 kanban_data[estado].append({
@@ -947,13 +947,13 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
         )
 
         candidatos = candidatos_qs.prefetch_related(
-            models.Prefetch('procesos', queryset=proceso_queryset)
+            models.Prefetch('procesos', queryset=proceso_queryset, to_attr='latest_proceso_list')
         )
         
         candidatos_a_exportar = list(candidatos)
         
         if not candidatos_a_exportar:
-            messages.info(request, f"No se encontraron candidatos en el estado: {estado} para la fecha: {fecha_filtro_str if fecha_filtro_str else 'Todas'}")
+           
             return redirect('kanban_dashboard')
 
         data = []
@@ -967,8 +967,7 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
             return 'N/A' 
         
         for c in candidatos_a_exportar:
-            
-            ultimo_proceso = next(iter(c.procesos.all()), None)
+            ultimo_proceso = c.latest_proceso_list[0] if c.latest_proceso_list else None
             cualificacion = getattr(c, 'datoscualificacion', None) 
 
             row = {
@@ -1005,7 +1004,13 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
             
             data.append(row)
 
-        df = pd.DataFrame(data)
+       
+        column_names = list(data[0].keys()) 
+        
+        df = pd.DataFrame(data, columns=column_names)
+        
+        df = df.fillna('')
+        df.columns = df.columns.astype(str) 
 
         output = io.BytesIO()
         writer = pd.ExcelWriter(output, engine='openpyxl') 
@@ -1014,10 +1019,21 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
         df.to_excel(writer, sheet_name=nombre_hoja, index=False)
 
         worksheet = writer.sheets[nombre_hoja]
+        
         for col_idx, column in enumerate(df.columns):
-            max_len = max(df[column].astype(str).map(len).max(), len(column)) + 2 
-            worksheet.column_dimensions[chr(65 + col_idx)].width = max_len
-
+            try:
+                max_len = df[column].astype(str).str.len().max()
+                
+                final_width = min(max(max_len, len(column)) + 2, 40)
+                
+                col_letter = get_column_letter(col_idx + 1)
+                worksheet.column_dimensions[col_letter].width = final_width
+                
+            except Exception:
+                col_letter = get_column_letter(col_idx + 1)
+                worksheet.column_dimensions[col_letter].width = 20
+                continue
+                
         writer.close() 
 
         output.seek(0)
@@ -1030,7 +1046,7 @@ class ExportarCandidatosExcelView(LoginRequiredMixin, View):
         )
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
-    
+
 class RegistroPublicoCompletoView(View):
     def get(self, request):
         sedes_disponibles = Sede.objects.all().order_by('nombre') 
@@ -1560,19 +1576,36 @@ class CandidatoListView(LoginRequiredMixin, ListView):
         search_query = self.request.GET.get('search')
         estado_filter = self.request.GET.get('estado')
         motivo_descarte_filter = self.request.GET.get('descarte')
+        fecha_inicio_str = self.request.GET.get('fecha_inicio')
+        fecha_final_str = self.request.GET.get('fecha_final')
         
         if search_query:
             queryset = queryset.filter(
                 Q(DNI__icontains=search_query) | 
                 Q(nombres_completos__icontains=search_query)
             )
-
+            
         if estado_filter:
             queryset = queryset.filter(estado_actual=estado_filter)
         
         if motivo_descarte_filter:
             queryset = queryset.filter(motivo_descarte=motivo_descarte_filter)
             
+        if fecha_inicio_str:
+            try:
+                fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+                queryset = queryset.filter(fecha_registro__gte=fecha_inicio)
+            except ValueError:
+                pass 
+        
+        if fecha_final_str:
+            try:
+                fecha_final_date = datetime.strptime(fecha_final_str, '%Y-%m-%d').date()
+                fecha_final_dt = datetime.combine(fecha_final_date, time.max)
+                queryset = queryset.filter(fecha_registro__lte=fecha_final_dt)
+            except ValueError:
+                pass 
+
         if self.request.GET.get('asistencia') == 'presentes':
             pass
             
@@ -1581,8 +1614,11 @@ class CandidatoListView(LoginRequiredMixin, ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         
+        # Pasar las opciones de filtro al template
         context['ESTADOS_CANDIDATO'] = Candidato.ESTADOS
         context['MOTIVOS_DESCARTE'] = MOTIVOS_DESCARTE 
+        
+        # Pasar los filtros activos para rellenar el formulario
         context['active_filters'] = self.request.GET.dict() 
         
         return context
@@ -1606,9 +1642,12 @@ class CandidatoExportView(LoginRequiredMixin, View):
         search_query = request.GET.get('search')
         estado_filter = request.GET.get('estado')
         motivo_descarte_filter = request.GET.get('descarte')
+        fecha_inicio_str = request.GET.get('fecha_inicio')
+        fecha_final_str = request.GET.get('fecha_final')
         
         candidatos_qs = Candidato.objects.all()
                 
+        # Aplicar filtros de texto y estado
         if search_query:
             candidatos_qs = candidatos_qs.filter(
                 Q(DNI__icontains=search_query) | 
@@ -1620,8 +1659,24 @@ class CandidatoExportView(LoginRequiredMixin, View):
         
         if motivo_descarte_filter:
             candidatos_qs = candidatos_qs.filter(motivo_descarte=motivo_descarte_filter)
+            
+        # Aplicar filtros de rango de fechas
+        if fecha_inicio_str:
+            try:
+                fecha_inicio = datetime.strptime(fecha_inicio_str, '%Y-%m-%d').date()
+                candidatos_qs = candidatos_qs.filter(fecha_registro__gte=fecha_inicio)
+            except ValueError:
+                pass
         
+        if fecha_final_str:
+            try:
+                fecha_final_date = datetime.strptime(fecha_final_str, '%Y-%m-%d').date()
+                fecha_final_dt = datetime.combine(fecha_final_date, time.max)
+                candidatos_qs = candidatos_qs.filter(fecha_registro__lte=fecha_final_dt)
+            except ValueError:
+                pass
         
+        # Optimización
         proceso_queryset = Proceso.objects.order_by('-fecha_inicio').select_related('supervisor', 'empresa_proceso')
         
         candidatos_qs = candidatos_qs.order_by('fecha_registro').select_related(
@@ -1633,12 +1688,7 @@ class CandidatoExportView(LoginRequiredMixin, View):
         
         candidatos_a_exportar = list(candidatos_qs)
         
-        if not candidatos_a_exportar:
-            return redirect('candidatos_list')
-
-        data = []
-        
-        
+        # FUNCIONES AUXILIARES
         def format_date(date_field):
             return date_field.strftime('%d/%m/%Y') if date_field else ''
         
@@ -1647,6 +1697,8 @@ class CandidatoExportView(LoginRequiredMixin, View):
             if bool_field is False: return 'NO'
             return 'N/A' 
         
+        # PREPARACIÓN DE DATOS
+        data = []
         for c in candidatos_a_exportar:
             ultimo_proceso = c.latest_proceso_list[0] if c.latest_proceso_list else None
             cualificacion = getattr(c, 'datoscualificacion', None) 
@@ -1661,7 +1713,6 @@ class CandidatoExportView(LoginRequiredMixin, View):
                 'Estado_Actual_Candidato': c.get_estado_actual_display(), 
                 'Fecha_Registro': format_date(c.fecha_registro),
                 'Sede_Registro': c.sede_registro.nombre if c.sede_registro else 'N/A',
-
                 'Secundaria_Completa': format_bool(cualificacion.secundaria_completa) if cualificacion else '',
                 'Exp_Campanas_Espanolas': format_bool(cualificacion.experiencia_campanas_espanolas) if cualificacion else '', 
                 'Tipo_Exp_Ventas': cualificacion.get_experiencia_ventas_tipo_display() if cualificacion else '', 
@@ -1672,7 +1723,6 @@ class CandidatoExportView(LoginRequiredMixin, View):
                 'Disponibilidad_Horario': format_bool(cualificacion.disponibilidad_horario) if cualificacion else '',
                 'Discapacidad_Enfermedad_Cronica': cualificacion.discapacidad_enfermedad_cronica if cualificacion else '',
                 'Dificultad_Habla': format_bool(cualificacion.dificultad_habla) if cualificacion else '',
-
                 'Empresa_Cliente': ultimo_proceso.empresa_proceso.nombre if ultimo_proceso and ultimo_proceso.empresa_proceso else '',
                 'Fecha_Convocatoria': format_date(ultimo_proceso.fecha_inicio) if ultimo_proceso else '',
                 'Fecha_Confirmado': format_date(ultimo_proceso.fecha_confirmado) if ultimo_proceso else '' ,
@@ -1682,10 +1732,23 @@ class CandidatoExportView(LoginRequiredMixin, View):
                 'Supervisor_Asignado': ultimo_proceso.supervisor.nombre if ultimo_proceso and ultimo_proceso.supervisor else '',
                 'Estado_Proceso': ultimo_proceso.get_estado_display() if ultimo_proceso else 'N/A', 
             }
-            
             data.append(row)
-
-        df = pd.DataFrame(data)
+        
+        # GENERACIÓN DEL EXCEL
+        column_names = [
+            'DNI', 'Nombres_Completos', 'Telefono_Whatsapp', 'Email', 'Edad', 'Distrito_Candidato', 
+            'Estado_Actual_Candidato', 'Fecha_Registro', 'Sede_Registro', 
+            'Secundaria_Completa', 'Exp_Campanas_Espanolas', 'Tipo_Exp_Ventas', 
+            'Empresa_Exp_Ventas', 'Tiempo_Experiencia_Vendedor', 'Conforme_Beneficios', 
+            'Detalle_Beneficios_Otro', 'Disponibilidad_Horario', 'Discapacidad_Enfermedad_Cronica', 
+            'Dificultad_Habla', 'Empresa_Cliente', 'Fecha_Convocatoria', 'Fecha_Confirmado', 
+            'Fecha_Teorico', 'Fecha_Practico', 'Fecha_Contratacion', 'Supervisor_Asignado', 
+            'Estado_Proceso'
+        ]
+        
+        df = pd.DataFrame(data, columns=column_names)
+        df = df.fillna('')
+        df.columns = df.columns.astype(str) 
 
         output = io.BytesIO()
         writer = pd.ExcelWriter(output, engine='openpyxl') 
@@ -1693,12 +1756,25 @@ class CandidatoExportView(LoginRequiredMixin, View):
         nombre_hoja = f"Candidatos_Reporte"[:31]
         df.to_excel(writer, sheet_name=nombre_hoja, index=False)
 
+        # AJUSTE ROBUSTO DE ANCHO DE COLUMNA
         worksheet = writer.sheets[nombre_hoja]
         
-        for col_idx, column in enumerate(df.columns):
-            max_len = min(max(df[column].astype(str).map(len).max(), len(column)) + 2, 40) 
-            worksheet.column_dimensions[chr(65 + col_idx)].width = max_len
-
+        for col_idx, column in enumerate(column_names):
+            # Usamos el nombre de la columna para asegurar un ancho mínimo
+            max_len = len(column) 
+            
+            # Si hay datos, calculamos la longitud máxima real
+            if not df.empty:
+                try:
+                    max_data_len = df[column].astype(str).str.len().max()
+                    max_len = max(max_len, max_data_len)
+                except Exception:
+                    pass
+            
+            final_width = min(max_len + 2, 40)
+            col_letter = get_column_letter(col_idx + 1)
+            worksheet.column_dimensions[col_letter].width = final_width
+                
         writer.close() 
 
         output.seek(0)
@@ -1711,7 +1787,7 @@ class CandidatoExportView(LoginRequiredMixin, View):
         )
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
-    
+
 class CandidatoAsistenciaListView(LoginRequiredMixin, ListView):
     model = Candidato
     template_name = 'candidatos_asistencia_list.html'

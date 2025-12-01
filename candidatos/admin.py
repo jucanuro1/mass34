@@ -16,11 +16,11 @@ class ProcesoInline(admin.TabularInline):
     extra = 0
     fields = [
         'fecha_inicio', 'empresa_proceso', 'sede_proceso', 'estado', 
-        'objetivo_ventas_alcanzado', 'factor_actitud_aplica', 
+        'objetivo_ventas_alcanzado', 'faptor_actitud_aplica', 
         'supervisor', 'fecha_teorico', 'fecha_practico', 'fecha_contratacion','kanban_activo'
     ]
     readonly_fields = [
-        'objetivo_ventas_alcanzado', 'factor_actitud_aplica', 
+        'objetivo_ventas_alcanzado', 'factor_aptitud_aplica', 
         'fecha_teorico', 'fecha_practico', 'fecha_contratacion'
     ]
 
@@ -48,9 +48,9 @@ class TipoDocumentoAdmin(admin.ModelAdmin):
 class ProcesoAdmin(admin.ModelAdmin):
     list_display = (
         'candidato', 'empresa_proceso', 'sede_proceso', 'fecha_inicio', 'estado', 
-        'objetivo_ventas_alcanzado', 'factor_actitud_aplica','kanban_activo'
+        'objetivo_ventas_alcanzado', 'factor_aptitud_aplica','kanban_activo'
     )
-    list_filter = ('empresa_proceso', 'sede_proceso', 'estado', 'objetivo_ventas_alcanzado', 'factor_actitud_aplica')
+    list_filter = ('empresa_proceso', 'sede_proceso', 'estado', 'objetivo_ventas_alcanzado', 'factor_aptitud_aplica')
     date_hierarchy = 'fecha_inicio' 
     search_fields = ('candidato__DNI', 'candidato__nombres_completos')
     
@@ -65,7 +65,7 @@ class ProcesoAdmin(admin.ModelAdmin):
         ('Resultados de las Pruebas y Contratación', {
             'fields': (
                 'objetivo_ventas_alcanzado', 
-                'factor_actitud_aplica', 
+                'factor_aptitud_aplica', 
             ),
             'classes': ('wide', 'extrapretty'),
         }),

@@ -6,12 +6,12 @@
             <tr>
                 <th scope="col" class="py-3 px-4 whitespace-nowrap">DNI</th> 
                 <th scope="col" class="py-3 px-4 whitespace-nowrap">Nombre Completo</th>
-                <th scope="col" class="py-3 px-4 whitespace-nowrap text-center">Estado</th>
+                <th scope="col" class="py-3 px-4 whitespace-nowrap text-center">Proceso</th>
                 <th scope="col" class="py-3 px-4 whitespace-nowrap">Teléfono</th>
                 <th scope="col" class="py-3 px-4 whitespace-nowrap">Registro</th>
                 <th scope="col" class="py-3 px-4 whitespace-nowrap">Sede</th>
-                <th scope="col" class="py-3 px-4 whitespace-nowrap max-w-[200px]">Motivo Descarte</th>
-                <th scope="col" class="py-3 px-4 whitespace-nowrap text-center"></th> 
+                <th scope="col" class="py-3 px-4 whitespace-nowrap max-w-[200px]">Estado</th>
+                <th scope="col" class="py-3 px-4 whitespace-nowrap text-center">Detalle</th> 
             </tr>
         </thead>
         
@@ -50,7 +50,7 @@
                     {% endwith %}
                 </td>
                 
-                <td class="py-3 px-4 text-xs font-semibold">
+                <td class="py-3 px-4 text-xs">
                     <a href="https://wa.me/{{ candidato.telefono_whatsapp }}" 
                        target="_blank" 
                        class="font-semibold text-emerald-600 hover:text-emerald-700 transition duration-150 flex items-center">
@@ -69,11 +69,19 @@
                     {{ candidato.sede_registro.nombre|default:"-" }}
                 </td>
                 
-                <td class="py-3 px-4 text-[11px] italic text-red-600/80 max-w-[150px] overflow-hidden truncate">
-                    {{ candidato.motivo_descarte|default:"-" }}
+                <td class="py-3 px-4  text-xs font-semibold max-w-[150px] overflow-hidden truncate">
+                    {% if candidato.motivo_descarte %}
+                        <span class="text-red-600/80">
+                            {{ candidato.motivo_descarte }}
+                        </span>
+                    {% else %}
+                        <span class="text-green-700">
+                            Activo
+                        </span>
+                    {% endif %}
                 </td>
                 
-                <td class="py-3 px-4 text-center whitespace-nowrap">
+                <td class="flex justify-center whitespace-nowrap">
                     <a href="" 
                        title="Ver Detalle"
                        class="text-indigo-600 hover:text-indigo-800 transition duration-150 p-1 rounded-full hover:bg-indigo-100/70">

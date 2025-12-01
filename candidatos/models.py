@@ -243,7 +243,6 @@ class DatosCualificacion(models.Model):
         help_text="¿Tienes alguna dificultad en el habla?"
     )
 
-    # El campo del teléfono está en Candidato, no lo repetimos.
 
     def __str__(self):
         return f"Cualificación de {self.candidato.nombres_completos}"
@@ -292,9 +291,9 @@ class Proceso(models.Model):
         default=False,
         help_text="Resultado de la prueba de objetivo de ventas/KPI en práctica."
     )
-    factor_actitud_aplica = models.BooleanField(
+    factor_aptitud_aplica = models.BooleanField(
         default=False,
-        help_text="Indica si se queda por 'Actitud' a pesar de fallar otras pruebas (Opción escasa)."
+        help_text="Indica si se queda por 'Aptitud' a pesar de fallar otras pruebas (Opción escasa)."
     )
 
     def save(self, *args, **kwargs):

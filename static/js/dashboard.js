@@ -506,8 +506,8 @@ function openUpdateProcessModal(procesoId, nombre, estado, empresa, supervisor, 
                 if (document.getElementById('id_objetivo_ventas_alcanzado')) {
                     document.getElementById('id_objetivo_ventas_alcanzado').checked = objetivo === 'true';
                 }
-                if (document.getElementById('id_factor_actitud_aplica')) {
-                    document.getElementById('id_factor_actitud_aplica').checked = actitud === 'true';
+                if (document.getElementById('id_factor_aptitud_aplica')) {
+                    document.getElementById('id_factor_aptitud_aplica').checked = actitud === 'true';
                 }
             } else {
                 performanceFields.style.display = 'none';
