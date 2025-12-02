@@ -45,7 +45,7 @@ urlpatterns = [
     path('asistencia/registrar/', views.registrar_asistencia_rapida, name='registrar_asistencia_rapida'),
     path('api/asistencia-check/', views.AsistenciaDiariaCheckView.as_view(), name='api_asistencia_check'),
     path('candidatos/asistencia/', views.CandidatoAsistenciaListView.as_view(), name='candidatos_asistencia_list'),
-    path('candidatos/asistencia/<int:pk>/detalle/', views.RegistroAsistenciaDetailView.as_view(), name='registro_asistencia_detalle'),
+    path('candidatos/asistencia/<str:pk>/detalle/', views.RegistroAsistenciaDetailView.as_view(), name='registro_asistencia_detalle'),
     path('candidatos/asistencia/registrar/<int:candidato_pk>/', views.registrar_asistencia_htmx, name='registrar_asistencia_htmx'),
 
     # --- APIs Generales ---

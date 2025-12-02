@@ -9,14 +9,14 @@
     </div>
 
     <div class="max-w-full mx-auto px-4 sm:px-4 lg:px-4 py-4 md:py-4 bg-gray-50 min-h-screen">
-        <div class="flex justify-between items-center mb-6 border-b border-red-600 pb-5">
+        <div class="flex justify-between items-center mb-6 border-b border-gar-300 pb-5">
         
             <h1 class="text-xl font-extrabold flex items-center tracking-tight">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-9 w-9 mr-3 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-9 w-9 mr-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span class="text-gray-950">Listado de </span>
-                <span class="text-red-600 ml-2">Asistencias</span>
+                <span class="text-gray-500 ml-2">Asistencias</span>
             </h1>
 
             <a href="{% url 'candidatos_list' %}" 
@@ -34,7 +34,7 @@
             {% include "candidatos/contador_global_parcial.html" with conteo_asistencias=conteo_asistencias total_candidatos=total_candidatos %}
         </div>
         
-        <div class="bg-white p-4 shadow-2xl rounded-xl mb-4 border-l-4 border-red-600 ring-1 ring-gray-100 transition duration-300">
+        <div class="bg-white p-4 shadow-2xl rounded-xl mb-4 border-l-4 border-gray-100 ring-1 ring-gray-100 transition duration-300">
             <form method="get" class="flex flex-col md:flex-row gap-6 items-end">
                 
                 <div class="w-full md:w-3/12 flex-shrink-0">

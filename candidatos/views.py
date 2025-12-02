@@ -1085,18 +1085,18 @@ class RegistroPublicoCompletoView(View):
         discapacidad_enfermedad_cronica = request.POST.get('discapacidad_enfermedad_cronica', '').strip()
         dificultad_habla = request.POST.get('dificultad_habla') == 'Si'
         
-        errors = {}
+        # --- VALIDACIONES BÁSICAS Y REDIRECCIONES (sin cambios) ---
         
         campos_obligatorios = [tipo_documento_id, dni, nombres_completos, telefono_whatsapp, distrito, experiencia_ventas_tipo, tiempo_experiencia_vendedor, conforme_beneficios, sede_id_seleccionada,email]
         
         if not all(campos_obligatorios):
-             messages.error(request, 'Por favor, complete todos los campos obligatorios (*).')
-             return redirect('registro_publico_completo')
-             
+            messages.error(request, 'Por favor, complete todos los campos obligatorios (*).')
+            return redirect('registro_publico_completo')
+            
         if secundaria_completa_post is None:
-             messages.error(request, 'El campo "¿Tienes secundaria completa?" es obligatorio. Por favor, selecciona Sí o No.')
-             return redirect('registro_publico_completo')
-             
+            messages.error(request, 'El campo "¿Tienes secundaria completa?" es obligatorio. Por favor, selecciona Sí o No.')
+            return redirect('registro_publico_completo')
+            
         secundaria_completa = secundaria_completa_post == 'Si'
 
         if not (dni and dni.isdigit() and len(dni) == 8):
@@ -1117,36 +1117,58 @@ class RegistroPublicoCompletoView(View):
             return redirect('registro_publico_completo')
         
         try:
-             sede_seleccionada = Sede.objects.get(pk=sede_id_seleccionada)
+            sede_seleccionada = Sede.objects.get(pk=sede_id_seleccionada)
         except Sede.DoesNotExist:
-             messages.error(request, 'Error: La sede seleccionada no es válida o no existe.')
-             return redirect('registro_publico_completo')
-        except Exception as e:
-             messages.error(request, f'Error al obtener la sede: {e}')
-             return redirect('registro_publico_completo')
+            messages.error(request, 'Error: La sede seleccionada no es válida o no existe.')
+            return redirect('registro_publico_completo')
         
         try:
-             tipo_documento_obj = TipoDocumento.objects.get(pk=tipo_documento_id)
+            tipo_documento_obj = TipoDocumento.objects.get(pk=tipo_documento_id)
         except TipoDocumento.DoesNotExist:
-             messages.error(request, 'Error: El tipo de documento seleccionado no es válido o no existe.')
-             return redirect('registro_publico_completo')
-        except Exception as e:
-             messages.error(request, f'Error en FK (Sede/TipoDoc): {e}')
-             return redirect('registro_publico_completo')
-            
+            messages.error(request, 'Error: El tipo de documento seleccionado no es válido o no existe.')
+            return redirect('registro_publico_completo')
+        
+        # -------------------------------------------------------------------
+        
+        # --- LÓGICA DE DNI ÚNICO: BUSCAR, ACTUALIZAR FECHA O CREAR ---
         try:
-            candidato = Candidato.objects.create(
-                DNI=dni,
-                nombres_completos=nombres_completos,
-                edad = edad,
-                telefono_whatsapp=telefono_whatsapp,
-                email=email if email else None,
-                distrito=distrito,
-                sede_registro=sede_seleccionada, 
-                tipo_documento=tipo_documento_obj,
-                estado_actual='REGISTRADO' 
-            )
+            # 1. Intentar buscar el candidato por DNI
+            candidato = Candidato.objects.get(DNI=dni)
             
+            # 2. Si existe: Actualizar fecha, mostrar mensaje de repostulación
+            candidato.fecha_registro = datetime.now()
+            candidato.save(update_fields=['fecha_registro'])
+            
+            messages.warning(request, f'⚠️ Atención: El DNI {dni} ya se encontraba registrado. Se ha actualizado la **fecha de postulación** para este candidato. ¿Deseas volver a postular?')
+            
+        except Candidato.DoesNotExist:
+            # 3. Si NO existe: Crear el nuevo candidato
+            try:
+                candidato = Candidato.objects.create(
+                    DNI=dni,
+                    nombres_completos=nombres_completos,
+                    edad=edad_int,
+                    telefono_whatsapp=telefono_whatsapp,
+                    email=email if email else None,
+                    distrito=distrito,
+                    sede_registro=sede_seleccionada, 
+                    tipo_documento=tipo_documento_obj,
+                    estado_actual='REGISTRADO' 
+                )
+            except IntegrityError as e:
+                error_message = str(e)
+                # Manejar otros errores de unicidad (teléfono, email)
+                if 'telefono_whatsapp' in error_message:
+                    msg = 'El número de teléfono ya está registrado con otro candidato.'
+                elif 'email' in error_message:
+                    msg = 'El correo electrónico ya está registrado con otro candidato.'
+                else:
+                    msg = f'Error de duplicidad. Contacte a soporte. Detalle: {error_message}'
+                messages.error(request, msg)
+                return redirect('registro_publico_completo')
+        
+        # --- CREACIÓN DE DATOS DE CUALIFICACIÓN (ASOCIADO AL CANDIDATO ENCONTRADO O CREADO) ---
+        try:
             DatosCualificacion.objects.create(
                 candidato=candidato,
                 distrito=distrito,
@@ -1161,26 +1183,12 @@ class RegistroPublicoCompletoView(View):
                 discapacidad_enfermedad_cronica=discapacidad_enfermedad_cronica if discapacidad_enfermedad_cronica else None,
                 dificultad_habla=dificultad_habla,
             )
-            
-        except IntegrityError as e:
-            error_message = str(e)
-            
-            if 'DNI' in error_message or 'PRIMARY KEY' in error_message:
-                msg = f'El DNI {dni} ya está registrado.'
-            elif 'telefono_whatsapp' in error_message:
-                msg = 'El número de teléfono ya está registrado con otro candidato.'
-            elif 'email' in error_message:
-                msg = 'El correo electrónico ya está registrado con otro candidato.'
-            else:
-                msg = f'Error de duplicidad no especificado. Contacte a soporte. Detalle: {error_message}'
-                
-            messages.error(request, msg)
-            return redirect('registro_publico_completo')
+        
         except ValidationError as e:
-            messages.error(request, f'Error de validación: {e.message_dict}')
+            messages.error(request, f'Error de validación de cualificación: {e.message_dict}')
             return redirect('registro_publico_completo')
         except Exception as e:
-            messages.error(request, f'Error inesperado al guardar datos: {e}')
+            messages.error(request, f'Error inesperado al guardar cualificación: {e}')
             return redirect('registro_publico_completo')
             
         messages.success(request, '✅ ¡Tu registro y cualificación se completaron con éxito! Puedes registrar a alguien más si lo deseas.')
@@ -1334,6 +1342,7 @@ def actualizar_fecha_proceso(request, proceso_id):
             'CONFIRMADO': ['confirmado', 'teorico'], 
             'TEORIA': ['teorico', 'practico'],
             'PRACTICA': ['practico', 'contratacion'],
+            'CONTRATADO': ['contratacion'],
         }
         
         if date_type not in allowed_changes.get(current_state, []):
@@ -1904,12 +1913,13 @@ class CandidatoAsistenciaListView(LoginRequiredMixin, ListView):
         return context
 
 class RegistroAsistenciaDetailView(LoginRequiredMixin, DetailView):
-    """ Devuelve SOLAMENTE el fragmento HTML del detalle de asistencia para el modal,
-        manejando la autenticación de HTMX. """
-        
     model = Candidato
     template_name = 'registro_asistencia_modal_fragment.html' 
     context_object_name = 'candidato'
+
+    # Corrección para buscar por DNI o el identificador que viene en la URL.
+    slug_url_kwarg = 'pk'
+    slug_field = 'DNI' 
 
     def handle_no_permission(self):
         if self.request.headers.get('Hx-Request') == 'true':
@@ -1918,7 +1928,6 @@ class RegistroAsistenciaDetailView(LoginRequiredMixin, DetailView):
             return response
         
         return super().handle_no_permission()
-
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1929,6 +1938,9 @@ class RegistroAsistenciaDetailView(LoginRequiredMixin, DetailView):
         ).order_by('-momento_registro')
         
         registros_agrupados = {}
+
+        from .models import RegistroAsistencia 
+        
         for reg in all_registros:
             date_key = reg.momento_registro.date().isoformat()
             phase_key = reg.fase_actual
