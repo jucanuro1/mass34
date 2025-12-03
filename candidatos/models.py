@@ -44,12 +44,16 @@ class Sede(models.Model):
 
     class Meta:
         unique_together = ('empresa', 'nombre')
+        verbose_name_plural = 'Sedes'
 
 class Supervisor(models.Model):
     nombre = models.CharField(max_length=150)
 
     def __str__(self):
         return self.nombre
+    
+    class Meta:
+        verbose_name_plural = 'Supervisores'
 
 class TipoDocumento(models.Model):
     nombre = models.CharField(
@@ -76,8 +80,8 @@ class TipoDocumento(models.Model):
         return f"{self.nombre} ({self.codigo_pais})"
 
     class Meta:
-        verbose_name = "Tipo de Documento de Identidad"
-        verbose_name_plural = "Tipos de Documento de Identidad"
+        verbose_name = "Tipo Documento"
+        verbose_name_plural = "Tipo Documento"
 
 MOTIVOS_DESCARTE = [
     ('NO_CONFIRMA', 'No Confirma Asistencia'),
@@ -247,6 +251,9 @@ class DatosCualificacion(models.Model):
     def __str__(self):
         return f"Cualificación de {self.candidato.nombres_completos}"
     
+    class Meta:
+        verbose_name_plural = 'Formulario'
+    
 class Proceso(models.Model):
     candidato = models.ForeignKey(
         'Candidato', 
@@ -330,6 +337,7 @@ class Proceso(models.Model):
 
     class Meta:
         unique_together = ('candidato', 'fecha_inicio', 'empresa_proceso')
+        verbose_name_plural = 'Procesos'
 
 class RegistroAsistencia(models.Model):
     proceso = models.ForeignKey('Proceso', on_delete=models.CASCADE)
@@ -400,6 +408,9 @@ class RegistroAsistencia(models.Model):
             return 'text-red-600 bg-red-100'   
         
         return 'text-gray-500 bg-gray-100'
+    
+    class Meta:
+        verbose_name_plural = 'Asistencia'
 
 class ComentarioProceso(models.Model):
     """
@@ -441,8 +452,8 @@ class ComentarioProceso(models.Model):
         return f"Comentario en {self.proceso.candidato.DNI} ({self.get_fase_proceso_display()})"
     
     class Meta:
-        verbose_name = "Comentario de Proceso"
-        verbose_name_plural = "Comentarios de Procesos"
+        verbose_name = "Comentario"
+        verbose_name_plural = "Comentarios"
         ordering = ['-fecha_registro'] 
 
 class RegistroTest(models.Model):
@@ -516,8 +527,8 @@ class RegistroTest(models.Model):
         return f"{self.get_tipo_test_display()} de {self.proceso.candidato.DNI} en {self.get_fase_proceso_display()}"
         
     class Meta:
-        verbose_name = "Registro de Test/Archivo"
-        verbose_name_plural = "Registros de Tests/Archivos"
+        verbose_name = "Test / Archivo"
+        verbose_name_plural = "Tests / Archivos"
         ordering = ['-fecha_registro']
 
 class DocumentoCandidato(models.Model):
@@ -572,8 +583,8 @@ class DocumentoCandidato(models.Model):
     )
     
     class Meta:
-        verbose_name = "Documento del Candidato"
-        verbose_name_plural = "Documentos del Candidato"
+        verbose_name = "Documento Cv"
+        verbose_name_plural = "Documentos Cv"
         ordering = ['-fecha_subida']
 
     def __str__(self):
@@ -683,8 +694,8 @@ class TareaEnvioMasivo(models.Model):
         return f"Tarea #{self.pk} - {self.get_proceso_tipo_display()} ({self.get_estado_display()})"
     
     class Meta:
-        verbose_name = "Tarea de Envío Masivo"
-        verbose_name_plural = "Tareas de Envío Masivo"
+        verbose_name = "Lista de Envío"
+        verbose_name_plural = "Lista de Envíos"
         ordering = ['-fecha_inicio']
 
 class DetalleEnvio(models.Model):
@@ -745,7 +756,7 @@ class DetalleEnvio(models.Model):
         
     
     class Meta:
-        verbose_name = "Detalle de Envío Individual"
-        verbose_name_plural = "Detalles de Envíos Individuales"
+        verbose_name = "Detalle de Envío"
+        verbose_name_plural = "Detalles de Envíos"
         unique_together = ('tarea_envio', 'contacto')
         ordering = ['-fecha_envio']

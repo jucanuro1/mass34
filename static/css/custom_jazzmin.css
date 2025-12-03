@@ -1,0 +1,323 @@
+/* ======================================================
+   ADMIN BLANCO PROFESIONAL +34
+   Panel moderno, minimalista, corporativo
+   ====================================================== */
+
+/* Paleta principal (ajústala si deseas) */
+:root {
+    --brand-color: #1d3557;    /* Azul elegante */
+    --brand-accent: #457b9d;  /* Azul suave */
+    --text-color: #2d2d2d;    /* Texto principal */
+    --text-light: #4a4a4a;    /* Texto secundario */
+    --bg-main: #ffffff;       /* Fondo blanco */
+    --bg-soft: #f5f6f8;       /* Fondo suave */
+}
+
+/* ======== GENERAL ======== */
+body, .content-wrapper {
+    background-color: var(--bg-soft) !important;
+    color: var(--text-color) !important;
+    font-family: "Inter", "Segoe UI", sans-serif;
+}
+
+/* Títulos */
+h1, h2, h3, h4 {
+    color: var(--brand-color) !important;
+}
+
+/* ======== SIDEBAR ======== */
+.sidebar {
+    background-color: var(--bg-main) !important;
+    border-right: 1px solid #e1e1e1 !important;
+}
+
+.sidebar .nav-link,
+.sidebar .nav-link i {
+    color: var(--text-light) !important;
+}
+
+.sidebar .nav-link:hover {
+    background-color: var(--bg-soft) !important;
+    color: var(--brand-color) !important;
+}
+
+.sidebar .nav-link.active {
+    background-color: var(--brand-color) !important;
+    color: #ffffff !important;
+}
+
+.sidebar .nav-link.active i {
+    color: #ffffff !important;
+}
+
+/* ======== NAVBAR ======== */
+.navbar {
+    background-color: var(--bg-main) !important;
+    border-bottom: 1px solid #e1e1e1 !important;
+}
+
+.navbar .navbar-brand,
+.navbar .nav-link {
+    color: var(--brand-color) !important;
+    font-weight: 500;
+}
+
+.navbar .nav-link:hover {
+    color: var(--brand-accent) !important;
+}
+
+/* ======== TARJETAS / BOXES ======== */
+.card, .module {
+    background-color: var(--bg-main) !important;
+    border: 1px solid #e0e0e0 !important;
+    border-radius: 10px !important;
+}
+
+/* ======== BOTONES ======== */
+.btn-primary {
+    background-color: var(--brand-color) !important;
+    border-color: var(--brand-color) !important;
+    color: white !important;
+}
+
+.btn-primary:hover {
+    background-color: var(--brand-accent) !important;
+    border-color: var(--brand-accent) !important;
+}
+
+/* Botones secundarios */
+.btn-default, .btn-secondary {
+    background-color: var(--bg-main) !important;
+    border: 1px solid #c8c8c8 !important;
+    color: var(--text-color) !important;
+}
+
+.btn-default:hover, .btn-secondary:hover {
+    border-color: var(--brand-accent) !important;
+    color: var(--brand-accent) !important;
+}
+
+/* ======== TABLAS ======== */
+.table thead th {
+    background-color: var(--brand-color) !important;
+    color: #ffffff !important;
+}
+
+.table-hover tbody tr:hover {
+    background-color: #eef4fa !important;
+}
+
+/* ======== FORMULARIOS ======== */
+input, select, textarea {
+    border-radius: 6px !important;
+    border-color: #d1d1d1 !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    border-color: var(--brand-accent) !important;
+    box-shadow: 0 0 0 0.1rem rgba(69, 123, 157, 0.25) !important;
+}
+
+/* ======== LINKS ======== */
+a {
+    color: var(--brand-color) !important;
+}
+
+a:hover {
+    color: var(--brand-accent) !important;
+}
+
+/* ======== ICONOS ======== */
+i, .fa, .fas, .far {
+    color: var(--brand-color) !important;
+}
+
+/* ======================================================
+   MEJORA DE CABECERAS DE TABLAS
+   ====================================================== */
+
+/* Cabecera de la tabla */
+.table thead th {
+    background-color: var(--brand-color) !important;  /* Azul corporativo */
+    color: #ffffff !important;                        /* Blanco para contraste */
+    padding: 14px 12px !important;                    /* Más aire */
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.3px !important;
+}
+
+/* Celdas del cuerpo */
+.table tbody td {
+    padding: 12px 10px !important;
+    font-size: 14px !important;
+    color: var(--text-color) !important;
+}
+
+/* Mejor hover */
+.table-hover tbody tr:hover {
+    background-color: #eef4fa !important;
+}
+
+/* Bordes suaves */
+.table {
+    border-collapse: separate !important;
+    border-spacing: 0 3px !important;
+}
+
+.table tbody tr {
+    background: white !important;
+    border-radius: 8px !important;
+}
+
+/* Primera y última celda curveadas */
+.table tbody tr td:first-child {
+    border-top-left-radius: 8px !important;
+    border-bottom-left-radius: 8px !important;
+}
+
+.table tbody tr td:last-child {
+    border-top-right-radius: 8px !important;
+    border-bottom-right-radius: 8px !important;
+}
+
+/* ======================================================
+   FORZAR VISIBILIDAD DE TEXTO EN TABLAS DJANGO ADMIN
+   ====================================================== */
+
+/* Cabecera de tabla (el más importante) */
+#content-main table thead th,
+.change-list #result_list thead th,
+.module table thead th {
+    background-color: var(--brand-color, #0d6efd) !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+    padding: 12px 10px !important;
+    text-shadow: none !important;
+}
+
+/* Texto dentro de las filas */
+#content-main table tbody td,
+.change-list #result_list tbody td,
+.module table tbody td {
+    color: #1a1a1a !important;
+    background-color: #ffffff !important;
+    font-size: 14px !important;
+    padding: 10px !important;
+}
+
+/* Filas alternadas (si el admin aplica colores) */
+#content-main table tbody tr:nth-child(even),
+.change-list #result_list tbody tr:nth-child(even) {
+    background-color: #f9fafb !important;
+}
+
+/* Hover visible */
+#content-main table tbody tr:hover td,
+.change-list #result_list tbody tr:hover td {
+    background-color: #e9eef7 !important;
+    color: #000 !important;
+}
+
+/* Quitar cualquier sombra o estilos heredados del admin */
+#content-main table thead th *,
+#content-main table tbody td *,
+.change-list #result_list thead th *,
+.change-list #result_list tbody td * {
+    color: inherit !important;
+}
+
+
+.sidebar,
+#jazzy-sidebar,
+.jazzmin-sidebar {
+    background-color: #ffffff !important;
+    color: #1a1a1a !important;
+}
+
+/* Título / site-brand */
+.sidebar .brand-link,
+#jazzy-sidebar .brand-link,
+.jazzmin-sidebar .brand-link,
+.sidebar .brand-link span,
+.brand-link span {
+    color: #1a1a1a !important;
+    font-weight: 600 !important;
+}
+
+/* Icono del brand */
+.sidebar .brand-link .brand-image,
+.jazzmin-sidebar .brand-link .brand-image {
+    filter: brightness(0) !important; /* Negro */
+}
+
+/* Nombre de usuario en el menú */
+.user-panel .info a {
+    color: #1a1a1a !important;
+    font-weight: 500 !important;
+}
+
+/* Línea divisoria */
+.sidebar hr,
+.jazzmin-sidebar hr {
+    border-color: #d1d5db !important;
+}
+
+/* Títulos de sección (Autenticación, Candidatos, etc.) */
+.nav-header {
+    color: #0d6efd !important;       /* azul profesional */
+    font-weight: 600 !important;
+    text-transform: uppercase;
+    opacity: 1 !important;
+}
+
+/* Items del menú */
+.nav-sidebar .nav-link,
+.sidebar .nav-link,
+.jazzmin-sidebar .nav-link {
+    color: #1a1a1a !important;
+    background-color: transparent !important;
+}
+
+/* Íconos a la izquierda del menú */
+.nav-sidebar .nav-link .nav-icon,
+.sidebar .nav-icon,
+.jazzmin-sidebar .nav-icon {
+    color: #0d6efd !important;
+}
+
+/* Hover */
+.nav-sidebar .nav-link:hover,
+.sidebar .nav-link:hover,
+.jazzmin-sidebar .nav-link:hover {
+    background-color: #f1f5f9 !important; /* un gris suave */
+    color: #000 !important;
+}
+
+/* Item activo */
+.nav-sidebar .nav-link.active,
+.sidebar .nav-link.active,
+.jazzmin-sidebar .nav-link.active {
+    background-color: #e2e8f0 !important;
+    color: #000 !important;
+}
+
+/* Quitar colores heredados de Jazzmin */
+.nav-link *,
+.nav-header *,
+.brand-link * {
+    color: inherit !important;
+}
+
+.app-auth .module caption {
+    font-size: 0 !important;
+}
+
+/* Insertar tu título */
+.app-auth .module caption::after {
+    content: "Usuarios y Permisos";
+    font-size: 18px;
+    font-weight: 600;
+    color: #0d6efd;
+}
