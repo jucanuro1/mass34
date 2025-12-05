@@ -1,0 +1,62 @@
+Internal Server Error: /admin/candidatos/candidato/77923286/change/
+Traceback (most recent call last):
+  File "/home/midas_analista/projects/mass34/venv/lib/python3.12/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/midas_analista/projects/mass34/venv/lib/python3.12/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/midas_analista/projects/mass34/venv/lib/python3.12/site-packages/django/contrib/admin/options.py", line 719, in wrapper
+    return self.admin_site.admin_view(view)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/midas_analista/projects/mass34/venv/lib/python3.12/site-packages/django/utils/decorators.py", line 192, in _view_wrapper
+    result = _process_exception(request, e)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/midas_analista/projects/mass34/venv/lib/python3.12/site-packages/django/utils/decorators.py", line 190, in _view_wrapper
+    response = view_func(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/midas_analista/projects/mass34/venv/lib/python3.12/site-packages/django/views/decorators/cache.py", line 80, in _view_wrapper
+    response = view_func(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/midas_analista/projects/mass34/venv/lib/python3.12/site-packages/django/contrib/admin/sites.py", line 246, in inner
+    return view(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/midas_analista/projects/mass34/venv/lib/python3.12/site-packages/django/contrib/admin/options.py", line 1987, in change_view
+    return self.changeform_view(request, object_id, form_url, extra_context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/midas_analista/projects/mass34/venv/lib/python3.12/site-packages/django/utils/decorators.py", line 48, in _wrapper
+    return bound_method(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/midas_analista/projects/mass34/venv/lib/python3.12/site-packages/django/utils/decorators.py", line 192, in _view_wrapper
+    result = _process_exception(request, e)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/midas_analista/projects/mass34/venv/lib/python3.12/site-packages/django/utils/decorators.py", line 190, in _view_wrapper
+    response = view_func(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/midas_analista/projects/mass34/venv/lib/python3.12/site-packages/django/contrib/admin/options.py", line 1840, in changeform_view
+    return self._changeform_view(request, object_id, form_url, extra_context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/midas_analista/projects/mass34/venv/lib/python3.12/site-packages/django/contrib/admin/options.py", line 1916, in _changeform_view
+    formsets, inline_instances = self._create_formsets(
+                                 ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/midas_analista/projects/mass34/venv/lib/python3.12/site-packages/django/contrib/admin/options.py", line 2358, in _create_formsets
+    for FormSet, inline in self.get_formsets_with_inlines(*get_formsets_args):
+  File "/home/midas_analista/projects/mass34/venv/lib/python3.12/site-packages/django/contrib/admin/options.py", line 938, in get_formsets_with_inlines
+    yield inline.get_formset(request, obj), inline
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/midas_analista/projects/mass34/venv/lib/python3.12/site-packages/django/contrib/admin/options.py", line 2535, in get_formset
+    return inlineformset_factory(self.parent_model, self.model, **defaults)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/midas_analista/projects/mass34/venv/lib/python3.12/site-packages/django/forms/models.py", line 1343, in inlineformset_factory
+    FormSet = modelformset_factory(model, **kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/midas_analista/projects/mass34/venv/lib/python3.12/site-packages/django/forms/models.py", line 1051, in modelformset_factory
+    form = modelform_factory(
+           ^^^^^^^^^^^^^^^^^^
+  File "/home/midas_analista/projects/mass34/venv/lib/python3.12/site-packages/django/forms/models.py", line 654, in modelform_factory
+    return type(form)(class_name, (form,), form_class_attrs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/midas_analista/projects/mass34/venv/lib/python3.12/site-packages/django/forms/models.py", line 334, in __new__
+    raise FieldError(message)
+django.core.exceptions.FieldError: Unknown field(s) (faptor_aptitud_aplica) specified for Proceso
+"GET /admin/candidatos/candidato/77923286/change/ HTTP/1.1" 500 172983

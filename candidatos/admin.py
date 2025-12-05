@@ -16,7 +16,7 @@ class ProcesoInline(admin.TabularInline):
     extra = 0
     fields = [
         'fecha_inicio', 'empresa_proceso', 'sede_proceso', 'estado', 
-        'objetivo_ventas_alcanzado', 'faptor_aptitud_aplica', 
+        'objetivo_ventas_alcanzado', 'factor_aptitud_aplica', 
         'supervisor', 'fecha_teorico', 'fecha_practico', 'fecha_contratacion','kanban_activo'
     ]
     readonly_fields = [
